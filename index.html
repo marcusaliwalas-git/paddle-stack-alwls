@@ -5,211 +5,178 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ALWLS Pickleball Stacking</title>
     <style>
-        :root { --primary: #ff6d00; --primary-dark: #e65100; --bg-gray: #37474f; --sidebar-gray: #eceff1; --card-gray: #455a64; --text-light: #ffffff; --text-dark: #263238; --warning: #ff3d00; }
+        :root { 
+            --primary: #ff6d00; 
+            --primary-dark: #e65100; 
+            --bg: #37474f; 
+            --sidebar: #eceff1; 
+            --card: #455a64; 
+            --text-main: #ffffff; 
+            --text-side: #263238; 
+            --warning: #ff3d00;
+            --input-bg: #ffffff;
+            --success: #2e7d32;
+        }
+
+        [data-theme="light"] {
+            --bg: #cfd8dc;
+            --sidebar: #ffffff;
+            --card: #ffffff;
+            --text-main: #263238;
+            --text-side: #263238;
+            --input-bg: #f5f5f5;
+        }
         
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; transition: background 0.3s, color 0.3s; }
         
         body { 
             font-family: 'Segoe UI', system-ui, sans-serif; 
-            background: var(--bg-gray); 
+            background: var(--bg); 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
-            padding: 0; 
-            margin: 0; 
-            color: var(--text-light);
+            padding: 0; margin: 0; 
+            color: var(--text-main);
             overflow-x: hidden;
         }
         
         header { 
             background: #263238; 
             width: 100%; 
-            padding: 15px 10px; 
-            text-align: center; 
+            padding: 10px 20px; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             border-bottom: 3px solid var(--primary);
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            position: sticky; top: 0; z-index: 100;
         }
-        header h1 { margin: 0; font-size: 1.2rem; letter-spacing: 1px; color: var(--text-light); }
+        header h1 { margin: 0; font-size: 1rem; color: white; }
         header span { color: var(--primary); }
 
+        .theme-toggle { background: var(--primary); color: white; padding: 5px 12px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; }
+
         .app-container { 
-            width: 100%; 
-            max-width: 1400px; 
-            display: grid; 
-            grid-template-columns: 1fr; 
-            gap: 15px; 
-            padding: 15px; 
+            width: 100%; max-width: 1400px; 
+            display: grid; grid-template-columns: 1fr; 
+            gap: 15px; padding: 15px; 
         }
 
-        /* Desktop Layout */
         @media (min-width: 1024px) { 
             .app-container { grid-template-columns: 350px 1fr; align-items: start; }
-            .sidebar { position: sticky; top: 80px; max-height: 85vh; }
+            .sidebar { position: sticky; top: 70px; max-height: 90vh; }
         }
         
         .sidebar { 
-            background: var(--sidebar-gray); 
-            padding: 15px; 
-            border-radius: 15px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
-            color: var(--text-dark); 
+            background: var(--sidebar); 
+            padding: 15px; border-radius: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+            color: var(--text-side); 
             overflow-y: auto; 
         }
 
         .paddle-rack { 
-            display: flex; 
-            flex-direction: column; 
-            gap: 8px; 
-            margin: 10px 0; 
-            min-height: 60px; 
-            border: 2px dashed #cfd8dc; 
-            padding: 10px; 
-            border-radius: 8px; 
-            background: white; 
+            display: flex; flex-direction: column; gap: 6px; 
+            margin: 10px 0; min-height: 60px; 
+            border: 2px dashed #90a4ae; padding: 10px; 
+            border-radius: 8px; background: rgba(0,0,0,0.05); 
         }
 
         .paddle { 
-            background: var(--primary); 
-            color: white; 
-            padding: 12px; 
-            border-radius: 6px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            font-size: 14px; 
-            cursor: grab; 
-            font-weight: bold;
-            touch-action: none; /* Better for mobile drag */
+            background: var(--primary); color: white; 
+            padding: 10px; border-radius: 6px; 
+            display: flex; justify-content: space-between; 
+            font-size: 14px; cursor: grab; font-weight: bold;
         }
 
         .courts-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
-            gap: 15px; 
-            width: 100%; 
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); 
+            gap: 15px; width: 100%; 
         }
 
         .court-card { 
-            background: var(--card-gray); 
-            padding: 15px; 
-            border-radius: 12px; 
-            border: 3px solid transparent; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
+            background: var(--card); padding: 15px; 
+            border-radius: 12px; border: 3px solid transparent; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
         }
 
         .overtime-active { border-color: var(--primary); animation: pulse 2s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 109, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 109, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 109, 0, 0); } }
 
-        .timer { font-family: 'Courier New', monospace; font-size: 22px; color: var(--primary); font-weight: bold; }
+        .timer { font-family: monospace; font-size: 22px; color: var(--primary); font-weight: bold; }
         
-        .player-list { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 10px; 
-            margin: 15px 0; 
-        }
+        .player-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
 
         .slot { 
-            background: rgba(255,255,255,0.1); 
-            padding: 15px 5px; 
-            border-radius: 8px; 
-            font-size: 13px; 
-            min-height: 45px; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center; 
-            border: 1px dashed rgba(255,255,255,0.3);
-            touch-action: none;
+            background: rgba(128,128,128,0.1); padding: 12px 5px; 
+            border-radius: 8px; font-size: 13px; min-height: 45px; 
+            display: flex; align-items: center; justify-content: center;
+            border: 1px dashed rgba(128,128,128,0.3);
+            color: var(--text-main);
         }
 
-        .slot.drag-over { border-color: var(--primary); background: rgba(255,109,0,0.3); }
-
-        button { 
-            border: none; 
-            border-radius: 8px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            transition: transform 0.1s;
-            min-height: 44px; /* Mobile tap target standard */
-        }
-        button:active { transform: scale(0.98); }
-
-        .btn-add { background: var(--primary); color: white; width: 100%; margin-bottom: 10px; }
-        .btn-rotate { background: var(--primary); color: white; flex: 2; }
+        button { border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-add { background: var(--primary); color: white; width: 100%; margin-bottom: 8px; padding: 10px; }
+        .btn-call { background: var(--success); color: white; width: 100%; margin-bottom: 15px; padding: 10px; }
+        .btn-rotate { background: var(--primary); color: white; flex: 2; padding: 10px; }
         .btn-clear { background: #78909c; color: white; flex: 1; font-size: 11px; }
-        
-        .court-actions { display: flex; gap: 10px; }
+        .btn-export { background: #546e7a; color: white; width: 100%; margin-top: 15px; padding: 10px; font-size: 12px; }
         
         input, textarea { 
-            width: 100%; 
-            padding: 12px; 
-            margin-bottom: 10px; 
-            border-radius: 8px; 
-            border: 1px solid #cfd8dc; 
-            font-size: 16px; /* Prevents iOS auto-zoom on focus */
+            width: 100%; padding: 10px; margin-bottom: 8px; 
+            border-radius: 8px; border: 1px solid #90a4ae; 
+            font-size: 16px; background: var(--input-bg); color: #263238;
         }
 
-        .board-section { margin-top: 15px; border-top: 2px solid #cfd8dc; padding-top: 10px; }
-        .leader-table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; border-radius: 8px; overflow: hidden; }
-        .leader-table th { background: #cfd8dc; padding: 10px; text-align: left; }
-        .leader-table td { padding: 10px; border-bottom: 1px solid #eee; }
+        .leader-table { width: 100%; border-collapse: collapse; font-size: 12px; background: white; color: black; border-radius: 8px; overflow: hidden; }
+        .leader-table th { background: #cfd8dc; padding: 8px; }
+        .leader-table td { padding: 8px; border-bottom: 1px solid #eee; text-align: center; }
 
-        .history-item { background: white; color: var(--text-dark); padding: 10px; border-radius: 6px; margin-bottom: 5px; font-size: 12px; border-left: 4px solid var(--primary); }
-
-        .add-court-btn {
-            border: 2px dashed var(--primary); 
-            background: rgba(255,109,0,0.05); 
-            padding: 30px; 
-            border-radius: 12px; 
-            color: var(--primary); 
-            font-weight: bold;
-            width: 100%;
-        }
+        .history-item { background: #fff; color: #263238; padding: 8px; border-radius: 6px; margin-bottom: 5px; font-size: 11px; border-left: 4px solid var(--primary); }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>ALWLS <span>Pickleball Stacking</span></h1>
+    <h1>ALWLS <span>Stacking</span></h1>
+    <button class="theme-toggle" onclick="toggleTheme()">🌓 Mode</button>
 </header>
 
 <div class="app-container">
     <div class="sidebar">
-        <h3 style="margin:0 0 10px 0; color:var(--primary); font-size: 1.1rem;">Paddles & Stats</h3>
-        <input type="text" id="nameInput" placeholder="Add Single Name">
-        <textarea id="bulkInput" rows="2" placeholder="Bulk Add (One per line)"></textarea>
+        <h3 style="margin:0 0 10px 0; color:var(--primary)">Paddles</h3>
+        <input type="text" id="nameInput" placeholder="Add Name">
+        <textarea id="bulkInput" rows="2" placeholder="Bulk (One per line)"></textarea>
         <button class="btn-add" onclick="addPlayers()">Add to Rack</button>
+        
+        <button class="btn-call" onclick="callNextUp()">📢 Call Next Up</button>
         
         <div id="paddleRack" class="paddle-rack" ondrop="dropToRack(event)" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)"></div>
         
-        <div class="board-section">
-            <strong style="font-size: 14px; display: block; margin-bottom: 8px;">🏆 Leaders (Wins)</strong>
-            <div style="overflow-x: auto;">
-                <table class="leader-table">
-                    <thead><tr><th>Name</th><th>W</th><th>P</th></tr></thead>
-                    <tbody id="leaderboardBody"></tbody>
-                </table>
-            </div>
+        <div style="margin-top:20px;">
+            <strong style="font-size: 13px; display: block; margin-bottom: 5px;">🏆 Top Players</strong>
+            <table class="leader-table">
+                <thead><tr><th>Name</th><th>W</th><th>P</th></tr></thead>
+                <tbody id="leaderboardBody"></tbody>
+            </table>
         </div>
         
-        <div class="board-section">
-            <strong style="font-size: 14px;">📜 History</strong>
-            <div id="historyLog" style="margin-top:8px;"></div>
+        <div style="margin-top:15px;">
+            <strong style="font-size: 13px;">📜 History</strong>
+            <div id="historyLog" style="margin-top:5px;"></div>
         </div>
+
+        <button class="btn-export" onclick="exportStats()">📊 Download Stats (CSV)</button>
         
-        <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:12px; margin-top:20px; width:100%;">⚠️ Full Session Reset</button>
+        <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
     </div>
 
     <div class="courts-grid" id="courtsGrid"></div>
 </div>
 
 <script>
-    // Logic remains consistent with your previous version but includes mobile drag handling
     let state = {
+        theme: 'dark',
         queue: [],
         courts: [{ id: "1", players: [null, null, null, null], startTime: null, alerted: false }],
         history: [],
@@ -217,13 +184,47 @@
     };
 
     window.onload = () => {
-        const saved = localStorage.getItem('pb_master_v11');
+        const saved = localStorage.getItem('pb_stacker_v12');
         if (saved) { try { state = JSON.parse(saved); } catch(e) {} }
-        if (!state.stats) state.stats = {};
-        if (!state.history) state.history = [];
+        document.body.setAttribute('data-theme', state.theme || 'dark');
         updateDisplay();
         setInterval(checkTimers, 1000);
     };
+
+    function toggleTheme() {
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        document.body.setAttribute('data-theme', state.theme);
+        sync();
+    }
+
+    function exportStats() {
+        if (Object.keys(state.stats).length === 0) return alert("No stats to export yet!");
+        
+        let csvContent = "data:text/csv;charset=utf-8,Player Name,Wins,Games Played,Win Rate %\n";
+        
+        Object.keys(state.stats).forEach(name => {
+            const p = state.stats[name];
+            const winRate = p.games > 0 ? ((p.wins / p.games) * 100).toFixed(1) : 0;
+            csvContent += `${name},${p.wins},${p.games},${winRate}%\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `pb_stats_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function callNextUp() {
+        if (state.queue.length === 0) {
+            announce("The queue is currently empty.");
+            return;
+        }
+        const nextNames = state.queue.slice(0, 4).map(p => p.name).join(', ');
+        announce(`Next up: ${nextNames}.`);
+    }
 
     function announce(msg) {
         if ('speechSynthesis' in window) {
@@ -234,7 +235,7 @@
         }
     }
 
-    function sync() { localStorage.setItem('pb_master_v11', JSON.stringify(state)); updateDisplay(); }
+    function sync() { localStorage.setItem('pb_stacker_v12', JSON.stringify(state)); updateDisplay(); }
 
     function addPlayers() {
         const single = document.getElementById('nameInput').value.trim();
@@ -258,9 +259,9 @@
             if (state.queue.length >= 4) {
                 c.players = state.queue.splice(0, 4);
                 c.startTime = Date.now();
-                announce(`Court ${c.id} ready for ${c.players.map(p => p.name).join(', ')}.`);
+                announce(`Court ${c.id} ready.`);
                 sync();
-            } else { alert("Need 4 players!"); }
+            } else { alert("Need 4 in queue!"); }
             return;
         }
 
@@ -282,11 +283,9 @@
             if (state.history.length > 5) state.history.pop();
         }
 
-        let msg = "";
         if (state.queue.length >= 4) {
             c.players.forEach(p => { if(p) state.queue.push(p) });
             c.players = state.queue.splice(0, 4);
-            msg = `Full rotation on ${c.id}. Calling ${c.players.map(p => p.name).join(', ')}.`;
         } else if (state.queue.length > 0) {
             const incoming = state.queue.splice(0, state.queue.length);
             const needed = 4 - (winners.length + incoming.length);
@@ -294,15 +293,11 @@
             const leaving = losers.slice(needed);
             c.players = [...winners, ...incoming, ...stayers];
             leaving.forEach(p => state.queue.push(p));
-            msg = `${winners.map(p => p.name).join(' and ')} stay. Joining are ${incoming.map(p => p.name).join(' and ')}.`;
-        } else {
-            msg = `Winners stay on ${c.id}.`;
         }
         
         c.startTime = Date.now();
         c.alerted = false;
         sync();
-        announce(msg);
     }
 
     function checkTimers() {
@@ -313,7 +308,7 @@
                 if (timerEl) timerEl.innerText = `${Math.floor(elapsed/60)}:${(elapsed%60).toString().padStart(2, '0')}`;
                 if (elapsed >= 900 && !c.alerted) {
                     c.alerted = true;
-                    announce(`Time alert on ${c.id}.`);
+                    announce(`Time alert Court ${c.id}.`);
                     updateDisplay();
                 }
             }
@@ -321,23 +316,23 @@
     }
 
     function updateDisplay() {
-        const sortedPlayers = Object.keys(state.stats).sort((a,b) => state.stats[b].wins - state.stats[a].wins);
-        document.getElementById('leaderboardBody').innerHTML = sortedPlayers.slice(0, 5).map(name => `
-            <tr><td>${name}</td><td>${state.stats[name].wins}</td><td>${state.stats[name].games}</td></tr>
-        `).join('') || '<tr><td colspan="3">No stats</td></tr>';
+        const sorted = Object.keys(state.stats).sort((a,b) => state.stats[b].wins - state.stats[a].wins);
+        document.getElementById('leaderboardBody').innerHTML = sorted.slice(0, 5).map(n => `
+            <tr><td>${n}</td><td>${state.stats[n].wins}</td><td>${state.stats[n].games}</td></tr>
+        `).join('') || '<tr><td colspan="3">...</td></tr>';
 
         document.getElementById('paddleRack').innerHTML = state.queue.map((p, i) => `
             <div class="paddle" draggable="true" ondragstart="dragStart(event,'rack',${i})"><span>${p.name}</span></div>
-        `).join('') || '<small style="color:#999">Rack is empty</small>';
+        `).join('') || '<small style="opacity:0.5">Queue is empty</small>';
 
-        document.getElementById('historyLog').innerHTML = state.history.map(h => `<div class="history-item">${h}</div>`).join('') || '<small>No games yet</small>';
+        document.getElementById('historyLog').innerHTML = state.history.map(h => `<div class="history-item">${h}</div>`).join('') || '<small>...</small>';
 
         document.getElementById('courtsGrid').innerHTML = state.courts.map((c, i) => `
             <div class="court-card ${c.alerted ? 'overtime-active' : ''}">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <strong onclick="const n=prompt('Name:', '${c.id}'); if(n){state.courts[${i}].id=n;sync();}" style="cursor:pointer; font-size:1.1rem;">Court ${c.id}</strong>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong onclick="const n=prompt('Name:','${c.id}'); if(n){state.courts[${i}].id=n;sync();}" style="cursor:pointer">Court ${c.id}</strong>
                     <span id="t-${i}" class="timer">0:00</span>
-                    <button onclick="if(confirm('Delete?')){state.courts.splice(${i},1); sync();}" style="background:none; color:var(--warning); font-size:1.2rem; min-height:auto;">✕</button>
+                    <button onclick="if(confirm('Delete?')){state.courts.splice(${i},1); sync();}" style="background:none; color:var(--warning); font-size:1.2rem;">✕</button>
                 </div>
                 <div class="player-list">
                     ${[0,1,2,3].map(j => `
@@ -352,34 +347,22 @@
                     <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">Clear</button>
                 </div>
             </div>
-        `).join('') + `<button onclick="state.courts.push({id: state.courts.length+1, players:[null,null,null,null], startTime:null, alerted:false});sync();" class="add-court-btn">+ Add Court</button>`;
+        `).join('') + `<button onclick="state.courts.push({id: state.courts.length+1, players:[null,null,null,null], startTime:null, alerted:false});sync();" style="border:2px dashed var(--primary); background:none; padding:20px; border-radius:12px; color:var(--primary); font-weight:bold; width:100%; cursor:pointer;">+ Add Court</button>`;
     }
 
-    // Drag & Drop
-    function dragStart(ev, type, index, courtIdx = null) { 
-        ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); 
-    }
-    
-    function allowDrop(ev) { 
-        ev.preventDefault(); 
-        ev.currentTarget.classList.add('drag-over'); 
-    }
-    
-    function leaveDrop(ev) { 
-        ev.currentTarget.classList.remove('drag-over'); 
-    }
-
+    function dragStart(ev, type, index, courtIdx = null) { ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); }
+    function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.style.borderColor = 'var(--primary)'; }
+    function leaveDrop(ev) { ev.currentTarget.style.borderColor = ''; }
     function dropToRack(ev) {
-        ev.preventDefault(); ev.currentTarget.classList.remove('drag-over');
+        ev.preventDefault(); leaveDrop(ev);
         const data = JSON.parse(ev.dataTransfer.getData("text"));
         if (data.type === 'court') {
             const p = state.courts[data.courtIdx].players[data.index];
             if (p) { state.queue.push(p); state.courts[data.courtIdx].players[data.index] = null; sync(); }
         }
     }
-
     function dropToSlot(ev, courtIdx, slotIdx) {
-        ev.preventDefault(); ev.currentTarget.classList.remove('drag-over');
+        ev.preventDefault(); leaveDrop(ev);
         const data = JSON.parse(ev.dataTransfer.getData("text"));
         let p;
         if (data.type === 'rack') {
@@ -391,8 +374,7 @@
         state.courts[courtIdx].players[slotIdx] = p;
         sync();
     }
-
-    function resetAll() { if(confirm("Clear all session data?")) { state = {queue:[], history:[], stats:{}, courts:[{id:"1", players:[null,null,null,null], startTime:null, alerted:false}]}; sync(); } }
+    function resetAll() { if(confirm("Reset everything?")) { state = {theme:'dark', queue:[], history:[], stats:{}, courts:[{id:"1", players:[null,null,null,null], startTime:null, alerted:false}]}; sync(); } }
 </script>
 </body>
 </html>
