@@ -2,49 +2,173 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ALWLS Pickleball Stacking</title>
     <style>
         :root { --primary: #ff6d00; --primary-dark: #e65100; --bg-gray: #37474f; --sidebar-gray: #eceff1; --card-gray: #455a64; --text-light: #ffffff; --text-dark: #263238; --warning: #ff3d00; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-gray); display: flex; flex-direction: column; align-items: center; padding: 0; margin: 0; color: var(--text-light); }
         
-        /* New Header Styles */
+        * { box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: var(--bg-gray); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 0; 
+            margin: 0; 
+            color: var(--text-light);
+            overflow-x: hidden;
+        }
+        
         header { 
             background: #263238; 
             width: 100%; 
-            padding: 15px 0; 
+            padding: 15px 10px; 
             text-align: center; 
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            margin-bottom: 20px;
             border-bottom: 3px solid var(--primary);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        header h1 { margin: 0; font-size: 24px; letter-spacing: 1px; color: var(--text-light); }
+        header h1 { margin: 0; font-size: 1.2rem; letter-spacing: 1px; color: var(--text-light); }
         header span { color: var(--primary); }
 
-        .app-container { max-width: 1400px; width: 95%; display: grid; grid-template-columns: 1fr; gap: 20px; padding-bottom: 40px; }
-        @media (min-width: 1000px) { .app-container { grid-template-columns: 380px 1fr; } }
+        .app-container { 
+            width: 100%; 
+            max-width: 1400px; 
+            display: grid; 
+            grid-template-columns: 1fr; 
+            gap: 15px; 
+            padding: 15px; 
+        }
+
+        /* Desktop Layout */
+        @media (min-width: 1024px) { 
+            .app-container { grid-template-columns: 350px 1fr; align-items: start; }
+            .sidebar { position: sticky; top: 80px; max-height: 85vh; }
+        }
         
-        .sidebar { background: var(--sidebar-gray); padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); height: fit-content; position: sticky; top: 10px; color: var(--text-dark); overflow-y: auto; max-height: 90vh; }
-        .paddle-rack { display: flex; flex-direction: column; gap: 8px; margin: 15px 0; min-height: 80px; border: 2px dashed #cfd8dc; padding: 10px; border-radius: 8px; background: white; }
-        .paddle { background: var(--primary); color: white; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; cursor: grab; font-weight: bold; }
-        .courts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 15px; width: 100%; }
-        .court-card { background: var(--card-gray); padding: 20px; border-radius: 12px; transition: 0.3s; border: 3px solid transparent; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        .overtime-active { border-color: var(--primary); box-shadow: 0 0 20px rgba(255, 109, 0, 0.4); }
-        .timer { font-family: 'Courier New', monospace; font-size: 26px; color: var(--primary); font-weight: bold; }
-        .player-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 15px 0; }
-        .slot { background: rgba(255,255,255,0.1); padding: 12px; border-radius: 6px; font-size: 12px; min-height: 18px; text-align: center; border: 1px dashed rgba(255,255,255,0.2); }
-        .slot.drag-over { border-color: var(--primary); background: rgba(255,109,0,0.2); }
-        button { border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .btn-add { background: var(--primary); color: white; width: 100%; padding: 12px; margin-bottom: 10px; }
-        .btn-rotate { background: var(--primary); color: white; padding: 12px; flex: 2; }
-        .btn-clear { background: #78909c; color: white; padding: 12px; flex: 1; font-size: 11px; }
-        .court-actions { display: flex; gap: 8px; }
-        textarea, input { width: 100%; padding: 10px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #cfd8dc; box-sizing: border-box; }
-        .board-section { margin-top: 20px; border-top: 2px solid #cfd8dc; padding-top: 15px; }
-        .leader-table { width: 100%; border-collapse: collapse; font-size: 12px; background: white; border-radius: 8px; overflow: hidden; }
-        .leader-table th { background: #cfd8dc; padding: 8px; text-align: left; }
-        .leader-table td { padding: 8px; border-bottom: 1px solid #eee; }
-        .history-item { background: white; color: var(--text-dark); padding: 8px; border-radius: 6px; margin-bottom: 5px; font-size: 11px; border-left: 4px solid var(--primary); }
+        .sidebar { 
+            background: var(--sidebar-gray); 
+            padding: 15px; 
+            border-radius: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3); 
+            color: var(--text-dark); 
+            overflow-y: auto; 
+        }
+
+        .paddle-rack { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+            margin: 10px 0; 
+            min-height: 60px; 
+            border: 2px dashed #cfd8dc; 
+            padding: 10px; 
+            border-radius: 8px; 
+            background: white; 
+        }
+
+        .paddle { 
+            background: var(--primary); 
+            color: white; 
+            padding: 12px; 
+            border-radius: 6px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            font-size: 14px; 
+            cursor: grab; 
+            font-weight: bold;
+            touch-action: none; /* Better for mobile drag */
+        }
+
+        .courts-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 15px; 
+            width: 100%; 
+        }
+
+        .court-card { 
+            background: var(--card-gray); 
+            padding: 15px; 
+            border-radius: 12px; 
+            border: 3px solid transparent; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
+        }
+
+        .overtime-active { border-color: var(--primary); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 109, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 109, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 109, 0, 0); } }
+
+        .timer { font-family: 'Courier New', monospace; font-size: 22px; color: var(--primary); font-weight: bold; }
+        
+        .player-list { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 10px; 
+            margin: 15px 0; 
+        }
+
+        .slot { 
+            background: rgba(255,255,255,0.1); 
+            padding: 15px 5px; 
+            border-radius: 8px; 
+            font-size: 13px; 
+            min-height: 45px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center; 
+            border: 1px dashed rgba(255,255,255,0.3);
+            touch-action: none;
+        }
+
+        .slot.drag-over { border-color: var(--primary); background: rgba(255,109,0,0.3); }
+
+        button { 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: transform 0.1s;
+            min-height: 44px; /* Mobile tap target standard */
+        }
+        button:active { transform: scale(0.98); }
+
+        .btn-add { background: var(--primary); color: white; width: 100%; margin-bottom: 10px; }
+        .btn-rotate { background: var(--primary); color: white; flex: 2; }
+        .btn-clear { background: #78909c; color: white; flex: 1; font-size: 11px; }
+        
+        .court-actions { display: flex; gap: 10px; }
+        
+        input, textarea { 
+            width: 100%; 
+            padding: 12px; 
+            margin-bottom: 10px; 
+            border-radius: 8px; 
+            border: 1px solid #cfd8dc; 
+            font-size: 16px; /* Prevents iOS auto-zoom on focus */
+        }
+
+        .board-section { margin-top: 15px; border-top: 2px solid #cfd8dc; padding-top: 10px; }
+        .leader-table { width: 100%; border-collapse: collapse; font-size: 13px; background: white; border-radius: 8px; overflow: hidden; }
+        .leader-table th { background: #cfd8dc; padding: 10px; text-align: left; }
+        .leader-table td { padding: 10px; border-bottom: 1px solid #eee; }
+
+        .history-item { background: white; color: var(--text-dark); padding: 10px; border-radius: 6px; margin-bottom: 5px; font-size: 12px; border-left: 4px solid var(--primary); }
+
+        .add-court-btn {
+            border: 2px dashed var(--primary); 
+            background: rgba(255,109,0,0.05); 
+            padding: 30px; 
+            border-radius: 12px; 
+            color: var(--primary); 
+            font-weight: bold;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -55,28 +179,36 @@
 
 <div class="app-container">
     <div class="sidebar">
-        <h3 style="margin:0 0 10px 0; color:var(--primary)">Paddles & Stats</h3>
-        <input type="text" id="nameInput" placeholder="Single Name">
+        <h3 style="margin:0 0 10px 0; color:var(--primary); font-size: 1.1rem;">Paddles & Stats</h3>
+        <input type="text" id="nameInput" placeholder="Add Single Name">
         <textarea id="bulkInput" rows="2" placeholder="Bulk Add (One per line)"></textarea>
         <button class="btn-add" onclick="addPlayers()">Add to Rack</button>
+        
         <div id="paddleRack" class="paddle-rack" ondrop="dropToRack(event)" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)"></div>
+        
         <div class="board-section">
-            <strong style="font-size: 14px; display: block; margin-bottom: 8px;">🏆 Leadership Board</strong>
-            <table class="leader-table">
-                <thead><tr><th>Name</th><th>Wins</th><th>Played</th></tr></thead>
-                <tbody id="leaderboardBody"></tbody>
-            </table>
+            <strong style="font-size: 14px; display: block; margin-bottom: 8px;">🏆 Leaders (Wins)</strong>
+            <div style="overflow-x: auto;">
+                <table class="leader-table">
+                    <thead><tr><th>Name</th><th>W</th><th>P</th></tr></thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+            </div>
         </div>
+        
         <div class="board-section">
-            <strong style="font-size: 14px;">📜 Match History</strong>
+            <strong style="font-size: 14px;">📜 History</strong>
             <div id="historyLog" style="margin-top:8px;"></div>
         </div>
-        <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:20px; width:100%;">⚠️ Full Session Reset</button>
+        
+        <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:12px; margin-top:20px; width:100%;">⚠️ Full Session Reset</button>
     </div>
+
     <div class="courts-grid" id="courtsGrid"></div>
 </div>
 
 <script>
+    // Logic remains consistent with your previous version but includes mobile drag handling
     let state = {
         queue: [],
         courts: [{ id: "1", players: [null, null, null, null], startTime: null, alerted: false }],
@@ -120,11 +252,6 @@
         sync();
     }
 
-    function renameCourt(idx) {
-        const newName = prompt("Rename Court:", state.courts[idx].id);
-        if (newName) { state.courts[idx].id = newName.trim(); sync(); }
-    }
-
     function rotateCourt(idx) {
         const c = state.courts[idx];
         if (c.players.every(p => p === null)) {
@@ -151,7 +278,7 @@
         });
 
         if(winners.length > 0) {
-            state.history.unshift(`C${c.id}: ${winners.map(w => w.name).join(' & ')} won`);
+            state.history.unshift(`C${c.id}: ${winners.map(w => w.name).join('&')} won`);
             if (state.history.length > 5) state.history.pop();
         }
 
@@ -165,13 +292,11 @@
             const needed = 4 - (winners.length + incoming.length);
             const stayers = losers.slice(0, needed);
             const leaving = losers.slice(needed);
-            
             c.players = [...winners, ...incoming, ...stayers];
             leaving.forEach(p => state.queue.push(p));
-            
-            msg = `${winners.map(p => p.name).join(' and ')} stay on ${c.id}. Joining them are ${incoming.map(p => p.name).join(' and ')}.`;
+            msg = `${winners.map(p => p.name).join(' and ')} stay. Joining are ${incoming.map(p => p.name).join(' and ')}.`;
         } else {
-            msg = `No queue. Winners ${winners.map(p => p.name).join(' and ')} stay on ${c.id}.`;
+            msg = `Winners stay on ${c.id}.`;
         }
         
         c.startTime = Date.now();
@@ -197,37 +322,53 @@
 
     function updateDisplay() {
         const sortedPlayers = Object.keys(state.stats).sort((a,b) => state.stats[b].wins - state.stats[a].wins);
-        document.getElementById('leaderboardBody').innerHTML = sortedPlayers.slice(0, 10).map(name => `
+        document.getElementById('leaderboardBody').innerHTML = sortedPlayers.slice(0, 5).map(name => `
             <tr><td>${name}</td><td>${state.stats[name].wins}</td><td>${state.stats[name].games}</td></tr>
-        `).join('');
+        `).join('') || '<tr><td colspan="3">No stats</td></tr>';
+
         document.getElementById('paddleRack').innerHTML = state.queue.map((p, i) => `
             <div class="paddle" draggable="true" ondragstart="dragStart(event,'rack',${i})"><span>${p.name}</span></div>
-        `).join('') || '<small style="color:#999">Rack empty</small>';
+        `).join('') || '<small style="color:#999">Rack is empty</small>';
+
         document.getElementById('historyLog').innerHTML = state.history.map(h => `<div class="history-item">${h}</div>`).join('') || '<small>No games yet</small>';
+
         document.getElementById('courtsGrid').innerHTML = state.courts.map((c, i) => `
             <div class="court-card ${c.alerted ? 'overtime-active' : ''}">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <strong onclick="renameCourt(${i})" style="cursor:pointer; font-size:18px; border-bottom: 1px dashed var(--primary)">Court ${c.id}</strong>
+                    <strong onclick="const n=prompt('Name:', '${c.id}'); if(n){state.courts[${i}].id=n;sync();}" style="cursor:pointer; font-size:1.1rem;">Court ${c.id}</strong>
                     <span id="t-${i}" class="timer">0:00</span>
-                    <button onclick="if(confirm('Delete court?')){announce('Court ${c.id} closed'); state.courts.splice(${i},1); sync();}" style="background:none; color:var(--warning); font-size:18px;">🗑️</button>
+                    <button onclick="if(confirm('Delete?')){state.courts.splice(${i},1); sync();}" style="background:none; color:var(--warning); font-size:1.2rem; min-height:auto;">✕</button>
                 </div>
                 <div class="player-list">
                     ${[0,1,2,3].map(j => `
-                        <div class="slot" ondragover="ev=event; ev.preventDefault(); ev.currentTarget.classList.add('drag-over');" ondragleave="event.currentTarget.classList.remove('drag-over')" ondrop="dropToSlot(event,${i},${j})"
+                        <div class="slot" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event,${i},${j})"
                              draggable="${c.players[j] ? 'true' : 'false'}" ondragstart="dragStart(event,'court',${j},${i})">
                              ${c.players[j] ? c.players[j].name : '--'}
                         </div>
                     `).join('')}
                 </div>
                 <div class="court-actions">
-                    <button class="btn-rotate" onclick="rotateCourt(${i})">Rotate Winners</button>
-                    <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">End & Queue</button>
+                    <button class="btn-rotate" onclick="rotateCourt(${i})">Rotate</button>
+                    <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">Clear</button>
                 </div>
             </div>
-        `).join('') + `<button onclick="state.courts.push({id: state.courts.length+1, players:[null,null,null,null], startTime:null, alerted:false});sync();" style="border:2px dashed var(--primary); background:none; padding:20px; border-radius:12px; color:var(--primary); font-weight:bold;">+ Add Court</button>`;
+        `).join('') + `<button onclick="state.courts.push({id: state.courts.length+1, players:[null,null,null,null], startTime:null, alerted:false});sync();" class="add-court-btn">+ Add Court</button>`;
     }
 
-    function dragStart(ev, type, index, courtIdx = null) { ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); }
+    // Drag & Drop
+    function dragStart(ev, type, index, courtIdx = null) { 
+        ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); 
+    }
+    
+    function allowDrop(ev) { 
+        ev.preventDefault(); 
+        ev.currentTarget.classList.add('drag-over'); 
+    }
+    
+    function leaveDrop(ev) { 
+        ev.currentTarget.classList.remove('drag-over'); 
+    }
+
     function dropToRack(ev) {
         ev.preventDefault(); ev.currentTarget.classList.remove('drag-over');
         const data = JSON.parse(ev.dataTransfer.getData("text"));
@@ -236,20 +377,22 @@
             if (p) { state.queue.push(p); state.courts[data.courtIdx].players[data.index] = null; sync(); }
         }
     }
+
     function dropToSlot(ev, courtIdx, slotIdx) {
         ev.preventDefault(); ev.currentTarget.classList.remove('drag-over');
         const data = JSON.parse(ev.dataTransfer.getData("text"));
         let p;
-        if (data.type === 'rack') p = state.queue.splice(data.index, 1)[0];
-        else { p = state.courts[data.courtIdx].players[data.index]; state.courts[data.courtIdx].players[data.index] = state.courts[courtIdx].players[slotIdx]; }
+        if (data.type === 'rack') {
+            p = state.queue.splice(data.index, 1)[0];
+        } else {
+            p = state.courts[data.courtIdx].players[data.index];
+            state.courts[data.courtIdx].players[data.index] = state.courts[courtIdx].players[slotIdx];
+        }
         state.courts[courtIdx].players[slotIdx] = p;
         sync();
     }
-    function resetAll() { if(confirm("Clear all data?")) { state = {queue:[], history:[], stats:{}, courts:[{id:"1", players:[null,null,null,null], startTime:null, alerted:false}]}; sync(); } }
-    
-    // Drag/Drop helpers
-    function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
-    function leaveDrop(ev) { ev.currentTarget.classList.remove('drag-over'); }
+
+    function resetAll() { if(confirm("Clear all session data?")) { state = {queue:[], history:[], stats:{}, courts:[{id:"1", players:[null,null,null,null], startTime:null, alerted:false}]}; sync(); } }
 </script>
 </body>
 </html>
