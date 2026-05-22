@@ -1098,7 +1098,16 @@
     const auth = getAuth(app);
 
     // ── Helpers exposed to non-module code ───────────────────────────────
-    window.fbWrite = (data) => set(ref(db, 'session'), data).catch(e => console.warn('FB write err:', e));
+    // Session path is per-user: sessions/{uid}
+    function getSessionPath() {
+        const u = auth.currentUser;
+        return u ? 'sessions/' + u.uid : null;
+    }
+    window.fbWrite = (data) => {
+        const path = getSessionPath();
+        if (!path) return;
+        set(ref(db, path), data).catch(e => console.warn('FB write err:', e));
+    };
 
     window.doLogin = async function() {
         const email = document.getElementById('loginEmail').value.trim();
@@ -1200,8 +1209,12 @@
                 pillAvatar.textContent = displayName.charAt(0).toUpperCase();
             }
 
+            // Push existing state to this user's session path
             const saved = localStorage.getItem('pb_stacker_v12');
             if (saved) { try { window.fbWrite(JSON.parse(saved)); } catch(e) {} }
+
+            // Store uid so QR/live can use it
+            window._sessionUid = user.uid;
         } else {
             authPage.classList.add('active');
             mainApp.style.display = 'none';
@@ -1210,8 +1223,20 @@
     });
 
     // ── Routing ──────────────────────────────────────────────────────────
+    function getHashParams() {
+        // hash format: #live/{uid}
+        const hash = window.location.hash;
+        if (hash.startsWith('#live/')) {
+            return { isLive: true, uid: hash.slice(6) };
+        }
+        if (hash === '#live') {
+            return { isLive: true, uid: null };
+        }
+        return { isLive: false, uid: null };
+    }
+
     function routePage() {
-        const isLive = window.location.hash === '#live';
+        const { isLive, uid } = getHashParams();
         const liveEl = document.getElementById('liveView');
         const mainEl = document.getElementById('mainApp');
         if (!liveEl) return;
@@ -1222,7 +1247,16 @@
         if (isLive) {
             document.getElementById('authPage').classList.remove('active');
             document.getElementById('liveUpdated').textContent = 'Connecting...';
-            onValue(ref(db, 'session'), (snapshot) => {
+
+            const sessionPath = uid ? 'sessions/' + uid : null;
+            if (!sessionPath) {
+                document.getElementById('liveCourts').innerHTML = '<div class="live-empty">Invalid session link. Please ask the organizer for a new QR code.</div>';
+                document.getElementById('liveQueue').innerHTML = '';
+                document.getElementById('liveUpdated').textContent = '';
+                return;
+            }
+
+            onValue(ref(db, sessionPath), (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     renderLiveView(data);
@@ -1296,17 +1330,23 @@
 
     // ── QR Code ──────────────────────────────────────────────────────────
     let qrDone = false;
+    let qrLastUid = null;
     window.showQR = function() {
-        const liveUrl = window.location.href.split('#')[0] + '#live';
+        const uid = window._sessionUid || (auth.currentUser && auth.currentUser.uid);
+        if (!uid) { alert('Please sign in first.'); return; }
+        const liveUrl = window.location.href.split('#')[0] + '#live/' + uid;
         document.getElementById('qrUrlText').textContent = liveUrl;
         document.getElementById('qrModalOverlay').classList.add('open');
-        if (!qrDone) {
+        // Regenerate QR if user changed
+        if (!qrDone || qrLastUid !== uid) {
             const canvas = document.getElementById('qrCanvas');
+            canvas.getContext('2d').clearRect(0, 0, 200, 200);
             const img = new Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => canvas.getContext('2d').drawImage(img, 0, 0, 200, 200);
             img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(liveUrl) + '&color=4a148c&bgcolor=ffffff';
             qrDone = true;
+            qrLastUid = uid;
         }
     };
     window.closeQR = function() { document.getElementById('qrModalOverlay').classList.remove('open'); };
