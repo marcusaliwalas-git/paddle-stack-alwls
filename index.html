@@ -1187,8 +1187,9 @@
         const pillName = document.getElementById('headerUserName');
         const pillAvatar = document.getElementById('headerUserAvatar');
 
-        if (window.location.hash === '#live') {
+        if (window.location.hash === '#live' || window.location.hash.startsWith('#live/')) {
             authPage.classList.remove('active');
+            mainApp.style.display = 'none';
             routePage();
             return;
         }
@@ -1273,7 +1274,7 @@
     window.routePage = routePage;
     window.addEventListener('hashchange', routePage);
     window.addEventListener('load', () => {
-        if (window.location.hash === '#live') routePage();
+        if (window.location.hash === '#live' || window.location.hash.startsWith('#live/')) routePage();
     });
 
     // ── Live view renderer ───────────────────────────────────────────────
