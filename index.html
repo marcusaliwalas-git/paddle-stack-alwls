@@ -1294,39 +1294,65 @@
     }
 
     // ── Live view renderer ───────────────────────────────────────────────
+    // Firebase converts arrays to objects keyed by index — normalize everything
+    function toArray(val) {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        // Firebase object: { "0": x, "1": y, ... }
+        const keys = Object.keys(val).map(Number).sort((a,b) => a-b);
+        return keys.map(k => val[k]);
+    }
+
     function renderLiveView(liveState) {
         const courtsEl = document.getElementById('liveCourts');
-        const courts = Array.isArray(liveState.courts) ? liveState.courts : Object.values(liveState.courts || {});
-        const activeCourts = courts.filter(c => c.players && c.players.some(p => p !== null));
+
+        // Normalize courts array (Firebase may have converted it to an object)
+        const courts = toArray(liveState.courts);
+        const activeCourts = courts.filter(c => {
+            if (!c) return false;
+            const players = toArray(c.players);
+            return players.some(p => p !== null && p !== undefined);
+        });
 
         if (activeCourts.length === 0) {
             courtsEl.innerHTML = '<div class="live-empty">No active courts right now.</div>';
         } else {
             courtsEl.innerHTML = activeCourts.map((c, ci) => {
+                const players = toArray(c.players);
                 const elapsed = c.startTime ? Math.floor((Date.now() - c.startTime) / 1000) : 0;
                 const timerStr = c.startTime ? Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0') : '--:--';
                 const isOT = elapsed >= 900;
-                const slots = [0,1,2,3].map(j => {
-                    const p = c.players[j];
+                // Team A = slots 0,1 | Team B = slots 2,3
+                const teamA = [0,1].map(j => {
+                    const p = players[j];
+                    return '<div class="live-player-slot ' + (p ? '' : 'empty') + '">' + (p ? p.name : '&mdash;') + '</div>';
+                }).join('');
+                const teamB = [2,3].map(j => {
+                    const p = players[j];
                     return '<div class="live-player-slot ' + (p ? '' : 'empty') + '">' + (p ? p.name : '&mdash;') + '</div>';
                 }).join('');
                 return '<div class="live-court-card ' + (isOT ? 'ot' : '') + '" data-start="' + (c.startTime||0) + '" data-court="' + ci + '">'
                     + '<div class="live-court-header">'
                     + '<span class="live-court-name">&#127955; Court ' + c.id + (isOT ? ' &#9888;&#65039;' : '') + '</span>'
                     + '<span class="live-court-timer" id="lct-' + ci + '">' + timerStr + '</span>'
-                    + '</div><div class="live-players">' + slots + '</div></div>';
+                    + '</div>'
+                    + '<div style="margin:6px 0 2px;font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
+                    + '<div class="live-players">' + teamA + '</div>'
+                    + '<div style="margin:6px 0 2px;font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;">Team B</div>'
+                    + '<div class="live-players">' + teamB + '</div>'
+                    + '</div>';
             }).join('');
         }
 
         const queueEl = document.getElementById('liveQueue');
-        const queue = Array.isArray(liveState.queue) ? liveState.queue : Object.values(liveState.queue || {});
+        const queue = toArray(liveState.queue);
         if (queue.length === 0) {
             queueEl.innerHTML = '<div class="live-empty">Queue is empty.</div>';
         } else {
             queueEl.innerHTML = queue.map((p, i) =>
                 '<div class="live-queue-item">'
                 + '<span class="live-queue-num">' + (i+1) + '</span>'
-                + '<span>' + p.name + '</span>'
+                + '<span>' + (p ? p.name : '?') + '</span>'
                 + (i < 4 ? '<span class="live-next-badge">Next Up</span>' : '')
                 + '</div>'
             ).join('');
