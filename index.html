@@ -121,6 +121,11 @@
         .btn-rotate { background: var(--primary); color: white; flex: 2; padding: 10px; }
         .btn-clear { background: #78909c; color: white; flex: 1; font-size: 11px; }
         .btn-export { background: #546e7a; color: white; width: 100%; margin-top: 15px; padding: 10px; font-size: 12px; }
+        .btn-import { background: #1565c0; color: white; width: 100%; margin-bottom: 8px; padding: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-import:hover { background: #0d47a1; }
+        #importFileInput { display: none; }
+        .import-toast { position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: bold; z-index: 999; opacity: 0; transform: translateY(10px); transition: opacity 0.3s, transform 0.3s; pointer-events: none; }
+        .import-toast.show { opacity: 1; transform: translateY(0); }
         
         input, textarea { 
             width: 100%; padding: 10px; margin-bottom: 8px; 
@@ -133,13 +138,86 @@
         .leader-table td { padding: 8px; border-bottom: 1px solid #eee; text-align: center; }
 
         .history-item { background: #fff; color: #263238; padding: 8px; border-radius: 6px; margin-bottom: 5px; font-size: 11px; border-left: 4px solid var(--primary); }
+
+        /* QR Button */
+        .btn-qr { background: #4a148c; color: white; width: 100%; margin-top: 8px; padding: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-qr:hover { background: #38006b; }
+
+        /* QR Modal */
+        .qr-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 500; align-items: center; justify-content: center; }
+        .qr-modal-overlay.open { display: flex; }
+        .qr-modal { background: #fff; color: #263238; border-radius: 16px; padding: 28px 24px; text-align: center; max-width: 340px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
+        .qr-modal h3 { margin: 0 0 6px 0; color: #4a148c; font-size: 1.1rem; }
+        .qr-modal p { font-size: 12px; color: #546e7a; margin: 0 0 16px 0; }
+        #qrCanvas { border-radius: 8px; border: 3px solid #4a148c; }
+        .qr-url { font-size: 10px; color: #90a4ae; margin-top: 10px; word-break: break-all; }
+        .qr-close { margin-top: 16px; background: #4a148c; color: white; padding: 8px 24px; border-radius: 8px; cursor: pointer; font-weight: bold; border: none; }
+
+        /* Live View Page */
+        #liveView { display: none; min-height: 100vh; width: 100%; background: #1a1a2e; color: #eee; }
+        #liveView.active { display: block; }
+        #mainApp { width: 100%; }
+        .live-header { background: #16213e; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #ff6d00; position: sticky; top: 0; z-index: 50; }
+        .live-header h1 { margin: 0; font-size: 1.1rem; color: white; }
+        .live-header h1 span { color: #ff6d00; }
+        .live-badge { background: #ff6d00; color: white; font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 20px; animation: livepulse 1.5s infinite; }
+        @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .live-body { padding: 16px; max-width: 900px; margin: 0 auto; }
+        .live-section-title { font-size: 13px; font-weight: bold; color: #ff6d00; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 10px; }
+        .live-courts { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+        .live-court-card { background: #0f3460; border-radius: 12px; padding: 14px; border: 2px solid transparent; }
+        .live-court-card.ot { border-color: #ff6d00; animation: pulse 2s infinite; }
+        .live-court-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .live-court-name { font-weight: bold; font-size: 15px; color: #fff; }
+        .live-court-timer { font-family: monospace; font-size: 18px; color: #ff6d00; font-weight: bold; }
+        .live-players { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .live-player-slot { background: rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 8px; font-size: 13px; text-align: center; color: #eceff1; min-height: 40px; display: flex; align-items: center; justify-content: center; }
+        .live-player-slot.empty { color: #546e7a; font-style: italic; }
+        .live-queue { display: flex; flex-direction: column; gap: 6px; }
+        .live-queue-item { background: #0f3460; border-radius: 8px; padding: 10px 14px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+        .live-queue-num { background: #ff6d00; color: white; font-size: 11px; font-weight: bold; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .live-next-badge { background: #2e7d32; color: white; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin-left: auto; }
+        .live-empty { color: #546e7a; font-size: 13px; font-style: italic; padding: 10px 0; }
+        .live-last-updated { text-align: center; font-size: 11px; color: #546e7a; margin-top: 24px; padding-bottom: 24px; }
     </style>
 </head>
 <body>
 
+<!-- QR Modal -->
+<div class="qr-modal-overlay" id="qrModalOverlay" onclick="if(event.target===this)closeQR()">
+    <div class="qr-modal">
+        <h3>📱 Live Spectator View</h3>
+        <p>Scan to watch ongoing matches &amp; queue on your phone</p>
+        <canvas id="qrCanvas" width="200" height="200"></canvas>
+        <div class="qr-url" id="qrUrlText"></div>
+        <button class="qr-close" onclick="closeQR()">Close</button>
+    </div>
+</div>
+
+<!-- Live View (shown when #live hash is present) -->
+<div id="liveView">
+    <div class="live-header">
+        <h1>ALWLS <span>Stacking</span></h1>
+        <span class="live-badge">● LIVE</span>
+    </div>
+    <div class="live-body">
+        <div class="live-section-title">🏓 Courts</div>
+        <div class="live-courts" id="liveCourts"></div>
+        <div class="live-section-title">⏳ Queue / Next Up</div>
+        <div class="live-queue" id="liveQueue"></div>
+        <div class="live-last-updated" id="liveUpdated"></div>
+    </div>
+</div>
+
+<!-- Main Organizer App -->
+<div id="mainApp">
+
 <header>
     <h1>ALWLS <span>Stacking</span></h1>
-    <button class="theme-toggle" onclick="toggleTheme()">🌓 Mode</button>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <button class="theme-toggle" onclick="showQR()">📱 QR Live</button>
+        <button class="theme-toggle" onclick="toggleTheme()">🌓 Mode</button>
+    </div>
 </header>
 
 <div class="app-container">
@@ -148,6 +226,9 @@
         <input type="text" id="nameInput" placeholder="Add Name">
         <textarea id="bulkInput" rows="2" placeholder="Bulk (One per line)"></textarea>
         <button class="btn-add" onclick="addPlayers()">Add to Rack</button>
+
+        <input type="file" id="importFileInput" accept=".txt" onchange="importFromTxt(event)">
+        <button class="btn-import" onclick="document.getElementById('importFileInput').click()">📂 Import from .txt File</button>
         
         <button class="btn-call" onclick="callNextUp()">📢 Call Next Up</button>
         
@@ -173,6 +254,10 @@
 
     <div class="courts-grid" id="courtsGrid"></div>
 </div>
+
+</div><!-- /mainApp -->
+
+<div class="import-toast" id="importToast"></div>
 
 <script>
     let state = {
@@ -235,7 +320,11 @@
         }
     }
 
-    function sync() { localStorage.setItem('pb_stacker_v12', JSON.stringify(state)); updateDisplay(); }
+    function sync() {
+        localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
+        updateDisplay();
+        if (window.fbWrite) window.fbWrite(state);
+    }
 
     function addPlayers() {
         const single = document.getElementById('nameInput').value.trim();
@@ -374,7 +463,182 @@
         state.courts[courtIdx].players[slotIdx] = p;
         sync();
     }
+    function importFromTxt(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+
+            // Find the Participants section
+            const participantsMatch = text.match(/Participants\s*\(\d+\)\s*([\s\S]*?)(?:\n\s*\n|$)/i);
+            if (!participantsMatch) {
+                showToast('❌ No Participants list found in file.', true);
+                event.target.value = '';
+                return;
+            }
+
+            const lines = participantsMatch[1].split('\n');
+            let added = 0, skipped = 0;
+
+            lines.forEach(line => {
+                // Match lines like "1. Name" or " 1. Name"
+                const match = line.match(/^\s*\d+\.\s*(.+)/);
+                if (match) {
+                    const name = match[1].trim();
+                    if (name) {
+                        state.queue.push({ name });
+                        if (!state.stats[name]) state.stats[name] = { wins: 0, games: 0 };
+                        added++;
+                    }
+                } else if (line.trim()) {
+                    skipped++;
+                }
+            });
+
+            event.target.value = '';
+            if (added > 0) {
+                sync();
+                showToast(`✅ Imported ${added} player${added > 1 ? 's' : ''} from "${file.name}"`);
+            } else {
+                showToast('❌ No valid player names found.', true);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function showToast(msg, isError = false) {
+        const toast = document.getElementById('importToast');
+        toast.textContent = msg;
+        toast.style.background = isError ? 'var(--warning)' : 'var(--success)';
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
     function resetAll() { if(confirm("Reset everything?")) { state = {theme:'dark', queue:[], history:[], stats:{}, courts:[{id:"1", players:[null,null,null,null], startTime:null, alerted:false}]}; sync(); } }
+</script>
+<!-- Firebase Realtime DB + QR + Live View -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyCoJlH--Iu7VEqf1HF7UrZZtjYZ_4jfm3c",
+        authDomain: "alwls-pickleball.firebaseapp.com",
+        databaseURL: "https://alwls-pickleball-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "alwls-pickleball",
+        storageBucket: "alwls-pickleball.firebasestorage.app",
+        messagingSenderId: "562769821633",
+        appId: "1:562769821633:web:142a82b499252b631c3940"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Expose write helper to non-module sync()
+    window.fbWrite = (data) => set(ref(db, 'session'), data).catch(e => console.warn('FB write err:', e));
+
+    // ── Routing ──────────────────────────────────────────────────────────
+    function routePage() {
+        const isLive = window.location.hash === '#live';
+        const liveEl = document.getElementById('liveView');
+        const mainEl = document.getElementById('mainApp');
+        if (!liveEl || !mainEl) return;
+        liveEl.classList.toggle('active', isLive);
+        mainEl.style.display = isLive ? 'none' : '';
+
+        if (isLive) {
+            document.getElementById('liveUpdated').textContent = 'Connecting...';
+            onValue(ref(db, 'session'), (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    renderLiveView(data);
+                } else {
+                    document.getElementById('liveCourts').innerHTML = '<div class="live-empty">No session yet. Waiting for organizer...</div>';
+                    document.getElementById('liveQueue').innerHTML = '';
+                    document.getElementById('liveUpdated').textContent = 'Waiting for data...';
+                }
+            });
+            setInterval(tickLiveTimers, 1000);
+        } else {
+            const saved = localStorage.getItem('pb_stacker_v12');
+            if (saved) { try { window.fbWrite(JSON.parse(saved)); } catch(e) {} }
+        }
+    }
+
+    window.routePage = routePage;
+    window.addEventListener('hashchange', routePage);
+    window.addEventListener('load', routePage);
+
+    // ── Live view renderer ───────────────────────────────────────────────
+    function renderLiveView(liveState) {
+        const courtsEl = document.getElementById('liveCourts');
+        const courts = Array.isArray(liveState.courts) ? liveState.courts : Object.values(liveState.courts || {});
+        const activeCourts = courts.filter(c => c.players && c.players.some(p => p !== null));
+
+        if (activeCourts.length === 0) {
+            courtsEl.innerHTML = '<div class="live-empty">No active courts right now.</div>';
+        } else {
+            courtsEl.innerHTML = activeCourts.map((c, ci) => {
+                const elapsed = c.startTime ? Math.floor((Date.now() - c.startTime) / 1000) : 0;
+                const timerStr = c.startTime ? Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0') : '--:--';
+                const isOT = elapsed >= 900;
+                const slots = [0,1,2,3].map(j => {
+                    const p = c.players[j];
+                    return '<div class="live-player-slot ' + (p ? '' : 'empty') + '">' + (p ? p.name : '&mdash;') + '</div>';
+                }).join('');
+                return '<div class="live-court-card ' + (isOT ? 'ot' : '') + '" data-start="' + (c.startTime||0) + '" data-court="' + ci + '">'
+                    + '<div class="live-court-header">'
+                    + '<span class="live-court-name">&#127955; Court ' + c.id + (isOT ? ' &#9888;&#65039;' : '') + '</span>'
+                    + '<span class="live-court-timer" id="lct-' + ci + '">' + timerStr + '</span>'
+                    + '</div><div class="live-players">' + slots + '</div></div>';
+            }).join('');
+        }
+
+        const queueEl = document.getElementById('liveQueue');
+        const queue = Array.isArray(liveState.queue) ? liveState.queue : Object.values(liveState.queue || {});
+        if (queue.length === 0) {
+            queueEl.innerHTML = '<div class="live-empty">Queue is empty.</div>';
+        } else {
+            queueEl.innerHTML = queue.map((p, i) =>
+                '<div class="live-queue-item">'
+                + '<span class="live-queue-num">' + (i+1) + '</span>'
+                + '<span>' + p.name + '</span>'
+                + (i < 4 ? '<span class="live-next-badge">Next Up</span>' : '')
+                + '</div>'
+            ).join('');
+        }
+
+        document.getElementById('liveUpdated').textContent = '&#9889; Live &#8212; updated ' + new Date().toLocaleTimeString();
+    }
+
+    function tickLiveTimers() {
+        document.querySelectorAll('.live-court-card[data-start]').forEach((el, ci) => {
+            const start = parseInt(el.dataset.start);
+            if (!start) return;
+            const elapsed = Math.floor((Date.now() - start) / 1000);
+            const timerEl = document.getElementById('lct-' + ci);
+            if (timerEl) timerEl.textContent = Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0');
+            if (elapsed >= 900) el.classList.add('ot');
+        });
+    }
+
+    // ── QR Code ──────────────────────────────────────────────────────────
+    let qrDone = false;
+    window.showQR = function() {
+        const liveUrl = window.location.href.split('#')[0] + '#live';
+        document.getElementById('qrUrlText').textContent = liveUrl;
+        document.getElementById('qrModalOverlay').classList.add('open');
+        if (!qrDone) {
+            const canvas = document.getElementById('qrCanvas');
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => canvas.getContext('2d').drawImage(img, 0, 0, 200, 200);
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(liveUrl) + '&color=4a148c&bgcolor=ffffff';
+            qrDone = true;
+        }
+    };
+    window.closeQR = function() { document.getElementById('qrModalOverlay').classList.remove('open'); };
 </script>
 </body>
 </html>
