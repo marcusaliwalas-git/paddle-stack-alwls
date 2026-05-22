@@ -179,9 +179,122 @@
         .live-next-badge { background: #2e7d32; color: white; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin-left: auto; }
         .live-empty { color: #546e7a; font-size: 13px; font-style: italic; padding: 10px 0; }
         .live-last-updated { text-align: center; font-size: 11px; color: #546e7a; margin-top: 24px; padding-bottom: 24px; }
+
+        /* ── Login / Auth Page ─────────────────────────────────────────── */
+        #authPage {
+            display: none;
+            position: fixed; inset: 0; z-index: 1000;
+            background: #1a1a2e;
+            align-items: center; justify-content: center;
+            flex-direction: column;
+        }
+        #authPage.active { display: flex; }
+
+        .auth-card {
+            background: #16213e;
+            border-radius: 20px;
+            padding: 36px 32px;
+            width: 90%; max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,109,0,0.2);
+        }
+        .auth-logo {
+            text-align: center; margin-bottom: 28px;
+        }
+        .auth-logo h2 {
+            margin: 0; font-size: 1.5rem; color: white;
+            letter-spacing: 1px;
+        }
+        .auth-logo h2 span { color: #ff6d00; }
+        .auth-logo p { color: #78909c; font-size: 13px; margin: 6px 0 0; }
+
+        .auth-tabs {
+            display: flex; gap: 0; margin-bottom: 24px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px; padding: 4px;
+        }
+        .auth-tab {
+            flex: 1; padding: 9px; border: none; border-radius: 8px;
+            font-size: 13px; font-weight: bold; cursor: pointer;
+            background: transparent; color: #78909c;
+            transition: all 0.2s;
+        }
+        .auth-tab.active { background: #ff6d00; color: white; }
+
+        .auth-field {
+            margin-bottom: 14px;
+        }
+        .auth-field label {
+            display: block; font-size: 12px; color: #78909c;
+            margin-bottom: 5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .auth-field input {
+            width: 100%; padding: 12px 14px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; color: white; font-size: 15px;
+            outline: none; margin: 0;
+            transition: border 0.2s;
+        }
+        .auth-field input:focus { border-color: #ff6d00; }
+
+        .auth-btn {
+            width: 100%; padding: 13px; margin-top: 8px;
+            background: #ff6d00; color: white; border: none;
+            border-radius: 10px; font-size: 15px; font-weight: bold;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .auth-btn:hover { background: #e65100; }
+        .auth-btn:disabled { background: #455a64; cursor: not-allowed; }
+
+        .auth-error {
+            background: rgba(255,61,0,0.15); border: 1px solid rgba(255,61,0,0.4);
+            color: #ff6d6d; border-radius: 8px; padding: 10px 14px;
+            font-size: 13px; margin-top: 12px; display: none;
+            text-align: center;
+        }
+        .auth-error.show { display: block; }
+
+        .auth-user-bar {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 12px; color: #90a4ae;
+        }
+        .auth-user-bar strong { color: #ff6d00; }
+        .auth-signout {
+            background: rgba(255,255,255,0.1); color: #ccc;
+            border: none; border-radius: 6px; padding: 4px 10px;
+            font-size: 11px; cursor: pointer;
+        }
+        .auth-signout:hover { background: rgba(255,61,0,0.3); color: white; }
     </style>
 </head>
 <body>
+
+<!-- Auth / Login Page -->
+<div id="authPage">
+    <div class="auth-card">
+        <div class="auth-logo">
+            <h2>ALWLS <span>Stacking</span></h2>
+            <p>Organizer Access</p>
+        </div>
+        <div class="auth-tabs">
+            <button class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
+            <button class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</button>
+        </div>
+        <div id="authLoginForm">
+            <div class="auth-field"><label>Email</label><input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email"></div>
+            <div class="auth-field"><label>Password</label><input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password"></div>
+            <button class="auth-btn" id="loginBtn" onclick="doLogin()">Sign In</button>
+        </div>
+        <div id="authSignupForm" style="display:none">
+            <div class="auth-field"><label>Name</label><input type="text" id="signupName" placeholder="Your name"></div>
+            <div class="auth-field"><label>Email</label><input type="email" id="signupEmail" placeholder="you@example.com" autocomplete="email"></div>
+            <div class="auth-field"><label>Password</label><input type="password" id="signupPassword" placeholder="Min. 6 characters" autocomplete="new-password"></div>
+            <button class="auth-btn" id="signupBtn" onclick="doSignup()">Create Account</button>
+        </div>
+        <div class="auth-error" id="authError"></div>
+    </div>
+</div>
 
 <!-- QR Modal -->
 <div class="qr-modal-overlay" id="qrModalOverlay" onclick="if(event.target===this)closeQR()">
@@ -210,7 +323,7 @@
 </div>
 
 <!-- Main Organizer App -->
-<div id="mainApp">
+<div id="mainApp" style="display:none">
 
 <header>
     <h1>ALWLS <span>Stacking</span></h1>
@@ -517,10 +630,14 @@
 
     function resetAll() { if(confirm("Reset everything?")) { state = {theme:'dark', queue:[], history:[], stats:{}, courts:[{id:"1", players:[null,null,null,null], startTime:null, alerted:false}]}; sync(); } }
 </script>
-<!-- Firebase Realtime DB + QR + Live View -->
+<!-- Firebase Realtime DB + Auth + QR + Live View -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import {
+        getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+        signOut, onAuthStateChanged, updateProfile
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCoJlH--Iu7VEqf1HF7UrZZtjYZ_4jfm3c",
@@ -533,21 +650,114 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const db  = getDatabase(app);
+    const auth = getAuth(app);
 
-    // Expose write helper to non-module sync()
+    // ── Helpers exposed to non-module code ───────────────────────────────
     window.fbWrite = (data) => set(ref(db, 'session'), data).catch(e => console.warn('FB write err:', e));
+
+    window.doLogin = async function() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const pass  = document.getElementById('loginPassword').value;
+        const btn   = document.getElementById('loginBtn');
+        btn.disabled = true; btn.textContent = 'Signing in...';
+        try {
+            await signInWithEmailAndPassword(auth, email, pass);
+        } catch(e) {
+            showAuthError(friendlyAuthError(e.code));
+            btn.disabled = false; btn.textContent = 'Sign In';
+        }
+    };
+
+    window.doSignup = async function() {
+        const name  = document.getElementById('signupName').value.trim();
+        const email = document.getElementById('signupEmail').value.trim();
+        const pass  = document.getElementById('signupPassword').value;
+        const btn   = document.getElementById('signupBtn');
+        if (!name) { showAuthError('Please enter your name.'); return; }
+        btn.disabled = true; btn.textContent = 'Creating account...';
+        try {
+            const cred = await createUserWithEmailAndPassword(auth, email, pass);
+            await updateProfile(cred.user, { displayName: name });
+        } catch(e) {
+            showAuthError(friendlyAuthError(e.code));
+            btn.disabled = false; btn.textContent = 'Create Account';
+        }
+    };
+
+    window.doSignOut = async function() {
+        if (confirm('Sign out?')) await signOut(auth);
+    };
+
+    window.switchAuthTab = function(tab) {
+        document.getElementById('authLoginForm').style.display  = tab === 'login'  ? '' : 'none';
+        document.getElementById('authSignupForm').style.display = tab === 'signup' ? '' : 'none';
+        document.querySelectorAll('.auth-tab').forEach((el, i) => el.classList.toggle('active', (i===0 && tab==='login') || (i===1 && tab==='signup')));
+        hideAuthError();
+    };
+
+    function showAuthError(msg) {
+        const el = document.getElementById('authError');
+        el.textContent = msg; el.classList.add('show');
+    }
+    function hideAuthError() { document.getElementById('authError').classList.remove('show'); }
+
+    function friendlyAuthError(code) {
+        const map = {
+            'auth/invalid-email': 'Invalid email address.',
+            'auth/user-not-found': 'No account found with that email.',
+            'auth/wrong-password': 'Incorrect password.',
+            'auth/invalid-credential': 'Incorrect email or password.',
+            'auth/email-already-in-use': 'An account with this email already exists.',
+            'auth/weak-password': 'Password must be at least 6 characters.',
+            'auth/too-many-requests': 'Too many attempts. Please try again later.',
+        };
+        return map[code] || 'Something went wrong. Please try again.';
+    }
+
+    // ── Auth state listener ──────────────────────────────────────────────
+    onAuthStateChanged(auth, (user) => {
+        const authPage  = document.getElementById('authPage');
+        const mainApp   = document.getElementById('mainApp');
+        const userBar   = document.getElementById('authUserBar');
+        const userName  = document.getElementById('authUserName');
+
+        if (window.location.hash === '#live') {
+            // Spectators never see login page
+            authPage.classList.remove('active');
+            routePage();
+            return;
+        }
+
+        if (user) {
+            // Logged in — show organizer app
+            authPage.classList.remove('active');
+            mainApp.style.display = '';
+            userBar.style.display = 'flex';
+            userName.textContent  = user.displayName || user.email;
+            // Push existing localStorage to Firebase on login
+            const saved = localStorage.getItem('pb_stacker_v12');
+            if (saved) { try { window.fbWrite(JSON.parse(saved)); } catch(e) {} }
+        } else {
+            // Not logged in — show auth page, hide app
+            authPage.classList.add('active');
+            mainApp.style.display = 'none';
+            userBar.style.display = 'none';
+        }
+    });
 
     // ── Routing ──────────────────────────────────────────────────────────
     function routePage() {
         const isLive = window.location.hash === '#live';
         const liveEl = document.getElementById('liveView');
         const mainEl = document.getElementById('mainApp');
-        if (!liveEl || !mainEl) return;
+        if (!liveEl) return;
         liveEl.classList.toggle('active', isLive);
-        mainEl.style.display = isLive ? 'none' : '';
+        if (mainEl && !isLive && auth.currentUser) mainEl.style.display = '';
+        if (mainEl && isLive) mainEl.style.display = 'none';
 
         if (isLive) {
+            document.getElementById('authPage').classList.remove('active');
             document.getElementById('liveUpdated').textContent = 'Connecting...';
             onValue(ref(db, 'session'), (snapshot) => {
                 const data = snapshot.val();
@@ -560,15 +770,14 @@
                 }
             });
             setInterval(tickLiveTimers, 1000);
-        } else {
-            const saved = localStorage.getItem('pb_stacker_v12');
-            if (saved) { try { window.fbWrite(JSON.parse(saved)); } catch(e) {} }
         }
     }
 
     window.routePage = routePage;
     window.addEventListener('hashchange', routePage);
-    window.addEventListener('load', routePage);
+    window.addEventListener('load', () => {
+        if (window.location.hash === '#live') routePage();
+    });
 
     // ── Live view renderer ───────────────────────────────────────────────
     function renderLiveView(liveState) {
@@ -608,7 +817,6 @@
                 + '</div>'
             ).join('');
         }
-
         document.getElementById('liveUpdated').textContent = '&#9889; Live &#8212; updated ' + new Date().toLocaleTimeString();
     }
 
