@@ -1267,17 +1267,19 @@
 
             onValue(ref(db, sessionPath), (snapshot) => {
                 const data = snapshot.val();
+                console.log('[Live] snapshot path:', sessionPath, 'data:', JSON.stringify(data));
+                document.getElementById('liveUpdated').textContent = 'Got data: ' + (data ? 'yes' : 'null') + ' path=' + sessionPath;
                 if (data) {
                     renderLiveView(data);
                 } else {
-                    document.getElementById('liveCourts').innerHTML = '<div class="live-empty">No active courts right now. Waiting for organizer to start...</div>';
+                    document.getElementById('liveCourts').innerHTML = '<div class="live-empty">No session data yet (path: ' + sessionPath + '). Make sure you are signed in as organizer and have courts active.</div>';
                     document.getElementById('liveQueue').innerHTML = '<div class="live-empty">Queue is empty.</div>';
-                    document.getElementById('liveUpdated').textContent = '&#9889; Live &#8212; connected, waiting for data';
+                    document.getElementById('liveUpdated').textContent = 'Connected — no data at ' + sessionPath;
                 }
             }, (error) => {
-                console.error('Firebase read error:', error);
-                document.getElementById('liveCourts').innerHTML = '<div class="live-empty">&#9888; Could not connect. Check your Firebase database rules allow public reads on sessions/.</div>';
-                document.getElementById('liveUpdated').textContent = 'Connection error';
+                console.error('[Live] Firebase read error:', error);
+                document.getElementById('liveCourts').innerHTML = '<div class="live-empty">&#9888; Firebase error: ' + error.message + '<br>Path: ' + sessionPath + '<br>Fix: set DB rules to allow .read:true on sessions/</div>';
+                document.getElementById('liveUpdated').textContent = 'Error: ' + error.code;
             });
             setInterval(tickLiveTimers, 1000);
         }
@@ -1304,6 +1306,7 @@
     }
 
     function renderLiveView(liveState) {
+        console.log('[Live] renderLiveView called, courts:', JSON.stringify(liveState.courts), 'queue:', JSON.stringify(liveState.queue));
         const courtsEl = document.getElementById('liveCourts');
 
         // Normalize courts array (Firebase may have converted it to an object)
