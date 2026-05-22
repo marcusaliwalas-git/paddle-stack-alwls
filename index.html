@@ -1210,12 +1210,20 @@
                 pillAvatar.textContent = displayName.charAt(0).toUpperCase();
             }
 
-            // Push existing state to this user's session path
-            const saved = localStorage.getItem('pb_stacker_v12');
-            if (saved) { try { window.fbWrite(JSON.parse(saved)); } catch(e) {} }
-
-            // Store uid so QR/live can use it
+            // Store uid FIRST so fbWrite uses the right path
             window._sessionUid = user.uid;
+
+            // Force-write current localStorage state to sessions/{uid}
+            const saved = localStorage.getItem('pb_stacker_v12');
+            if (saved) {
+                try { window.fbWrite(JSON.parse(saved)); } catch(e) {}
+            } else {
+                // Write default state so spectators see something
+                window.fbWrite({
+                    theme: 'dark', queue: [], history: [], stats: {},
+                    courts: [{ id: '1', players: [null,null,null,null], startTime: null, alerted: false }]
+                });
+            }
         } else {
             authPage.classList.add('active');
             mainApp.style.display = 'none';
@@ -1262,10 +1270,14 @@
                 if (data) {
                     renderLiveView(data);
                 } else {
-                    document.getElementById('liveCourts').innerHTML = '<div class="live-empty">No session yet. Waiting for organizer...</div>';
-                    document.getElementById('liveQueue').innerHTML = '';
-                    document.getElementById('liveUpdated').textContent = 'Waiting for data...';
+                    document.getElementById('liveCourts').innerHTML = '<div class="live-empty">No active courts right now. Waiting for organizer to start...</div>';
+                    document.getElementById('liveQueue').innerHTML = '<div class="live-empty">Queue is empty.</div>';
+                    document.getElementById('liveUpdated').textContent = '&#9889; Live &#8212; connected, waiting for data';
                 }
+            }, (error) => {
+                console.error('Firebase read error:', error);
+                document.getElementById('liveCourts').innerHTML = '<div class="live-empty">&#9888; Could not connect. Check your Firebase database rules allow public reads on sessions/.</div>';
+                document.getElementById('liveUpdated').textContent = 'Connection error';
             });
             setInterval(tickLiveTimers, 1000);
         }
@@ -1273,9 +1285,13 @@
 
     window.routePage = routePage;
     window.addEventListener('hashchange', routePage);
-    window.addEventListener('load', () => {
-        if (window.location.hash === '#live' || window.location.hash.startsWith('#live/')) routePage();
-    });
+
+    // Run routePage now that Firebase is ready.
+    // This handles spectators (no auth) who loaded a #live/{uid} URL.
+    const _initHash = window.location.hash;
+    if (_initHash === '#live' || _initHash.startsWith('#live/')) {
+        routePage();
+    }
 
     // ── Live view renderer ───────────────────────────────────────────────
     function renderLiveView(liveState) {
