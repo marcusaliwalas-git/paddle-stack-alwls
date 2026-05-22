@@ -284,6 +284,35 @@
         }
         .auth-google-btn:hover { background: #f7f7f7; box-shadow: 0 3px 10px rgba(0,0,0,0.4); }
         .auth-google-btn svg { flex-shrink: 0; }
+
+        .header-user-pill {
+            display: none;
+            align-items: center; gap: 8px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,109,0,0.3);
+            border-radius: 20px;
+            padding: 5px 12px 5px 8px;
+            cursor: default;
+        }
+        .header-user-avatar {
+            width: 26px; height: 26px; border-radius: 50%;
+            background: #ff6d00;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: bold; color: white;
+            overflow: hidden; flex-shrink: 0;
+        }
+        .header-user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+        .header-user-info { display: flex; flex-direction: column; line-height: 1.2; }
+        .header-user-name { font-size: 12px; font-weight: bold; color: white; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .header-user-label { font-size: 10px; color: #ff6d00; }
+        .header-signout-btn {
+            background: rgba(255,61,0,0.2); color: #ff8a65;
+            border: 1px solid rgba(255,61,0,0.3);
+            border-radius: 12px; padding: 3px 9px;
+            font-size: 11px; font-weight: bold; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .header-signout-btn:hover { background: rgba(255,61,0,0.4); color: white; }
     </style>
 </head>
 <body>
@@ -354,7 +383,17 @@
 <div id="mainApp" style="display:none">
 
 <header>
-    <h1>ALWLS <span>Stacking</span></h1>
+    <div style="display:flex;align-items:center;gap:12px;">
+        <h1 style="margin:0">ALWLS <span>Stacking</span></h1>
+        <div class="header-user-pill" id="headerUserPill">
+            <div class="header-user-avatar" id="headerUserAvatar">?</div>
+            <div class="header-user-info">
+                <span class="header-user-name" id="headerUserName">Organizer</span>
+                <span class="header-user-label">Organizer</span>
+            </div>
+            <button class="header-signout-btn" onclick="doSignOut()">Sign Out</button>
+        </div>
+    </div>
     <div style="display:flex;gap:8px;align-items:center;">
         <button class="theme-toggle" onclick="showQR()">📱 QR Live</button>
         <button class="theme-toggle" onclick="toggleTheme()">🌓 Mode</button>
@@ -757,32 +796,40 @@
 
     // ── Auth state listener ──────────────────────────────────────────────
     onAuthStateChanged(auth, (user) => {
-        const authPage  = document.getElementById('authPage');
-        const mainApp   = document.getElementById('mainApp');
-        const userBar   = document.getElementById('authUserBar');
-        const userName  = document.getElementById('authUserName');
+        const authPage = document.getElementById('authPage');
+        const mainApp  = document.getElementById('mainApp');
+        const pill     = document.getElementById('headerUserPill');
+        const pillName = document.getElementById('headerUserName');
+        const pillAvatar = document.getElementById('headerUserAvatar');
 
         if (window.location.hash === '#live') {
-            // Spectators never see login page
             authPage.classList.remove('active');
             routePage();
             return;
         }
 
         if (user) {
-            // Logged in — show organizer app
             authPage.classList.remove('active');
             mainApp.style.display = '';
-            userBar.style.display = 'flex';
-            userName.textContent  = user.displayName || user.email;
-            // Push existing localStorage to Firebase on login
+
+            // Populate user pill
+            pill.style.display = 'flex';
+            const displayName = user.displayName || user.email;
+            pillName.textContent = displayName;
+
+            // Avatar: photo if Google, else initials
+            if (user.photoURL) {
+                pillAvatar.innerHTML = '<img src="' + user.photoURL + '" alt="avatar">';
+            } else {
+                pillAvatar.textContent = displayName.charAt(0).toUpperCase();
+            }
+
             const saved = localStorage.getItem('pb_stacker_v12');
             if (saved) { try { window.fbWrite(JSON.parse(saved)); } catch(e) {} }
         } else {
-            // Not logged in — show auth page, hide app
             authPage.classList.add('active');
             mainApp.style.display = 'none';
-            userBar.style.display = 'none';
+            pill.style.display = 'none';
         }
     });
 
