@@ -715,7 +715,11 @@
     function sync() {
         localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
         updateDisplay();
-        if (window.fbWrite) window.fbWrite(state);
+        if (window.fbWrite) {
+            window.fbWrite(state);
+        } else {
+            console.warn('[sync] fbWrite not ready yet');
+        }
     }
 
     function addPlayers() {
@@ -1100,12 +1104,13 @@
     // ── Helpers exposed to non-module code ───────────────────────────────
     // Session path is per-user: sessions/{uid}
     function getSessionPath() {
-        const u = auth.currentUser;
-        return u ? 'sessions/' + u.uid : null;
+        const uid = (auth.currentUser && auth.currentUser.uid) || window._sessionUid;
+        return uid ? 'sessions/' + uid : null;
     }
     window.fbWrite = (data) => {
         const path = getSessionPath();
-        if (!path) return;
+        if (!path) { console.warn('[fbWrite] no session path — user not logged in yet'); return; }
+        console.log('[fbWrite] writing to', path, 'courts:', data && data.courts && data.courts.length);
         set(ref(db, path), data).catch(e => console.warn('FB write err:', e));
     };
 
@@ -1213,17 +1218,23 @@
             // Store uid FIRST so fbWrite uses the right path
             window._sessionUid = user.uid;
 
-            // Force-write current localStorage state to sessions/{uid}
-            const saved = localStorage.getItem('pb_stacker_v12');
-            if (saved) {
-                try { window.fbWrite(JSON.parse(saved)); } catch(e) {}
-            } else {
-                // Write default state so spectators see something
-                window.fbWrite({
-                    theme: 'dark', queue: [], history: [], stats: {},
-                    courts: [{ id: '1', players: [null,null,null,null], startTime: null, alerted: false }]
-                });
-            }
+            // Push state to Firebase — use in-memory state if available, else localStorage
+            setTimeout(() => {
+                const liveState = (typeof state !== 'undefined' && state.courts) ? state : null;
+                if (liveState) {
+                    console.log('[Auth] pushing in-memory state to Firebase, courts:', liveState.courts.length);
+                    window.fbWrite(liveState);
+                } else {
+                    const saved = localStorage.getItem('pb_stacker_v12');
+                    if (saved) {
+                        try {
+                            const parsed = JSON.parse(saved);
+                            console.log('[Auth] pushing localStorage state to Firebase');
+                            window.fbWrite(parsed);
+                        } catch(e) {}
+                    }
+                }
+            }, 200);
         } else {
             authPage.classList.add('active');
             mainApp.style.display = 'none';
