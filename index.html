@@ -314,27 +314,6 @@
         }
         .header-signout-btn:hover { background: rgba(255,61,0,0.4); color: white; }
 
-        /* Next Up Preview */
-        .next-up-preview {
-            margin-top: 10px;
-            padding: 8px 10px;
-            background: rgba(46,125,50,0.15);
-            border: 1px dashed rgba(46,125,50,0.5);
-            border-radius: 8px;
-            font-size: 12px;
-        }
-        .next-up-preview .nup-label {
-            color: #81c784; font-weight: bold; font-size: 11px;
-            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;
-        }
-        .next-up-preview .nup-players {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
-        }
-        .next-up-player {
-            background: rgba(46,125,50,0.2); border-radius: 5px;
-            padding: 5px 8px; color: #c8e6c9; font-size: 12px; text-align: center;
-        }
-        .next-up-empty { color: #546e7a; font-style: italic; font-size: 11px; }
 
         /* Edit Modal */
         .edit-modal-overlay {
@@ -397,6 +376,68 @@
         .slot { position: relative; }
         
         .court-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+        /* Next Match Banner */
+        .next-match-banner {
+            width: 100%;
+            background: linear-gradient(135deg, #1b5e20, #2e7d32);
+            border: 1px solid rgba(76,175,80,0.4);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 14px;
+            display: none;
+        }
+        .next-match-banner.visible { display: block; }
+        .next-match-banner .nmb-label {
+            font-size: 11px; font-weight: bold; color: #a5d6a7;
+            text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .next-match-banner .nmb-label::before {
+            content: ''; display: inline-block; width: 7px; height: 7px;
+            background: #69f0ae; border-radius: 50%;
+            animation: livepulse 1.2s infinite;
+        }
+        .nmb-players {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        }
+        .nmb-player {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px; padding: 9px 12px;
+            font-size: 13px; font-weight: 600; color: #e8f5e9;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .nmb-player::before {
+            content: attr(data-num);
+            background: #4caf50; color: white;
+            font-size: 10px; font-weight: bold;
+            border-radius: 50%; width: 18px; height: 18px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .nmb-waiting {
+            font-size: 12px; color: #a5d6a7; font-style: italic;
+            padding: 4px 0;
+        }
+        .nmb-court-label {
+            font-size: 11px; color: #81c784; margin-bottom: 6px; font-weight: bold;
+        }
+
+        /* Styled select dropdown for edit modal */
+        .edit-player-row select {
+            flex: 1; padding: 9px 12px; border-radius: 8px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: white; font-size: 14px;
+            appearance: none; -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23ff6d00' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-color: #1e2a32;
+            cursor: pointer;
+        }
+        .edit-player-row select:focus { border-color: #ff6d00; outline: none; }
+        .edit-player-row select option { background: #1e2a32; color: white; }
     </style>
 </head>
 <body>
@@ -516,6 +557,7 @@
         <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
     </div>
 
+    <div id="nextMatchBanner" class="next-match-banner"></div>
     <div class="courts-grid" id="courtsGrid"></div>
 </div>
 
@@ -696,24 +738,47 @@
 
         document.getElementById('historyLog').innerHTML = state.history.map(h => `<div class="history-item">${h}</div>`).join('') || '<small>...</small>';
 
-        // How many courts are empty (available soon)
-        const emptyCourts = state.courts.filter(c => c.players.every(p => p === null)).length;
-        const slotsNeeded = Math.max(0, emptyCourts) * 4;
-        const nextUpPlayers = state.queue.slice(0, Math.max(slotsNeeded, 4));
+        // ── Next Match Banner ─────────────────────────────────────────
+        const banner = document.getElementById('nextMatchBanner');
+        const emptyCourts = state.courts.filter(c => c.players.every(p => p === null));
+        if (state.queue.length > 0) {
+            banner.classList.add('visible');
+            let bannerHtml = '<div class="nmb-label">Next Match</div>';
+            if (emptyCourts.length > 0) {
+                // Show per empty court
+                emptyCourts.forEach((ec, ei) => {
+                    const offset = ei * 4;
+                    const upcoming = state.queue.slice(offset, offset + 4);
+                    if (upcoming.length === 0) return;
+                    bannerHtml += '<div class="nmb-court-label">Court ' + ec.id + '</div>';
+                    bannerHtml += '<div class="nmb-players">';
+                    upcoming.forEach((p, pi) => {
+                        bannerHtml += '<div class="nmb-player" data-num="' + (offset+pi+1) + '">' + p.name + '</div>';
+                    });
+                    if (upcoming.length < 4) {
+                        bannerHtml += '<div class="nmb-waiting">(' + (4 - upcoming.length) + ' more needed)</div>';
+                    }
+                    bannerHtml += '</div>';
+                });
+            } else {
+                // All courts active — show who's on deck generically
+                const next4 = state.queue.slice(0, 4);
+                bannerHtml += '<div class="nmb-court-label">On Deck (next available court)</div>';
+                bannerHtml += '<div class="nmb-players">';
+                next4.forEach((p, pi) => {
+                    bannerHtml += '<div class="nmb-player" data-num="' + (pi+1) + '">' + p.name + '</div>';
+                });
+                if (next4.length < 4) {
+                    bannerHtml += '<div class="nmb-waiting">(' + (4 - next4.length) + ' more needed)</div>';
+                }
+                bannerHtml += '</div>';
+            }
+            banner.innerHTML = bannerHtml;
+        } else {
+            banner.classList.remove('visible');
+        }
 
-        document.getElementById('courtsGrid').innerHTML = state.courts.map((c, i) => {
-            const isEmpty = c.players.every(p => p === null);
-            // Next up preview: show next 4 from queue for each empty court
-            const nextUpHtml = isEmpty && state.queue.length > 0
-                ? `<div class="next-up-preview">
-                    <div class="nup-label">&#9654; Next Players</div>
-                    <div class="nup-players">
-                        ${state.queue.slice(0,4).map(p => `<div class="next-up-player">${p.name}</div>`).join('')}
-                        ${state.queue.length < 4 ? `<div class="next-up-empty">(${4 - state.queue.length} more needed)</div>` : ''}
-                    </div>
-                  </div>`
-                : '';
-            return `
+        document.getElementById('courtsGrid').innerHTML = state.courts.map((c, i) => `
             <div class="court-card ${c.alerted ? 'overtime-active' : ''}">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <strong onclick="const n=prompt('Name:','${c.id}'); if(n){state.courts[${i}].id=n;sync();}" style="cursor:pointer">Court ${c.id}</strong>
@@ -731,13 +796,12 @@
                         </div>
                     `).join('')}
                 </div>
-                ${nextUpHtml}
                 <div class="court-actions">
                     <button class="btn-rotate" onclick="rotateCourt(${i})">Rotate</button>
                     <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">Clear</button>
                 </div>
-            </div>`;
-        }).join('') + `<button onclick="state.courts.push({id: state.courts.length+1, players:[null,null,null,null], startTime:null, alerted:false});sync();" style="border:2px dashed var(--primary); background:none; padding:20px; border-radius:12px; color:var(--primary); font-weight:bold; width:100%; cursor:pointer;">+ Add Court</button>`;
+            </div>
+        `).join('') + `<button onclick="state.courts.push({id: state.courts.length+1, players:[null,null,null,null], startTime:null, alerted:false});sync();" style="border:2px dashed var(--primary); background:none; padding:20px; border-radius:12px; color:var(--primary); font-weight:bold; width:100%; cursor:pointer;">+ Add Court</button>`;
     }
 
     function dragStart(ev, type, index, courtIdx = null) { ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); }
@@ -818,37 +882,55 @@
 
 
     // ── Edit Modal ──────────────────────────────────────────────────────
-    let editContext = null; // { type: 'court'|'queue', idx }
+    let editContext = null;
+
+    // Build all known player names from stats + queue + courts
+    function getAllPlayerNames() {
+        const names = new Set();
+        Object.keys(state.stats).forEach(n => names.add(n));
+        state.queue.forEach(p => names.add(p.name));
+        state.courts.forEach(c => c.players.forEach(p => { if(p) names.add(p.name); }));
+        return Array.from(names).sort((a,b) => a.localeCompare(b));
+    }
+
+    function buildSelectOptions(currentName, fieldId) {
+        const names = getAllPlayerNames();
+        const opts = ['<option value="">— Empty slot —</option>'];
+        names.forEach(n => {
+            const sel = n === currentName ? ' selected' : '';
+            opts.push('<option value="' + n + '"' + sel + '>' + n + '</option>');
+        });
+        return '<select id="' + fieldId + '">' + opts.join('') + '</select>';
+    }
 
     function openCourtEdit(courtIdx) {
         editContext = { type: 'court', idx: courtIdx };
         const c = state.courts[courtIdx];
         document.getElementById('editModalTitle').textContent = 'Edit Court ' + c.id + ' Players';
         const labels = ['Player 1', 'Player 2', 'Player 3', 'Player 4'];
-        document.getElementById('editModalBody').innerHTML = [0,1,2,3].map(j => `
-            <div class="edit-player-row">
-                <span class="slot-label">${labels[j]}</span>
-                <input type="text" id="ep_${j}" value="${c.players[j] ? c.players[j].name : ''}" placeholder="Empty slot">
-                <button class="remove-btn" onclick="document.getElementById('ep_${j}').value=''">✕</button>
-            </div>
-        `).join('');
+        document.getElementById('editModalBody').innerHTML =
+            '<p style="font-size:12px;color:#78909c;margin:0 0 12px">Select from the player pool. Choose empty to remove a player from the slot.</p>' +
+            [0,1,2,3].map(j => {
+                const cur = c.players[j] ? c.players[j].name : '';
+                return '<div class="edit-player-row">'
+                    + '<span class="slot-label">' + labels[j] + '</span>'
+                    + buildSelectOptions(cur, 'ep_' + j)
+                    + '</div>';
+            }).join('');
         document.getElementById('editModalOverlay').classList.add('open');
     }
 
     function openQueueEdit(queueIdx) {
         editContext = { type: 'queue', idx: queueIdx };
         const p = state.queue[queueIdx];
-        document.getElementById('editModalTitle').textContent = 'Edit Queue Player #' + (queueIdx + 1);
-        document.getElementById('editModalBody').innerHTML = `
-            <div class="edit-player-row">
-                <span class="slot-label">Name</span>
-                <input type="text" id="eq_0" value="${p.name}" placeholder="Player name">
-                <button class="remove-btn" onclick="removeFromQueue(${queueIdx});closeEditModal()">Remove</button>
-            </div>
-            <hr class="edit-section-divider">
-            <div style="font-size:11px;color:#78909c;">
-                Tip: Drag the player card in the queue to reorder.
-            </div>`;
+        document.getElementById('editModalTitle').textContent = 'Edit Queue #' + (queueIdx + 1);
+        document.getElementById('editModalBody').innerHTML =
+            '<p style="font-size:12px;color:#78909c;margin:0 0 12px">Swap this spot with another player from the pool.</p>'
+            + '<div class="edit-player-row">'
+            + '<span class="slot-label">Player</span>'
+            + buildSelectOptions(p.name, 'eq_0')
+            + '<button class="remove-btn" onclick="removeFromQueue(' + queueIdx + ');closeEditModal()">Remove</button>'
+            + '</div>';
         document.getElementById('editModalOverlay').classList.add('open');
     }
 
@@ -862,7 +944,8 @@
         if (editContext.type === 'court') {
             const c = state.courts[editContext.idx];
             [0,1,2,3].forEach(j => {
-                const val = document.getElementById('ep_' + j).value.trim();
+                const sel = document.getElementById('ep_' + j);
+                const val = sel ? sel.value : '';
                 if (val) {
                     c.players[j] = { name: val };
                     if (!state.stats[val]) state.stats[val] = { wins: 0, games: 0 };
@@ -871,7 +954,8 @@
                 }
             });
         } else if (editContext.type === 'queue') {
-            const val = document.getElementById('eq_0').value.trim();
+            const sel = document.getElementById('eq_0');
+            const val = sel ? sel.value : '';
             if (val) {
                 state.queue[editContext.idx].name = val;
                 if (!state.stats[val]) state.stats[val] = { wins: 0, games: 0 };
