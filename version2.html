@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ALWLS Pickleball Stacking & Matcher</title>
+    <style>
+        :root { 
+            --primary: #ff6d00; 
+            --primary-dark: #e65100; 
+            --bg: #37474f; 
+            --sidebar: #eceff1; 
+            --card: #455a64; 
+            --text-main: #ffffff; 
+            --text-side: #263238; 
+            --warning: #ff3d00;
+            --input-bg: #ffffff;
+            --success: #2e7d32;
+        }
+
+        [data-theme="light"] {
+            --bg: #cfd8dc;
+            --sidebar: #ffffff;
+            --card: #ffffff;
+            --text-main: #263238;
+            --text-side: #263238;
+            --input-bg: #f5f5f5;
+        }
+        
+        * { box-sizing: border-box; transition: background 0.3s, color 0.3s; }
+        
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            background: var(--bg); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            padding: 0; margin: 0; 
+            color: var(--text-main);
+            overflow-x: hidden;
+        }
+        
+        header { 
+            background: #263238; 
+            width: 100%; 
+            padding: 10px 20px; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            border-bottom: 3px solid var(--primary);
+            position: sticky; top: 0; z-index: 100;
+        }
+        header h1 { margin: 0; font-size: 1rem; color: white; }
+        header span { color: var(--primary); }
+
+        .theme-toggle { background: var(--primary); color: white; padding: 5px 12px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; }
+
+        .app-container { 
+            width: 100%; max-width: 1400px; 
+            display: grid; grid-template-columns: 1fr; 
+            gap: 15px; padding: 15px; 
+        }
+
+        @media (min-width: 1024px) { 
+            .app-container { grid-template-columns: 350px 1fr; align-items: start; }
+            .sidebar { position: sticky; top: 70px; max-height: 90vh; }
+        }
+        
+        .sidebar { 
+            background: var(--sidebar); 
+            padding: 15px; border-radius: 15px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+            color: var(--text-side); 
+            overflow-y: auto; 
+        }
+
+        .paddle-rack { 
+            display: flex; flex-direction: column; gap: 6px; 
+            margin: 10px 0; min-height: 60px; 
+            border: 2px dashed #90a4ae; padding: 10px; 
+            border-radius: 8px; background: rgba(0,0,0,0.05); 
+        }
+
+        .paddle { 
+            background: var(--primary); color: white; 
+            padding: 10px; border-radius: 6px; 
+            display: flex; justify-content: space-between; 
+            font-size: 14px; cursor: grab; font-weight: bold;
+        }
+
+        .courts-grid { 
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); 
+            gap: 15px; width: 100%; 
+        }
+
+        .court-card { 
+            background: var(--card); padding: 15px; 
+            border-radius: 12px; border: 3px solid transparent; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+        }
+
+        .overtime-active { border-color: var(--primary); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 109, 0, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(255, 109, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 109, 0, 0); } }
+
+        .timer { font-family: monospace; font-size: 22px; color: var(--primary); font-weight: bold; }
+        
+        .player-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+
+        .slot { 
+            background: rgba(128,128,128,0.1); padding: 12px 5px; 
+            border-radius: 8px; font-size: 13px; min-height: 45px; 
+            display: flex; align-items: center; justify-content: center; flex-direction: column;
+            border: 1px dashed rgba(128,128,128,0.3);
+            color: var(--text-main);
+            text-align: center;
+        }
+
+        button { border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-add { background: var(--primary); color: white; width: 100%; margin-bottom: 8px; padding: 10px; }
+        .btn-call { background: var(--success); color: white; width: 100%; margin-bottom: 15px; padding: 10px; }
+        .btn-rotate { background: var(--primary); color: white; flex: 2; padding: 10px; }
+        .btn-clear { background: #78909c; color: white; flex: 1; font-size: 11px; }
+        .btn-export { background: #546e7a; color: white; width: 100%; margin-top: 15px; padding: 10px; font-size: 12px; }
+        .btn-import { background: #1565c0; color: white; width: 100%; margin-bottom: 8px; padding: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-import:hover { background: #0d47a1; }
+        #importFileInput { display: none; }
+        .import-toast { position: fixed; bottom: 20px; right: 20px; background: var(--success); color: white; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: bold; z-index: 999; opacity: 0; transform: translateY(10px); transition: opacity 0.3s, transform 0.3s; pointer-events
