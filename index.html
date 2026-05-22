@@ -403,6 +403,60 @@
             padding: 5px 8px; color: #c8e6c9; font-size: 12px; text-align: center;
         }
         .next-up-empty { color: #546e7a; font-style: italic; font-size: 11px; }
+
+        /* Next Match Panel */
+        .right-column { display: flex; flex-direction: column; gap: 15px; }
+
+        .next-match-panel {
+            background: linear-gradient(135deg, #1b3a1f 0%, #1e4024 100%);
+            border: 1px solid rgba(76,175,80,0.35);
+            border-radius: 12px;
+            padding: 14px 16px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .nmp-header {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 12px;
+        }
+        .nmp-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #69f0ae; flex-shrink: 0;
+            animation: livepulse 1.2s infinite;
+        }
+        .nmp-title {
+            font-size: 12px; font-weight: bold; color: #a5d6a7;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .nmp-court-label {
+            font-size: 11px; color: #81c784; font-weight: bold;
+            margin: 8px 0 5px;
+        }
+        .nmp-players-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+            margin-bottom: 4px;
+        }
+        .nmp-player {
+            background: rgba(255,255,255,0.08);
+            border-radius: 7px; padding: 8px 10px;
+            font-size: 13px; font-weight: 600; color: #e8f5e9;
+            display: flex; align-items: center; gap: 7px;
+        }
+        .nmp-player-num {
+            background: #4caf50; color: white;
+            font-size: 10px; font-weight: bold;
+            border-radius: 50%; min-width: 18px; height: 18px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .nmp-waiting {
+            font-size: 11px; color: #81c784; font-style: italic;
+            padding: 4px 0; grid-column: 1/-1;
+        }
+        .nmp-empty {
+            font-size: 12px; color: #546e7a; font-style: italic;
+            padding: 4px 0;
+        }
+        .nmp-divider { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 8px 0; }
     </style>
 </head>
 <body>
@@ -522,7 +576,10 @@
         <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
     </div>
 
-    <div class="courts-grid" id="courtsGrid"></div>
+    <div class="right-column">
+        <div class="next-match-panel" id="nextMatchPanel" style="display:none"></div>
+        <div class="courts-grid" id="courtsGrid"></div>
+    </div>
 </div>
 
 
@@ -702,8 +759,41 @@
 
         document.getElementById('historyLog').innerHTML = state.history.map(h => `<div class="history-item">${h}</div>`).join('') || '<small>...</small>';
 
-        // How many courts are empty (available soon)
-        const emptyCourts = state.courts.filter(c => c.players.every(p => p === null)).length;
+        // ── Next Match Panel ───────────────────────────────────────────
+        const nmpEl = document.getElementById('nextMatchPanel');
+        const emptyCourtsArr = state.courts.filter(c => c.players.every(p => p === null));
+        const emptyCourts = emptyCourtsArr.length;
+
+        if (state.queue.length > 0) {
+            nmpEl.style.display = '';
+            let nmpHtml = '<div class="nmp-header"><div class="nmp-dot"></div><span class="nmp-title">Next Match</span></div>';
+            if (emptyCourtsArr.length > 0) {
+                emptyCourtsArr.forEach((ec, ei) => {
+                    const upcoming = state.queue.slice(ei * 4, ei * 4 + 4);
+                    if (upcoming.length === 0) return;
+                    if (ei > 0) nmpHtml += '<hr class="nmp-divider">';
+                    nmpHtml += '<div class="nmp-court-label">Court ' + ec.id + '</div>';
+                    nmpHtml += '<div class="nmp-players-grid">';
+                    upcoming.forEach((p, pi) => {
+                        nmpHtml += '<div class="nmp-player"><span class="nmp-player-num">' + (ei*4+pi+1) + '</span>' + p.name + '</div>';
+                    });
+                    if (upcoming.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4-upcoming.length) + ' more needed</div>';
+                    nmpHtml += '</div>';
+                });
+            } else {
+                nmpHtml += '<div class="nmp-court-label">On Deck</div>';
+                nmpHtml += '<div class="nmp-players-grid">';
+                state.queue.slice(0,4).forEach((p, pi) => {
+                    nmpHtml += '<div class="nmp-player"><span class="nmp-player-num">' + (pi+1) + '</span>' + p.name + '</div>';
+                });
+                if (state.queue.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4-state.queue.length) + ' more needed</div>';
+                nmpHtml += '</div>';
+            }
+            nmpEl.innerHTML = nmpHtml;
+        } else {
+            nmpEl.style.display = 'none';
+        }
+
         const slotsNeeded = Math.max(0, emptyCourts) * 4;
         const nextUpPlayers = state.queue.slice(0, Math.max(slotsNeeded, 4));
 
