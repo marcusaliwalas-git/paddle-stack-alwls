@@ -1107,11 +1107,29 @@
         const uid = (auth.currentUser && auth.currentUser.uid) || window._sessionUid;
         return uid ? 'sessions/' + uid : null;
     }
+    // Firebase keys can't contain . # $ / [ ]  — sanitize player name keys in stats
+    function sanitizeForFirebase(data) {
+        if (!data) return data;
+        const clean = Object.assign({}, data);
+        if (clean.stats) {
+            const safeStats = {};
+            Object.keys(clean.stats).forEach(name => {
+                const safeKey = name.replace(/[.#$\/\[\]]/g, '_');
+                safeStats[safeKey] = clean.stats[name];
+            });
+            clean.stats = safeStats;
+        }
+        return clean;
+    }
+
     window.fbWrite = (data) => {
         const path = getSessionPath();
         if (!path) { console.warn('[fbWrite] no session path — user not logged in yet'); return; }
-        console.log('[fbWrite] writing to', path, 'courts:', data && data.courts && data.courts.length);
-        set(ref(db, path), data).catch(e => console.warn('FB write err:', e));
+        try {
+            set(ref(db, path), sanitizeForFirebase(data)).catch(e => console.warn('FB write err:', e));
+        } catch(e) {
+            console.warn('FB write exception:', e.message);
+        }
     };
 
     window.doLogin = async function() {
