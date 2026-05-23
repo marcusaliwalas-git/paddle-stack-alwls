@@ -614,6 +614,113 @@
         .score-confirm-btn { flex: 2; background: #ff6d00; color: white; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: bold; border: none; cursor: pointer; }
         .score-confirm-btn:hover { background: #e65100; }
         .score-cancel-btn { flex: 1; background: rgba(255,255,255,0.07); color: #ccc; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; }
+
+        /* End OP Button */
+        .btn-end-op {
+            width: 100%; padding: 11px; margin-top: 10px;
+            background: linear-gradient(135deg, #b71c1c, #c62828);
+            color: white; border: none; border-radius: 10px;
+            font-size: 14px; font-weight: bold; cursor: pointer;
+            letter-spacing: 0.5px;
+            box-shadow: 0 3px 10px rgba(183,28,28,0.4);
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn-end-op:hover { background: linear-gradient(135deg, #c62828, #d32f2f); transform: translateY(-1px); }
+
+        /* End OP Modal */
+        .endop-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.88); z-index: 800;
+            align-items: center; justify-content: center;
+            overflow-y: auto; padding: 20px 0;
+        }
+        .endop-overlay.open { display: flex; }
+        .endop-modal {
+            background: #16213e; border-radius: 20px;
+            padding: 28px 24px; width: 92%; max-width: 460px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+            border: 1px solid rgba(255,109,0,0.2);
+        }
+        .endop-header { text-align: center; margin-bottom: 20px; }
+        .endop-header h2 { margin: 0 0 4px; color: white; font-size: 1.3rem; }
+        .endop-header p { margin: 0; color: #78909c; font-size: 12px; }
+
+        /* Sort tabs */
+        .endop-tabs {
+            display: flex; gap: 6px; margin-bottom: 18px;
+            background: rgba(255,255,255,0.05); border-radius: 10px; padding: 4px;
+        }
+        .endop-tab {
+            flex: 1; padding: 8px 4px; border: none; border-radius: 7px;
+            font-size: 11px; font-weight: bold; cursor: pointer;
+            background: transparent; color: #78909c; transition: all 0.2s;
+        }
+        .endop-tab.active { background: #ff6d00; color: white; }
+
+        /* Podium */
+        .endop-podium {
+            display: flex; align-items: flex-end; justify-content: center;
+            gap: 8px; margin-bottom: 20px; min-height: 140px;
+        }
+        .podium-place {
+            flex: 1; border-radius: 12px 12px 0 0;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 12px 8px 10px; position: relative;
+            transition: all 0.3s;
+        }
+        .podium-place.p1 { background: linear-gradient(160deg,#7b5e00,#f9a825); min-height: 130px; order: 2; }
+        .podium-place.p2 { background: linear-gradient(160deg,#4a4a4a,#9e9e9e); min-height: 100px; order: 1; }
+        .podium-place.p3 { background: linear-gradient(160deg,#4e2d00,#a1632a); min-height: 80px; order: 3; }
+        .podium-rank {
+            font-size: 22px; margin-bottom: 4px;
+        }
+        .podium-name {
+            font-size: 13px; font-weight: bold; color: white;
+            text-align: center; word-break: break-word; margin-bottom: 3px;
+        }
+        .podium-stat {
+            font-size: 11px; color: rgba(255,255,255,0.75); text-align: center;
+        }
+        .podium-place.p1 .podium-rank::after { content: ''; }
+        .endop-no-data { text-align: center; color: #546e7a; font-style: italic; padding: 20px 0; font-size: 13px; }
+
+        /* Full leaderboard list */
+        .endop-list { margin-bottom: 18px; }
+        .endop-list-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 8px; margin-bottom: 5px;
+            background: rgba(255,255,255,0.04);
+        }
+        .endop-list-row:nth-child(1) { background: rgba(249,168,37,0.1); border: 1px solid rgba(249,168,37,0.2); }
+        .endop-list-row:nth-child(2) { background: rgba(158,158,158,0.1); border: 1px solid rgba(158,158,158,0.2); }
+        .endop-list-row:nth-child(3) { background: rgba(161,99,42,0.1); border: 1px solid rgba(161,99,42,0.2); }
+        .endop-rank-num { font-size: 12px; font-weight: bold; color: #78909c; width: 20px; }
+        .endop-player-name { flex: 1; font-size: 14px; color: white; font-weight: 600; }
+        .endop-stat-pill {
+            font-size: 11px; padding: 3px 8px; border-radius: 10px;
+            background: rgba(255,109,0,0.15); color: #ff8a65; font-weight: bold;
+        }
+
+        /* Action buttons */
+        .endop-actions { display: flex; gap: 8px; margin-top: 4px; }
+        .endop-download-btn {
+            flex: 2; padding: 12px; background: #1565c0; color: white;
+            border: none; border-radius: 10px; font-size: 14px; font-weight: bold;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .endop-download-btn:hover { background: #0d47a1; }
+        .endop-close-btn {
+            flex: 1; padding: 12px; background: rgba(255,255,255,0.07); color: #ccc;
+            border: none; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer;
+        }
+        .endop-close-btn:hover { background: rgba(255,255,255,0.12); }
+        .endop-new-btn {
+            width: 100%; margin-top: 8px; padding: 11px;
+            background: rgba(183,28,28,0.2); color: #ef9a9a;
+            border: 1px solid rgba(183,28,28,0.4); border-radius: 10px;
+            font-size: 13px; font-weight: bold; cursor: pointer;
+        }
+        .endop-new-btn:hover { background: rgba(183,28,28,0.35); }
     </style>
 </head>
 <body>
@@ -735,7 +842,7 @@
         </div>
 
         <button class="btn-export" onclick="exportStats()">📊 Download Stats (CSV)</button>
-        
+        <button class="btn-end-op" onclick="openEndOP()">🏁 End OP</button>
         <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
     </div>
 
@@ -774,6 +881,32 @@
     </div>
 </div>
 
+
+
+<!-- End OP Modal -->
+<div class="endop-overlay" id="endopOverlay" onclick="if(event.target===this)closeEndOP()">
+    <div class="endop-modal">
+        <div class="endop-header">
+            <h2>🏁 Session Complete</h2>
+            <p id="endopSubtitle">Here's how everyone performed</p>
+        </div>
+
+        <div class="endop-tabs">
+            <button class="endop-tab active" id="tab-wins" onclick="renderEndOP('wins')">🏆 Wins</button>
+            <button class="endop-tab" id="tab-winpct" onclick="renderEndOP('winpct')">📊 Win %</button>
+            <button class="endop-tab" id="tab-points" onclick="renderEndOP('points')">🎯 Points</button>
+        </div>
+
+        <div class="endop-podium" id="endopPodium"></div>
+        <div class="endop-list" id="endopList"></div>
+
+        <div class="endop-actions">
+            <button class="endop-download-btn" onclick="exportStats()">⬇️ Download Results CSV</button>
+            <button class="endop-close-btn" onclick="closeEndOP()">Close</button>
+        </div>
+        <button class="endop-new-btn" onclick="endAndReset()">🔄 End &amp; Start New Session</button>
+    </div>
+</div>
 
 <!-- Score Entry Modal -->
 <div class="score-modal-overlay" id="scoreModalOverlay" onclick="if(event.target===this)closeScoreModal()">
@@ -1341,6 +1474,123 @@
         editContext = null;
     }
 
+
+
+    // ── End OP ──────────────────────────────────────────────────────────
+    let _endopSortMode = 'wins';
+
+    function openEndOP() {
+        _endopSortMode = 'wins';
+        updateEndopSubtitle();
+        renderEndOP('wins');
+        document.getElementById('endopOverlay').classList.add('open');
+    }
+
+    function closeEndOP() {
+        document.getElementById('endopOverlay').classList.remove('open');
+    }
+
+    function endAndReset() {
+        if (!confirm('End this session and reset all courts and queue? Stats and game log will be kept.')) return;
+        closeEndOP();
+        // Clear courts and queue but keep stats and gameLog
+        state.courts.forEach(c => {
+            c.players = [null, null, null, null];
+            c.startTime = null; c.alerted = false;
+        });
+        state.queue = [];
+        state.history = [];
+        state.matchingMode = null;
+        state.partnerHistory = {};
+        sync();
+        showMatchingModal();
+    }
+
+    function updateEndopSubtitle() {
+        const totalGames = (state.gameLog || []).length;
+        const totalPlayers = Object.keys(state.stats || {}).length;
+        document.getElementById('endopSubtitle').textContent =
+            totalPlayers + ' players · ' + totalGames + ' games played';
+    }
+
+    function getEndopRankings(mode) {
+        const players = Object.keys(state.stats || {});
+        const gameLog  = state.gameLog || [];
+
+        // Compute points (total score from gameLog)
+        const pointsMap = {};
+        gameLog.forEach(g => {
+            const sA = parseInt(g.scoreA) || 0;
+            const sB = parseInt(g.scoreB) || 0;
+            (g.teamA || []).forEach(n => { pointsMap[n] = (pointsMap[n] || 0) + sA; });
+            (g.teamB || []).forEach(n => { pointsMap[n] = (pointsMap[n] || 0) + sB; });
+        });
+
+        return players.map(name => {
+            const s = state.stats[name] || { wins: 0, games: 0 };
+            const losses = s.games - s.wins;
+            const winPct = s.games > 0 ? ((s.wins / s.games) * 100).toFixed(1) : '0.0';
+            const points = pointsMap[name] || 0;
+            return { name, wins: s.wins, games: s.games, losses, winPct: parseFloat(winPct), points };
+        }).filter(p => p.games > 0)
+          .sort((a, b) => {
+              if (mode === 'wins')   return b.wins - a.wins || b.games - a.games;
+              if (mode === 'winpct') return b.winPct - a.winPct || b.games - a.games;
+              if (mode === 'points') return b.points - a.points;
+              return 0;
+          });
+    }
+
+    function getStatLabel(p, mode) {
+        if (mode === 'wins')   return p.wins + 'W / ' + p.losses + 'L';
+        if (mode === 'winpct') return p.winPct + '% (' + p.games + ' games)';
+        if (mode === 'points') return p.points + ' pts';
+        return '';
+    }
+
+    function renderEndOP(mode) {
+        _endopSortMode = mode;
+        // Update tabs
+        ['wins','winpct','points'].forEach(m => {
+            document.getElementById('tab-' + m).classList.toggle('active', m === mode);
+        });
+
+        const ranked = getEndopRankings(mode);
+        const podiumEl = document.getElementById('endopPodium');
+        const listEl   = document.getElementById('endopList');
+
+        if (ranked.length === 0) {
+            podiumEl.innerHTML = '<div class="endop-no-data">No player stats yet.<br>Complete some games first.</div>';
+            listEl.innerHTML = '';
+            return;
+        }
+
+        // Podium (top 3)
+        const medals = ['🥇','🥈','🥉'];
+        const classes = ['p1','p2','p3'];
+        const top3 = ranked.slice(0, 3);
+        // Always render p2, p1, p3 order (second, first, third) for visual podium
+        const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
+        const podiumClasses = top3[1] ? ['p2','p1','p3'] : ['p1'];
+
+        podiumEl.innerHTML = podiumOrder.map((p, vi) => {
+            const realIdx = top3.indexOf(p);
+            return `<div class="podium-place ${classes[realIdx]}">
+                <div class="podium-rank">${medals[realIdx]}</div>
+                <div class="podium-name">${p.name}</div>
+                <div class="podium-stat">${getStatLabel(p, mode)}</div>
+            </div>`;
+        }).join('');
+
+        // Full ranked list
+        listEl.innerHTML = ranked.slice(0, 10).map((p, i) =>
+            `<div class="endop-list-row">
+                <span class="endop-rank-num">${i+1}</span>
+                <span class="endop-player-name">${p.name}</span>
+                <span class="endop-stat-pill">${getStatLabel(p, mode)}</span>
+            </div>`
+        ).join('');
+    }
 
     // ── Matching Algorithm ───────────────────────────────────────────────
     let _selectedMode = null;
