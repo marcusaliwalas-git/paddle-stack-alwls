@@ -1842,6 +1842,63 @@
         return { manual: '🎲 Manual Stack', roundrobin: '🔄 Round Robin', snake: '🐍 Snake Draft' }[mode] || mode;
     }
 
+
+    // ── Preview next foursome without mutating state ─────────────────────
+    function previewNextFoursome() {
+        if (!state.matchingMode || state.matchingMode === 'manual') {
+            // Manual: just first 4 IN players in queue order
+            return state.queue.filter(p => p.in).slice(0, 4);
+        }
+        if (state.matchingMode === 'roundrobin') {
+            return previewRoundRobin();
+        }
+        if (state.matchingMode === 'snake') {
+            return previewSnakeDraft();
+        }
+        return state.queue.filter(p => p.in).slice(0, 4);
+    }
+
+    function previewRoundRobin() {
+        if (!state.partnerHistory) state.partnerHistory = {};
+        // Mirror fillRoundRobin logic but don't mutate
+        let pool = [...state.queue.filter(p => p.in)].sort((a, b) => {
+            const ga = (state.stats[a.name] || {}).games || 0;
+            const gb = (state.stats[b.name] || {}).games || 0;
+            return ga - gb;
+        });
+        // Remove sit-outs
+        while (pool.length % 4 !== 0 && pool.length > 0) {
+            let maxG = -1, idx = pool.length - 1;
+            pool.forEach((p, i) => {
+                const g = (state.stats[p.name] || {}).games || 0;
+                if (g > maxG) { maxG = g; idx = i; }
+            });
+            pool.splice(idx, 1);
+        }
+        if (pool.length < 4) return state.queue.filter(p => p.in).slice(0, 4);
+        return pickFreshFoursome(pool, []) || pool.slice(0, 4);
+    }
+
+    function previewSnakeDraft() {
+        let pool = [...state.queue.filter(p => p.in)].sort((a, b) => {
+            const ra = (state.playerRatings || {})[a.name] || 3.0;
+            const rb = (state.playerRatings || {})[b.name] || 3.0;
+            return rb - ra;
+        });
+        while (pool.length % 4 !== 0 && pool.length > 0) {
+            let maxG = -1, idx = pool.length - 1;
+            pool.forEach((p, i) => {
+                const g = (state.stats[p.name] || {}).games || 0;
+                if (g > maxG) { maxG = g; idx = i; }
+            });
+            pool.splice(idx, 1);
+        }
+        if (pool.length < 4) return state.queue.filter(p => p.in).slice(0, 4);
+        const group = pool.slice(0, 4);
+        // Snake: [0,3] = Team A, [1,2] = Team B → return as [A1, A2, B1, B2]
+        return [group[0], group[3], group[1], group[2]];
+    }
+
     // ── Fill all empty courts using current algorithm ────────────────────
     function getInQueue() {
         return state.queue.filter(p => p.in);
