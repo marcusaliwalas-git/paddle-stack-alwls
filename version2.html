@@ -865,12 +865,15 @@
 
     function confirmScore() {
         if (!_scoreCtx) return;
-        const scoreA = document.getElementById('scoreA').value;
-        const scoreB = document.getElementById('scoreB').value;
+        // Capture all values BEFORE closing (closeScoreModal nulls _scoreCtx)
+        const courtIdx = _scoreCtx.courtIdx;
+        const winningTeam = _scoreCtx.winningTeam;
+        const rawA = document.getElementById('scoreA').value;
+        const rawB = document.getElementById('scoreB').value;
+        const scoreA = rawA !== '' ? parseInt(rawA) : undefined;
+        const scoreB = rawB !== '' ? parseInt(rawB) : undefined;
         closeScoreModal();
-        rotateCourt(_scoreCtx.courtIdx, _scoreCtx.winningTeam,
-            scoreA !== '' ? parseInt(scoreA) : undefined,
-            scoreB !== '' ? parseInt(scoreB) : undefined);
+        rotateCourt(courtIdx, winningTeam, scoreA, scoreB);
     }
 
     function closeScoreModal() {
