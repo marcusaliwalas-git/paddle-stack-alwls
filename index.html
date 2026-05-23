@@ -1997,7 +1997,7 @@
 <!-- Firebase Realtime DB + Auth + QR + Live View -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
     import {
         getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
         signOut, onAuthStateChanged, updateProfile,
@@ -2197,22 +2197,50 @@
             // Store uid FIRST so fbWrite uses the right path
             window._sessionUid = user.uid;
 
-            // Push state to Firebase — use in-memory state if available, else localStorage
+            // On login: pull active session from Firebase first.
+            // If Firebase has data, use it (handles new device / another tab).
+            // If Firebase is empty, push local state up.
             setTimeout(() => {
-                const liveState = (typeof state !== 'undefined' && state.courts) ? state : null;
-                if (liveState) {
-                    window.fbWrite(liveState);
-                } else {
-                    const saved = localStorage.getItem('pb_stacker_v12');
-                    if (saved) {
-                        try { window.fbWrite(JSON.parse(saved)); } catch(e) {}
+                get(ref(db, 'sessions/' + user.uid)).then(snapshot => {
+                    const fbData = snapshot.val();
+                    if (fbData && fbData.courts) {
+                        // Firebase has an active session — load it into local state
+                        try {
+                            if (typeof state !== 'undefined') {
+                                Object.assign(state, fbData);
+                                // Ensure arrays are normalized
+                                if (!Array.isArray(state.courts)) state.courts = Object.values(state.courts);
+                                if (!Array.isArray(state.queue)) state.queue = state.queue ? Object.values(state.queue) : [];
+                                state.courts = state.courts.map(c => {
+                                    if (!c) return c;
+                                    if (c.players && !Array.isArray(c.players)) {
+                                        const arr = [null,null,null,null];
+                                        Object.keys(c.players).forEach(k => { arr[parseInt(k)] = c.players[k]; });
+                                        c.players = arr;
+                                    } else if (!c.players) {
+                                        c.players = [null,null,null,null];
+                                    }
+                                    return c;
+                                });
+                                localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
+                                if (typeof updateDisplay === 'function') updateDisplay();
+                            }
+                        } catch(e) { console.warn('Session merge error:', e); }
+                    } else {
+                        // Nothing in Firebase — push local state up
+                        const liveState = (typeof state !== 'undefined' && state.courts) ? state : null;
+                        if (liveState) {
+                            window.fbWrite(liveState);
+                        } else {
+                            const saved = localStorage.getItem('pb_stacker_v12');
+                            if (saved) { try { window.fbWrite(JSON.parse(saved)); } catch(e) {} }
+                        }
                     }
-                }
 
-                // Show mode selection if not yet chosen
-                if (typeof state !== 'undefined' && !state.matchingMode) {
-                    showMatchingModal();
-                }
+                    // Show mode selection if not yet chosen
+                    if (typeof state !== 'undefined' && !state.matchingMode) {
+                        showMatchingModal();
+                    }
             }, 300);
         } else {
             authPage.classList.add('active');
@@ -2353,38 +2381,75 @@
             }).join('');
         }
 
-        // ── Next Up: IN queue players only, always show as "On Deck" ────────
+        // ── Queue: all IN players with standings ────────────────────────────
         const queueEl = document.getElementById('liveQueue');
         const allQueue = toArray(liveState.queue);
         const inQueue = allQueue.filter(p => p && p.name && p.in);
+        const stats = liveState.stats || {};
+
+        function playerStat(name) {
+            // Stats keys may be sanitized (dots → underscores) — try both
+            const s = stats[name] || stats[name.replace(/[.#$\/\[\]]/g, '_')] || { wins: 0, games: 0 };
+            const losses = (s.games || 0) - (s.wins || 0);
+            return s.games > 0 ? (s.wins + 'W ' + losses + 'L') : '0W 0L';
+        }
+
+        // On Deck panel (first 4 IN players)
+        const next4 = inQueue.slice(0, 4);
+        let html = '';
 
         if (inQueue.length === 0) {
             queueEl.innerHTML = '<div class="live-empty">No players queued up yet.</div>';
-        } else {
-            const next4 = inQueue.slice(0, 4);
-            let html = '<div style="font-size:11px;font-weight:bold;color:#81c784;margin-bottom:8px;">On Deck</div>';
-            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">';
-            html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
-            [0,1].forEach(j => {
-                html += next4[j]
-                    ? '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6)">' + next4[j].name + '</div>'
-                    : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
-            });
-            html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
-            [2,3].forEach(j => {
-                html += next4[j]
-                    ? '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6)">' + next4[j].name + '</div>'
-                    : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
-            });
-            html += '</div>';
-            if (inQueue.length < 4) {
-                html += '<div class="live-empty" style="font-size:11px;margin-top:6px;">&#9650; ' + (4-inQueue.length) + ' more IN needed</div>';
-            }
-            if (inQueue.length > 4) {
-                html += '<div style="font-size:11px;color:#546e7a;margin-top:8px;text-align:center;">+' + (inQueue.length-4) + ' more in queue</div>';
-            }
-            queueEl.innerHTML = html;
+            return;
         }
+
+        // Next match section
+        html += '<div style="font-size:11px;font-weight:bold;color:#81c784;margin-bottom:8px;">&#9654; On Deck</div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:12px;">';
+        html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
+        [0,1].forEach(j => {
+            if (next4[j]) {
+                html += '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
+                    + '<span style="font-weight:bold;">' + next4[j].name + '</span>'
+                    + '<span style="font-size:10px;color:#90caf9;">' + playerStat(next4[j].name) + '</span>'
+                    + '</div>';
+            } else {
+                html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+            }
+        });
+        html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
+        [2,3].forEach(j => {
+            if (next4[j]) {
+                html += '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
+                    + '<span style="font-weight:bold;">' + next4[j].name + '</span>'
+                    + '<span style="font-size:10px;color:#f48fb1;">' + playerStat(next4[j].name) + '</span>'
+                    + '</div>';
+            } else {
+                html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+            }
+        });
+        html += '</div>';
+
+        // Full IN queue list with standings
+        if (inQueue.length > 0) {
+            html += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 8px 0">';
+            html += '<div style="font-size:11px;font-weight:bold;color:#78909c;margin-bottom:6px;">Queue (' + inQueue.length + ' IN)</div>';
+            inQueue.forEach((p, i) => {
+                html += '<div class="live-queue-item" style="justify-content:space-between;">'
+                    + '<div style="display:flex;align-items:center;gap:8px;">'
+                    + '<span class="live-queue-num">' + (i+1) + '</span>'
+                    + '<span>' + p.name + '</span>'
+                    + '</div>'
+                    + '<span style="font-size:11px;color:#90a4ae;">' + playerStat(p.name) + '</span>'
+                    + '</div>';
+            });
+        }
+
+        if (inQueue.length < 4) {
+            html += '<div class="live-empty" style="font-size:11px;margin-top:6px;">&#9650; ' + (4-inQueue.length) + ' more IN needed</div>';
+        }
+
+        queueEl.innerHTML = html;
         document.getElementById('liveUpdated').textContent = '&#9889; Live — updated ' + new Date().toLocaleTimeString();
     }
 
