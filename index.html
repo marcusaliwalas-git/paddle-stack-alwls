@@ -2241,6 +2241,7 @@
                     if (typeof state !== 'undefined' && !state.matchingMode) {
                         showMatchingModal();
                     }
+                }).catch(e => console.warn('Session pull error:', e));
             }, 300);
         } else {
             authPage.classList.add('active');
@@ -2388,8 +2389,8 @@
         const stats = liveState.stats || {};
 
         function playerStat(name) {
-            // Stats keys may be sanitized (dots → underscores) — try both
-            const s = stats[name] || stats[name.replace(/[.#$\/\[\]]/g, '_')] || { wins: 0, games: 0 };
+            const safeN = name.split('.').join('_').split('#').join('_').split('[').join('_').split(']').join('_');
+            const s = stats[name] || stats[safeN] || { wins: 0, games: 0 };
             const losses = (s.games || 0) - (s.wins || 0);
             return s.games > 0 ? (s.wins + 'W ' + losses + 'L') : '0W 0L';
         }
@@ -2400,7 +2401,7 @@
 
         if (inQueue.length === 0) {
             queueEl.innerHTML = '<div class="live-empty">No players tagged IN yet.</div>';
-            document.getElementById('liveUpdated').textContent = '\u26a1 Live \u2014 updated ' + new Date().toLocaleTimeString();
+            document.getElementById('liveUpdated').textContent = '⚡ Live — updated ' + new Date().toLocaleTimeString();
             return;
         }
 
