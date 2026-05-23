@@ -836,6 +836,7 @@
         document.getElementById('nameInput').value = '';
         document.getElementById('bulkInput').value = '';
         sync();
+        promptMatchingModeIfNeeded();
     }
 
     function rotateCourt(idx, winningTeam) {
@@ -1101,6 +1102,7 @@
             if (added > 0) {
                 sync();
                 showToast(`✅ Imported ${added} player${added > 1 ? 's' : ''} from "${file.name}"`);
+                promptMatchingModeIfNeeded();
             } else {
                 showToast('❌ No valid player names found.', true);
             }
@@ -1190,10 +1192,26 @@
     // ── Matching Algorithm ───────────────────────────────────────────────
     let _selectedMode = null;
 
+    function promptMatchingModeIfNeeded() {
+        // Only prompt if mode hasn't been chosen yet and there are players in queue
+        if (!state.matchingMode && state.queue.length > 0) {
+            showMatchingModal();
+        }
+    }
+
     function showMatchingModal() {
-        _selectedMode = null;
+        _selectedMode = state.matchingMode || null;
         document.querySelectorAll('.matching-card').forEach(c => c.classList.remove('selected'));
         document.getElementById('matchingStartBtn').disabled = true;
+        // Pre-select current mode if already set (for "Change" use case)
+        if (_selectedMode) {
+            const card = document.getElementById('mcard-' + _selectedMode);
+            if (card) card.classList.add('selected');
+            document.getElementById('matchingStartBtn').disabled = false;
+            document.getElementById('matchingStartBtn').textContent = 'Confirm Mode';
+        } else {
+            document.getElementById('matchingStartBtn').textContent = 'Start Session';
+        }
         document.getElementById('matchingOverlay').classList.add('open');
     }
 
