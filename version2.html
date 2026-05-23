@@ -573,6 +573,47 @@
             background: none; border: 1px solid #ff6d00; color: #ff6d00;
             border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer;
         }
+
+        /* Score Modal */
+        .score-modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.8); z-index: 650;
+            align-items: center; justify-content: center;
+        }
+        .score-modal-overlay.open { display: flex; }
+        .score-modal {
+            background: #1e2a32; border-radius: 18px; padding: 26px 24px;
+            width: 92%; max-width: 380px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,109,0,0.25);
+        }
+        .score-modal h3 { margin: 0 0 4px; color: white; font-size: 1rem; }
+        .score-modal .score-court-label { color: #78909c; font-size: 12px; margin-bottom: 18px; }
+        .score-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+        .score-team-block { border-radius: 12px; padding: 14px 12px; text-align: center; }
+        .score-team-block.team-a { background: rgba(25,118,210,0.15); border: 2px solid rgba(25,118,210,0.4); }
+        .score-team-block.team-b { background: rgba(194,24,91,0.15); border: 2px solid rgba(194,24,91,0.4); }
+        .score-team-block .stb-label { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .score-team-block.team-a .stb-label { color: #90caf9; }
+        .score-team-block.team-b .stb-label { color: #f48fb1; }
+        .score-team-block .stb-players { font-size: 12px; color: #b0bec5; margin-bottom: 10px; line-height: 1.4; }
+        .score-team-block .stb-winner-badge {
+            font-size: 10px; font-weight: bold; padding: 2px 8px;
+            border-radius: 10px; display: inline-block; margin-bottom: 8px;
+        }
+        .team-a .stb-winner-badge { background: #1565c0; color: white; }
+        .team-b .stb-winner-badge { background: #ad1457; color: white; }
+        .score-input {
+            width: 100%; padding: 10px; font-size: 22px; font-weight: bold;
+            text-align: center; border-radius: 8px; margin: 0;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.2); color: white;
+        }
+        .score-input:focus { outline: none; border-color: #ff6d00; }
+        .score-modal-actions { display: flex; gap: 8px; }
+        .score-confirm-btn { flex: 2; background: #ff6d00; color: white; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: bold; border: none; cursor: pointer; }
+        .score-confirm-btn:hover { background: #e65100; }
+        .score-cancel-btn { flex: 1; background: rgba(255,255,255,0.07); color: #ccc; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -733,6 +774,33 @@
     </div>
 </div>
 
+
+<!-- Score Entry Modal -->
+<div class="score-modal-overlay" id="scoreModalOverlay" onclick="if(event.target===this)closeScoreModal()">
+    <div class="score-modal">
+        <h3>🏆 Record Result</h3>
+        <div class="score-court-label" id="scoreCourtLabel"></div>
+        <div class="score-teams">
+            <div class="score-team-block team-a">
+                <div class="stb-label">Team A</div>
+                <div class="stb-players" id="scoreTeamAPlayers"></div>
+                <div class="stb-winner-badge" id="scoreWinnerBadgeA" style="display:none">🏆 Winner</div>
+                <input type="number" class="score-input" id="scoreA" min="0" max="99" placeholder="0">
+            </div>
+            <div class="score-team-block team-b">
+                <div class="stb-label">Team B</div>
+                <div class="stb-players" id="scoreTeamBPlayers"></div>
+                <div class="stb-winner-badge" id="scoreWinnerBadgeB" style="display:none">🏆 Winner</div>
+                <input type="number" class="score-input" id="scoreB" min="0" max="99" placeholder="0">
+            </div>
+        </div>
+        <div class="score-modal-actions">
+            <button class="score-cancel-btn" onclick="closeScoreModal()">Cancel</button>
+            <button class="score-confirm-btn" onclick="confirmScore()">Confirm & Rotate</button>
+        </div>
+    </div>
+</div>
+
 <!-- Edit Modal -->
 <div class="edit-modal-overlay" id="editModalOverlay" onclick="if(event.target===this)closeEditModal()">
     <div class="edit-modal">
@@ -755,9 +823,10 @@
         courts: [{ id: "1", players: [null, null, null, null], startTime: null, alerted: false }],
         history: [],
         stats: {},
-        matchingMode: null,         // null = not selected yet
-        partnerHistory: {},         // { playerName: [partnerNames] }
-        playerRatings: {}           // { playerName: number } for snake draft
+        matchingMode: null,
+        partnerHistory: {},
+        playerRatings: {},
+        gameLog: []                  // full game records for CSV export
     };
 
     window.onload = () => {
@@ -774,24 +843,87 @@
         sync();
     }
 
-    function exportStats() {
-        if (Object.keys(state.stats).length === 0) return alert("No stats to export yet!");
-        
-        let csvContent = "data:text/csv;charset=utf-8,Player Name,Wins,Games Played,Win Rate %\n";
-        
-        Object.keys(state.stats).forEach(name => {
-            const p = state.stats[name];
-            const winRate = p.games > 0 ? ((p.wins / p.games) * 100).toFixed(1) : 0;
-            csvContent += `${name},${p.wins},${p.games},${winRate}%\n`;
-        });
+    // ── Score Modal ─────────────────────────────────────────────────────
+    let _scoreCtx = null; // { courtIdx, winningTeam }
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `pb_stats_${new Date().toLocaleDateString().replace(/\//g, '-')}.csv`);
+    function openScoreModal(courtIdx, winningTeam) {
+        const c = state.courts[courtIdx];
+        _scoreCtx = { courtIdx, winningTeam };
+        document.getElementById('scoreCourtLabel').textContent = 'Court ' + c.id;
+        const teamA = [c.players[0], c.players[1]].filter(Boolean).map(p => p.name).join(' & ') || '—';
+        const teamB = [c.players[2], c.players[3]].filter(Boolean).map(p => p.name).join(' & ') || '—';
+        document.getElementById('scoreTeamAPlayers').textContent = teamA;
+        document.getElementById('scoreTeamBPlayers').textContent = teamB;
+        document.getElementById('scoreWinnerBadgeA').style.display = winningTeam === 'A' ? 'inline-block' : 'none';
+        document.getElementById('scoreWinnerBadgeB').style.display = winningTeam === 'B' ? 'inline-block' : 'none';
+        document.getElementById('scoreA').value = '';
+        document.getElementById('scoreB').value = '';
+        // Auto-focus winning team score
+        setTimeout(() => document.getElementById(winningTeam === 'A' ? 'scoreA' : 'scoreB').focus(), 100);
+        document.getElementById('scoreModalOverlay').classList.add('open');
+    }
+
+    function confirmScore() {
+        if (!_scoreCtx) return;
+        const scoreA = document.getElementById('scoreA').value;
+        const scoreB = document.getElementById('scoreB').value;
+        closeScoreModal();
+        rotateCourt(_scoreCtx.courtIdx, _scoreCtx.winningTeam,
+            scoreA !== '' ? parseInt(scoreA) : undefined,
+            scoreB !== '' ? parseInt(scoreB) : undefined);
+    }
+
+    function closeScoreModal() {
+        document.getElementById('scoreModalOverlay').classList.remove('open');
+        _scoreCtx = null;
+    }
+
+    function fmtDuration(sec) {
+        if (!sec) return '0:00';
+        return Math.floor(sec/60) + ':' + String(sec%60).padStart(2,'0');
+    }
+
+    function fmtTimestamp(iso) {
+        if (!iso) return '';
+        try {
+            const d = new Date(iso);
+            return d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+        } catch(e) { return iso; }
+    }
+
+    function csvEscape(val) {
+        const s = String(val === undefined || val === null ? '' : val);
+        return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+
+    function exportStats() {
+        const log = state.gameLog || [];
+        if (log.length === 0) return alert("No games recorded yet!");
+
+        const headers = ['Court','Team A Player 1','Team A Player 2','Team B Player 1','Team B Player 2','Team A Score','Team B Score','Winner','Duration','Date & Time'];
+        const rows = log.map(g => [
+            g.court,
+            g.teamA[0] || '',
+            g.teamA[1] || '',
+            g.teamB[0] || '',
+            g.teamB[1] || '',
+            g.scoreA !== '' ? g.scoreA : '',
+            g.scoreB !== '' ? g.scoreB : '',
+            g.winner || '',
+            fmtDuration(g.durationSec),
+            fmtTimestamp(g.timestamp)
+        ].map(csvEscape).join(','));
+
+        const csv = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'games_' + new Date().toLocaleDateString().replace(/\//g, '-') + '.csv';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     }
 
     function callNextUp() {
@@ -839,7 +971,7 @@
         promptMatchingModeIfNeeded();
     }
 
-    function rotateCourt(idx, winningTeam) {
+    function rotateCourt(idx, winningTeam, scoreA, scoreB) {
         const c = state.courts[idx];
 
         // Empty court — start it
@@ -866,8 +998,26 @@
 
         if (winners.length > 0) {
             const teamLabel = winningTeam === 'A' ? 'Team A' : 'Team B';
-            state.history.unshift(`C${c.id}: ${teamLabel} (${winners.map(w => w.name).join(' & ')}) won`);
+            const teamAPlayers = [c.players[0], c.players[1]].filter(Boolean);
+            const teamBPlayers = [c.players[2], c.players[3]].filter(Boolean);
+            const scoreStr = (scoreA !== undefined && scoreB !== undefined)
+                ? ` [${scoreA}-${scoreB}]` : '';
+            state.history.unshift(`C${c.id}: ${teamLabel} won${scoreStr} (${winners.map(w => w.name).join(' & ')})`);
             if (state.history.length > 5) state.history.pop();
+
+            // Full game log entry
+            const duration = c.startTime ? Math.round((Date.now() - c.startTime) / 1000) : 0;
+            if (!state.gameLog) state.gameLog = [];
+            state.gameLog.push({
+                court: c.id,
+                teamA: teamAPlayers.map(p => p.name),
+                teamB: teamBPlayers.map(p => p.name),
+                scoreA: scoreA !== undefined ? scoreA : '',
+                scoreB: scoreB !== undefined ? scoreB : '',
+                winner: teamLabel,
+                durationSec: duration,
+                timestamp: new Date().toISOString()
+            });
         }
 
         // Return all players to queue, then re-apply algorithm
@@ -1019,8 +1169,8 @@
             const actionBtns = isEmpty
                 ? `<button class="btn-start" onclick="rotateCourt(${i})">&#9654; Start Court</button>
                    <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">Clear</button>`
-                : `<button class="btn-win-a" onclick="rotateCourt(${i},'A')">&#127942; Team A Won</button>
-                   <button class="btn-win-b" onclick="rotateCourt(${i},'B')">&#127942; Team B Won</button>
+                : `<button class="btn-win-a" onclick="openScoreModal(${i},'A')">&#127942; Team A Won</button>
+                   <button class="btn-win-b" onclick="openScoreModal(${i},'B')">&#127942; Team B Won</button>
                    <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">Clear</button>`;
 
             return `
@@ -1379,7 +1529,7 @@
         sync();
     }
 
-    function resetAll() { if(confirm("Reset everything?")) { state = {theme:'dark', queue:[], history:[], stats:{}, courts:[{id:"1", players:[null,null,null,null], startTime:null, alerted:false}], matchingMode:null, partnerHistory:{}, playerRatings:{}}; sync(); } }
+    function resetAll() { if(confirm("Reset everything?")) { state = {theme:'dark', queue:[], history:[], stats:{}, courts:[{id:"1", players:[null,null,null,null], startTime:null, alerted:false}], matchingMode:null, partnerHistory:{}, playerRatings:{}, gameLog:[]}; sync(); } }
 </script>
 <!-- Firebase Realtime DB + Auth + QR + Live View -->
 <script type="module">
