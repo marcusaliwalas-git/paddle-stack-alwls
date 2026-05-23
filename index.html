@@ -863,6 +863,7 @@
     </div>
     <div style="display:flex;justify-content:center;align-items:center;"><span style="font-size:1.4rem;font-weight:900;color:white;letter-spacing:2px;">Pikol</span></div>
     <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;">
+        <button class="theme-toggle" id="forceSyncBtn" onclick="forceSync()" title="Push current state to Firebase">🔄 Sync</button>
         <button class="theme-toggle" onclick="showQR()">📱 QR Live</button>
         <button class="theme-toggle" onclick="toggleTheme()">🌓 Mode</button>
     </div>
@@ -1068,6 +1069,30 @@
             c.pausedAt = Date.now();
         }
         sync();
+    }
+
+
+    function forceSync() {
+        const btn = document.getElementById('forceSyncBtn');
+        btn.textContent = '⏳ Syncing...';
+        btn.disabled = true;
+        sync();
+        if (window.fbWrite) {
+            window.fbWrite(state);
+            setTimeout(() => {
+                btn.textContent = '✅ Synced!';
+                setTimeout(() => {
+                    btn.textContent = '🔄 Sync';
+                    btn.disabled = false;
+                }, 1500);
+            }, 800);
+        } else {
+            btn.textContent = '❌ Not signed in';
+            setTimeout(() => {
+                btn.textContent = '🔄 Sync';
+                btn.disabled = false;
+            }, 2000);
+        }
     }
 
     function toggleTheme() {
