@@ -2384,7 +2384,7 @@
         // ── Queue: all IN players with standings ────────────────────────────
         const queueEl = document.getElementById('liveQueue');
         const allQueue = toArray(liveState.queue);
-        const inQueue = allQueue.filter(p => p && p.name && p.in);
+        const inQueue = allQueue.filter(p => p && p.name && (p['in'] === true || p['in'] === 'true'));
         const stats = liveState.stats || {};
 
         function playerStat(name) {
@@ -2399,7 +2399,8 @@
         let html = '';
 
         if (inQueue.length === 0) {
-            queueEl.innerHTML = '<div class="live-empty">No players queued up yet.</div>';
+            queueEl.innerHTML = '<div class="live-empty">No players tagged IN yet.</div>';
+            document.getElementById('liveUpdated').textContent = '\u26a1 Live \u2014 updated ' + new Date().toLocaleTimeString();
             return;
         }
 
