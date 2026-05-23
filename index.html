@@ -2030,14 +2030,33 @@
         if (!data) return data;
         const clean = JSON.parse(JSON.stringify(data)); // deep clone
 
+        // Helper: sanitize a key containing invalid Firebase characters
+        const safeKey = k => k.replace(/[.#$\/\[\]]/g, '_');
+
         // Sanitize stats keys
         if (clean.stats) {
             const safeStats = {};
-            Object.keys(clean.stats).forEach(name => {
-                const safeKey = name.replace(/[.#$\/\[\]]/g, '_');
-                safeStats[safeKey] = clean.stats[name];
-            });
+            Object.keys(clean.stats).forEach(name => { safeStats[safeKey(name)] = clean.stats[name]; });
             clean.stats = safeStats;
+        }
+
+        // Sanitize partnerHistory keys (player names as keys AND values in arrays)
+        if (clean.partnerHistory) {
+            const safePH = {};
+            Object.keys(clean.partnerHistory).forEach(name => {
+                const partners = clean.partnerHistory[name];
+                safePH[safeKey(name)] = Array.isArray(partners)
+                    ? partners.map(p => safeKey(p))
+                    : partners;
+            });
+            clean.partnerHistory = safePH;
+        }
+
+        // Sanitize playerRatings keys
+        if (clean.playerRatings) {
+            const safePR = {};
+            Object.keys(clean.playerRatings).forEach(name => { safePR[safeKey(name)] = clean.playerRatings[name]; });
+            clean.playerRatings = safePR;
         }
 
         // Preserve null slots in court players arrays by converting to keyed objects
