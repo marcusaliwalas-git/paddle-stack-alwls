@@ -498,6 +498,7 @@
             background: var(--success); color: white;
             font-size: 13px; font-weight: bold; cursor: pointer;
         }
+        .btn-start:disabled { background: #455a64; cursor: not-allowed; opacity: 0.6; }
 
         .header-logo {
             height: 44px;
@@ -1344,52 +1345,52 @@
         const emptyCourtsArr = state.courts.filter(c => c.players.every(p => p === null));
         const emptyCourts = emptyCourtsArr.length;
 
-        if (state.queue.length > 0) {
-            nmpEl.style.display = '';
-            let nmpHtml = '<div class="nmp-header"><div class="nmp-dot"></div><span class="nmp-title">Next Match</span><button onclick="openNextMatchEdit()" style="margin-left:auto;background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">✎ Edit</button></div>';
-            if (emptyCourtsArr.length > 0) {
-                emptyCourtsArr.forEach((ec, ei) => {
-                    const upcoming = state.queue.slice(ei * 4, ei * 4 + 4);
-                    if (upcoming.length === 0) return;
-                    if (ei > 0) nmpHtml += '<hr class="nmp-divider">';
-                    nmpHtml += '<div class="nmp-court-label">Court ' + ec.id + '</div>';
-                    nmpHtml += '<div class="nmp-players-grid">';
-                    upcoming.forEach((p, pi) => {
-                        nmpHtml += '<div class="nmp-player"><span class="nmp-player-num">' + (ei*4+pi+1) + '</span>' + p.name + '</div>';
-                    });
-                    if (upcoming.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4-upcoming.length) + ' more needed</div>';
-                    nmpHtml += '</div>';
-                });
-            } else {
-                nmpHtml += '<div class="nmp-court-label">On Deck</div>';
-                nmpHtml += '<div class="nmp-players-grid">';
-                state.queue.slice(0,4).forEach((p, pi) => {
-                    nmpHtml += '<div class="nmp-player"><span class="nmp-player-num">' + (pi+1) + '</span>' + p.name + '</div>';
-                });
-                if (state.queue.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4-state.queue.length) + ' more needed</div>';
-                nmpHtml += '</div>';
-            }
-            nmpEl.innerHTML = nmpHtml;
-        } else {
-            nmpEl.style.display = 'none';
+        const inQueue = state.queue.filter(p => p.in);
+
+        function buildTeamGrid(players) {
+            const ta = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
+                + '<div class="nmp-players-grid" style="margin-bottom:8px;">'
+                + [0,1].map(j => players[j]
+                    ? '<div class="nmp-player" style="border-left:3px solid rgba(25,118,210,0.5)">' + players[j].name + '</div>'
+                    : '<div class="nmp-player" style="opacity:0.35;font-style:italic;font-size:11px;">Waiting...</div>'
+                ).join('') + '</div>';
+            const tb = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;">Team B</div>'
+                + '<div class="nmp-players-grid">'
+                + [2,3].map(j => players[j]
+                    ? '<div class="nmp-player" style="border-left:3px solid rgba(194,24,91,0.5)">' + players[j].name + '</div>'
+                    : '<div class="nmp-player" style="opacity:0.35;font-style:italic;font-size:11px;">Waiting...</div>'
+                ).join('') + '</div>';
+            return ta + tb;
         }
 
-        const slotsNeeded = Math.max(0, emptyCourts) * 4;
-        const nextUpPlayers = state.queue.slice(0, Math.max(slotsNeeded, 4));
+        if (inQueue.length === 0) {
+            nmpEl.style.display = 'none';
+        } else {
+            nmpEl.style.display = '';
+            const inCount2 = state.queue.filter(p => p.in).length;
+            let nmpHtml = '<div class="nmp-header"><div class="nmp-dot"></div><span class="nmp-title">Next Match</span>'
+                + '<div style="display:flex;gap:5px;margin-left:auto;">'
+                + (inCount2 >= 4 && emptyCourtsArr.length > 0 ? '<button onclick="fillAllCourts()" style="background:#ff6d00;color:white;border:none;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:bold;cursor:pointer;">&#9654; Fill Courts</button>' : '')
+                + '<button onclick="openNextMatchEdit()" style="background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">&#9998; Edit</button>'
+                + '</div></div>';
+            if (emptyCourtsArr.length > 0) {
+                emptyCourtsArr.forEach((ec, ei) => {
+                    const upcoming = inQueue.slice(ei * 4, ei * 4 + 4);
+                    if (ei > 0) nmpHtml += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:8px 0">';
+                    nmpHtml += '<div class="nmb-court-label">Court ' + ec.id + '</div>';
+                    nmpHtml += buildTeamGrid(upcoming);
+                    if (upcoming.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4 - upcoming.length) + ' more IN needed</div>';
+                });
+            } else {
+                nmpHtml += '<div class="nmb-court-label">On Deck</div>';
+                nmpHtml += buildTeamGrid(inQueue.slice(0, 4));
+                if (inQueue.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4 - inQueue.length) + ' more IN needed</div>';
+            }
+            nmpEl.innerHTML = nmpHtml;
+        }
 
         document.getElementById('courtsGrid').innerHTML = state.courts.map((c, i) => {
             const isEmpty = c.players.every(p => p === null);
-            const hasPlayers = c.players.some(p => p !== null);
-
-            const nextUpHtml = isEmpty && state.queue.length > 0
-                ? `<div class="next-up-preview">
-                    <div class="nup-label">&#9654; Next Players</div>
-                    <div class="nup-players">
-                        ${state.queue.slice(0,4).map(p => `<div class="next-up-player">${p.name}</div>`).join('')}
-                        ${state.queue.length < 4 ? `<div class="next-up-empty">(${4 - state.queue.length} more needed)</div>` : ''}
-                    </div>
-                  </div>`
-                : '';
 
             // Team A = slots 0,1 | Team B = slots 2,3
             const teamAHtml = `
@@ -1417,8 +1418,9 @@
                 </div>`;
 
             // Action buttons
+            const inCount = state.queue.filter(p => p.in).length;
             const actionBtns = isEmpty
-                ? `<button class="btn-start" onclick="rotateCourt(${i})">&#9654; Start Court</button>
+                ? `<button class="btn-start" onclick="rotateCourt(${i})" ${inCount < 4 ? 'disabled title="Need 4+ IN players"' : ''}>&#9654; Fill Court</button>
                    <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">Clear</button>`
                 : `<button class="btn-win-a" onclick="openScoreModal(${i},'A')">&#127942; Team A Won</button>
                    <button class="btn-win-b" onclick="openScoreModal(${i},'B')">&#127942; Team B Won</button>
@@ -1439,10 +1441,10 @@
                 </div>
                 ${teamAHtml}
                 ${teamBHtml}
-                ${nextUpHtml}
                 <div class="court-actions">${actionBtns}</div>
             </div>`;
-        }).join('') + `<button onclick="state.courts.push({id: state.courts.length+1, players:[null,null,null,null], startTime:null, alerted:false});sync();" style="border:2px dashed var(--primary); background:none; padding:20px; border-radius:12px; color:var(--primary); font-weight:bold; width:100%; cursor:pointer;">+ Add Court</button>`;
+        }).join('') + `<button onclick="state.courts.push({id: state.courts.length+1, players:[null,null,null,null], startTime:null, alerted:false, pausedAt:null});sync();" style="border:2px dashed var(--primary); background:none; padding:20px; border-radius:12px; color:var(--primary); font-weight:bold; width:100%; cursor:pointer;">+ Add Court</button>`;
+
     }
 
     function dragStart(ev, type, index, courtIdx = null) { ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); }
