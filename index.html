@@ -2227,10 +2227,9 @@
     }
 
     function renderLiveView(liveState) {
-        console.log('[Live] renderLiveView called, courts:', JSON.stringify(liveState.courts), 'queue:', JSON.stringify(liveState.queue));
         const courtsEl = document.getElementById('liveCourts');
 
-        // Normalize courts array (Firebase may have converted it to an object)
+        // ── Courts ──────────────────────────────────────────────────────
         const courts = toArray(liveState.courts);
         const activeCourts = courts.filter(c => {
             if (!c) return false;
@@ -2243,10 +2242,14 @@
         } else {
             courtsEl.innerHTML = activeCourts.map((c, ci) => {
                 const players = toArray(c.players);
-                const elapsed = c.startTime ? Math.floor((Date.now() - c.startTime) / 1000) : 0;
-                const timerStr = c.startTime ? Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0') : '--:--';
-                const isOT = elapsed >= 900;
-                // Team A = slots 0,1 | Team B = slots 2,3
+                // Respect pause: if paused use pausedAt snapshot
+                const effectiveElapsed = c.pausedAt
+                    ? Math.floor((c.pausedAt - c.startTime) / 1000)
+                    : (c.startTime ? Math.floor((Date.now() - c.startTime) / 1000) : 0);
+                const timerStr = c.startTime
+                    ? Math.floor(effectiveElapsed/60) + ':' + String(effectiveElapsed%60).padStart(2,'0') + (c.pausedAt ? ' ⏸' : '')
+                    : '--:--';
+                const isOT = effectiveElapsed >= 900 && !c.pausedAt;
                 const teamA = [0,1].map(j => {
                     const p = players[j];
                     return '<div class="live-player-slot ' + (p ? '' : 'empty') + '">' + (p ? p.name : '&mdash;') + '</div>';
@@ -2255,7 +2258,7 @@
                     const p = players[j];
                     return '<div class="live-player-slot ' + (p ? '' : 'empty') + '">' + (p ? p.name : '&mdash;') + '</div>';
                 }).join('');
-                return '<div class="live-court-card ' + (isOT ? 'ot' : '') + '" data-start="' + (c.startTime||0) + '" data-court="' + ci + '">'
+                return '<div class="live-court-card ' + (isOT ? 'ot' : '') + '" data-start="' + (c.startTime||0) + '" data-paused="' + (c.pausedAt||0) + '" data-court="' + ci + '">'
                     + '<div class="live-court-header">'
                     + '<span class="live-court-name">&#127955; Court ' + c.id + (isOT ? ' &#9888;&#65039;' : '') + '</span>'
                     + '<span class="live-court-timer" id="lct-' + ci + '">' + timerStr + '</span>'
@@ -2268,18 +2271,61 @@
             }).join('');
         }
 
+        // ── Next Match (IN players only) ─────────────────────────────────
         const queueEl = document.getElementById('liveQueue');
-        const queue = toArray(liveState.queue);
-        if (queue.length === 0) {
-            queueEl.innerHTML = '<div class="live-empty">Queue is empty.</div>';
+        const allQueue = toArray(liveState.queue);
+        const inQueue = allQueue.filter(p => p && p.in);
+        const emptyCts = courts.filter(c => {
+            const players = toArray(c.players);
+            return players.every(p => !p);
+        });
+
+        if (inQueue.length === 0) {
+            queueEl.innerHTML = '<div class="live-empty">No players in queue yet.</div>';
         } else {
-            queueEl.innerHTML = queue.map((p, i) =>
-                '<div class="live-queue-item">'
-                + '<span class="live-queue-num">' + (i+1) + '</span>'
-                + '<span>' + (p ? p.name : '?') + '</span>'
-                + (i < 4 ? '<span class="live-next-badge">Next Up</span>' : '')
-                + '</div>'
-            ).join('');
+            let html = '';
+            if (emptyCts.length > 0) {
+                // Show per empty court
+                emptyCts.forEach((ec, ei) => {
+                    const upcoming = inQueue.slice(ei * 4, ei * 4 + 4);
+                    if (ei > 0) html += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:8px 0">';
+                    html += '<div style="font-size:11px;font-weight:bold;color:#81c784;margin-bottom:6px;">Court ' + ec.id + '</div>';
+                    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:4px;">';
+                    html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
+                    [0,1].forEach(j => {
+                        html += upcoming[j]
+                            ? '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6)">' + upcoming[j].name + '</div>'
+                            : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+                    });
+                    html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:4px;">Team B</div>';
+                    [2,3].forEach(j => {
+                        html += upcoming[j]
+                            ? '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6)">' + upcoming[j].name + '</div>'
+                            : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+                    });
+                    html += '</div>';
+                    if (upcoming.length < 4) html += '<div class="live-empty" style="font-size:11px;">&#9650; ' + (4-upcoming.length) + ' more IN needed</div>';
+                });
+            } else {
+                // All courts active — show on deck
+                html += '<div style="font-size:11px;font-weight:bold;color:#81c784;margin-bottom:6px;">On Deck</div>';
+                html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">';
+                html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
+                [0,1].forEach(j => {
+                    html += inQueue[j]
+                        ? '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6)">' + inQueue[j].name + '</div>'
+                        : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+                });
+                html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:4px;">Team B</div>';
+                [2,3].forEach(j => {
+                    html += inQueue[j]
+                        ? '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6)">' + inQueue[j].name + '</div>'
+                        : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+                });
+                html += '</div>';
+                if (inQueue.length < 4) html += '<div class="live-empty" style="font-size:11px;margin-top:6px;">&#9650; ' + (4-inQueue.length) + ' more IN needed</div>';
+            }
+            queueEl.innerHTML = html;
         }
         document.getElementById('liveUpdated').textContent = '&#9889; Live &#8212; updated ' + new Date().toLocaleTimeString();
     }
@@ -2287,11 +2333,14 @@
     function tickLiveTimers() {
         document.querySelectorAll('.live-court-card[data-start]').forEach((el, ci) => {
             const start = parseInt(el.dataset.start);
+            const paused = parseInt(el.dataset.paused) || 0;
             if (!start) return;
-            const elapsed = Math.floor((Date.now() - start) / 1000);
+            const elapsed = paused
+                ? Math.floor((paused - start) / 1000)
+                : Math.floor((Date.now() - start) / 1000);
             const timerEl = document.getElementById('lct-' + ci);
-            if (timerEl) timerEl.textContent = Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0');
-            if (elapsed >= 900) el.classList.add('ot');
+            if (timerEl) timerEl.textContent = Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0') + (paused ? ' ⏸' : '');
+            if (elapsed >= 900 && !paused) el.classList.add('ot');
         });
     }
 
