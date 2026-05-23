@@ -1231,7 +1231,7 @@
 
         if (state.queue.length > 0) {
             nmpEl.style.display = '';
-            let nmpHtml = '<div class="nmp-header"><div class="nmp-dot"></div><span class="nmp-title">Next Match</span></div>';
+            let nmpHtml = '<div class="nmp-header"><div class="nmp-dot"></div><span class="nmp-title">Next Match</span><button onclick="openNextMatchEdit()" style="margin-left:auto;background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">✎ Edit</button></div>';
             if (emptyCourtsArr.length > 0) {
                 emptyCourtsArr.forEach((ec, ei) => {
                     const upcoming = state.queue.slice(ei * 4, ei * 4 + 4);
@@ -1408,35 +1408,79 @@
     // ── Edit Modal ──────────────────────────────────────────────────────
     let editContext = null; // { type: 'court'|'queue', idx }
 
+
+    function openNextMatchEdit() {
+        const allQueued = state.queue.map(p => p.name);
+        if (allQueued.length === 0) { showToast('Queue is empty.', true); return; }
+        editContext = { type: 'nextmatch' };
+        document.getElementById('editModalTitle').textContent = 'Edit Next Match Players';
+        const teamLabels = ['Team A — Player 1','Team A — Player 2','Team B — Player 1','Team B — Player 2'];
+        const top4 = state.queue.slice(0, 4);
+        // Dropdown of all queue players
+        function buildNextMatchDrop(fieldId, currentName) {
+            let opts = allQueued.map(n =>
+                `<option value="${n}" ${n === currentName ? 'selected' : ''}>${n}</option>`
+            ).join('');
+            return `<select id="${fieldId}" style="flex:1;padding:9px 12px;border-radius:8px;background:#1e2a32;border:1px solid rgba(255,255,255,0.15);color:white;font-size:14px;">${opts}</select>`;
+        }
+        document.getElementById('editModalBody').innerHTML =
+            '<p style="font-size:12px;color:#78909c;margin:0 0 12px">Reorder who plays in the next match by selecting from the queue.</p>' +
+            [0,1,2,3].map(j => {
+                const cur = top4[j] ? top4[j].name : (allQueued[j] || '');
+                return `<div class="edit-player-row">
+                    <span class="slot-label" style="font-size:10px;width:80px;">${teamLabels[j]}</span>
+                    ${buildNextMatchDrop('nm_' + j, cur)}
+                </div>`;
+            }).join('');
+        document.getElementById('editModalOverlay').classList.add('open');
+    }
+
+    function buildQueueDropdown(fieldId, currentName, includeEmpty) {
+        const queueNames = state.queue.map(p => p.name);
+        let opts = includeEmpty ? '<option value="">— Keep empty —</option>' : '';
+        if (currentName) opts += `<option value="${currentName}" selected>${currentName} (current)</option>`;
+        queueNames.forEach(n => {
+            if (n !== currentName) opts += `<option value="${n}">${n}</option>`;
+        });
+        if (!currentName && !includeEmpty) opts = '<option value="">— Select from queue —</option>' + opts;
+        return `<select id="${fieldId}" style="flex:1;padding:9px 12px;border-radius:8px;background:#1e2a32;border:1px solid rgba(255,255,255,0.15);color:white;font-size:14px;">${opts}</select>`;
+    }
+
     function openCourtEdit(courtIdx) {
         editContext = { type: 'court', idx: courtIdx };
         const c = state.courts[courtIdx];
-        document.getElementById('editModalTitle').textContent = 'Edit Court ' + c.id + ' Players';
-        const labels = ['Player 1', 'Player 2', 'Player 3', 'Player 4'];
-        document.getElementById('editModalBody').innerHTML = [0,1,2,3].map(j => `
-            <div class="edit-player-row">
-                <span class="slot-label">${labels[j]}</span>
-                <input type="text" id="ep_${j}" value="${c.players[j] ? c.players[j].name : ''}" placeholder="Empty slot">
-                <button class="remove-btn" onclick="document.getElementById('ep_${j}').value=''">✕</button>
-            </div>
-        `).join('');
+        document.getElementById('editModalTitle').textContent = 'Swap Court ' + c.id + ' Players';
+        const teamLabels = ['Team A — Player 1','Team A — Player 2','Team B — Player 1','Team B — Player 2'];
+        const hasQueue = state.queue.length > 0;
+        if (!hasQueue) {
+            document.getElementById('editModalBody').innerHTML = '<p style="color:#78909c;font-size:13px;text-align:center;padding:10px 0;">No players in queue to swap with.</p>';
+        } else {
+            document.getElementById('editModalBody').innerHTML =
+                '<p style="font-size:12px;color:#78909c;margin:0 0 12px">Select a player from the queue to swap into each slot.</p>' +
+                [0,1,2,3].map(j => {
+                    const cur = c.players[j] ? c.players[j].name : null;
+                    return `<div class="edit-player-row">
+                        <span class="slot-label" style="font-size:10px;width:80px;">${teamLabels[j]}</span>
+                        ${buildQueueDropdown('ep_' + j, cur, true)}
+                    </div>`;
+                }).join('');
+        }
         document.getElementById('editModalOverlay').classList.add('open');
     }
 
     function openQueueEdit(queueIdx) {
         editContext = { type: 'queue', idx: queueIdx };
         const p = state.queue[queueIdx];
-        document.getElementById('editModalTitle').textContent = 'Edit Queue Player #' + (queueIdx + 1);
+        document.getElementById('editModalTitle').textContent = 'Queue #' + (queueIdx + 1) + ' — ' + p.name;
         document.getElementById('editModalBody').innerHTML = `
-            <div class="edit-player-row">
-                <span class="slot-label">Name</span>
-                <input type="text" id="eq_0" value="${p.name}" placeholder="Player name">
-                <button class="remove-btn" onclick="removeFromQueue(${queueIdx});closeEditModal()">Remove</button>
+            <p style="font-size:12px;color:#78909c;margin:0 0 12px">Remove this player from the queue.</p>
+            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:16px;font-weight:bold;color:white;margin-bottom:4px;">${p.name}</div>
+                <div style="font-size:12px;color:#78909c;">Position #${queueIdx + 1} in queue</div>
             </div>
-            <hr class="edit-section-divider">
-            <div style="font-size:11px;color:#78909c;">
-                Tip: Drag the player card in the queue to reorder.
-            </div>`;
+            <button class="remove-btn" style="width:100%;margin-top:12px;padding:10px;border-radius:8px;font-size:13px;" onclick="removeFromQueue(${queueIdx});closeEditModal()">
+                Remove from Queue
+            </button>`;
         document.getElementById('editModalOverlay').classList.add('open');
     }
 
@@ -1450,20 +1494,25 @@
         if (editContext.type === 'court') {
             const c = state.courts[editContext.idx];
             [0,1,2,3].forEach(j => {
-                const val = document.getElementById('ep_' + j).value.trim();
-                if (val) {
-                    c.players[j] = { name: val };
-                    if (!state.stats[val]) state.stats[val] = { wins: 0, games: 0 };
+                const sel = document.getElementById('ep_' + j);
+                if (!sel) return;
+                const newName = sel.value;
+                const oldPlayer = c.players[j];
+                if (newName === (oldPlayer ? oldPlayer.name : '')) return; // no change
+                if (newName) {
+                    // Swap: put old court player into queue, take new from queue
+                    const queueIdx = state.queue.findIndex(q => q.name === newName);
+                    if (queueIdx !== -1) {
+                        if (oldPlayer) state.queue.splice(queueIdx, 1, oldPlayer);
+                        else state.queue.splice(queueIdx, 1);
+                        c.players[j] = { name: newName };
+                        if (!state.stats[newName]) state.stats[newName] = { wins: 0, games: 0 };
+                    }
                 } else {
-                    c.players[j] = null;
+                    // Empty selected — send court player back to queue
+                    if (oldPlayer) { state.queue.push(oldPlayer); c.players[j] = null; }
                 }
             });
-        } else if (editContext.type === 'queue') {
-            const val = document.getElementById('eq_0').value.trim();
-            if (val) {
-                state.queue[editContext.idx].name = val;
-                if (!state.stats[val]) state.stats[val] = { wins: 0, games: 0 };
-            }
         }
         sync();
         closeEditModal();
@@ -1491,15 +1540,16 @@
     }
 
     function endAndReset() {
-        if (!confirm('End this session and reset all courts and queue? Stats and game log will be kept.')) return;
+        if (!confirm('End this session and start fresh? All courts, queue, stats and match history will be cleared.')) return;
         closeEndOP();
-        // Clear courts and queue but keep stats and gameLog
         state.courts.forEach(c => {
             c.players = [null, null, null, null];
             c.startTime = null; c.alerted = false;
         });
         state.queue = [];
         state.history = [];
+        state.stats = {};
+        state.gameLog = [];
         state.matchingMode = null;
         state.partnerHistory = {};
         sync();
