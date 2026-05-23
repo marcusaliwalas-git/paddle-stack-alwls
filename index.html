@@ -781,6 +781,43 @@
         }
         .btn-pause:hover { background: rgba(255,193,7,0.35); }
         .btn-pause.paused { background: rgba(76,175,80,0.2); color: #81c784; border-color: rgba(76,175,80,0.4); }
+
+        /* Report Preview Modal */
+        .report-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.82); z-index: 700;
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        .report-overlay.open { display: flex; }
+        .report-modal {
+            background: #16213e; border-radius: 16px; padding: 24px;
+            width: 100%; max-width: 700px; max-height: 85vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,109,0,0.2);
+        }
+        .report-modal h3 { margin: 0 0 4px; color: white; font-size: 1rem; }
+        .report-modal .report-sub { color: #78909c; font-size: 12px; margin-bottom: 14px; }
+        .report-table-wrap { overflow: auto; flex: 1; border-radius: 8px; }
+        .report-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .report-table th {
+            background: rgba(255,109,0,0.2); color: #ff8a65;
+            padding: 8px 10px; text-align: left; position: sticky; top: 0;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .report-table td { padding: 7px 10px; color: #cfd8dc; border-bottom: 1px solid rgba(255,255,255,0.05); white-space: nowrap; }
+        .report-table tr:hover td { background: rgba(255,255,255,0.04); }
+        .report-table .winner-a { color: #90caf9; font-weight: bold; }
+        .report-table .winner-b { color: #f48fb1; font-weight: bold; }
+        .report-actions { display: flex; gap: 8px; margin-top: 14px; }
+        .report-download-btn { flex: 2; padding: 11px; background: #1565c0; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .report-download-btn:hover { background: #0d47a1; }
+        .report-close-btn { flex: 1; padding: 11px; background: rgba(255,255,255,0.07); color: #ccc; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; }
+
+        /* Next match drop zone */
+        .nmp-drop-zone { border: 2px dashed rgba(255,255,255,0.15); border-radius: 8px; }
+        .nmp-drop-zone.drag-over { border-color: #ff6d00; background: rgba(255,109,0,0.08); }
     </style>
 </head>
 <body>
@@ -908,13 +945,13 @@
             <div id="historyLog" style="margin-top:5px;"></div>
         </div>
 
-        <button class="btn-export" onclick="exportStats()">📊 Download Stats (CSV)</button>
+        <button class="btn-export" onclick="openReport()">📊 View & Export Results</button>
         <button class="btn-end-op" onclick="openEndOP()">🏁 End OP</button>
         <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
     </div>
 
     <div class="right-column">
-        <div class="next-match-panel" id="nextMatchPanel" style="display:none"></div>
+        <div class="next-match-panel nmp-drop-zone" id="nextMatchPanel" style="display:none" ondragover="nmpAllowDrop(event)" ondragleave="nmpLeaveDrop(event)" ondrop="dropToNextMatch(event)"></div>
         <div class="courts-grid" id="courtsGrid"></div>
     </div>
 </div>
@@ -972,6 +1009,32 @@
             <button class="endop-close-btn" onclick="closeEndOP()">Close</button>
         </div>
         <button class="endop-new-btn" onclick="endAndReset()">🔄 End &amp; Start New Session</button>
+    </div>
+</div>
+
+
+<!-- Report Preview Modal -->
+<div class="report-overlay" id="reportOverlay" onclick="if(event.target===this)closeReport()">
+    <div class="report-modal">
+        <h3>📊 Match Results</h3>
+        <div class="report-sub" id="reportSub"></div>
+        <div class="report-table-wrap">
+            <table class="report-table" id="reportTable">
+                <thead>
+                    <tr>
+                        <th>Court</th><th>Team A P1</th><th>Team A P2</th>
+                        <th>Team B P1</th><th>Team B P2</th>
+                        <th>A Score</th><th>B Score</th>
+                        <th>Winner</th><th>Duration</th><th>Date & Time</th>
+                    </tr>
+                </thead>
+                <tbody id="reportTableBody"></tbody>
+            </table>
+        </div>
+        <div class="report-actions">
+            <button class="report-close-btn" onclick="closeReport()">Close</button>
+            <button class="report-download-btn" onclick="exportStats()">⬇️ Download CSV</button>
+        </div>
     </div>
 </div>
 
@@ -1157,6 +1220,33 @@
     function csvEscape(val) {
         const s = String(val === undefined || val === null ? '' : val);
         return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+
+    function openReport() {
+        const log = state.gameLog || [];
+        if (log.length === 0) { showToast('No games recorded yet!', true); return; }
+        document.getElementById('reportSub').textContent = log.length + ' game' + (log.length !== 1 ? 's' : '') + ' recorded this session';
+        const tbody = document.getElementById('reportTableBody');
+        tbody.innerHTML = log.map(g => {
+            const isA = g.winner === 'Team A';
+            return '<tr>'
+                + '<td>' + g.court + '</td>'
+                + '<td class="' + (isA ? 'winner-a' : '') + '">' + (g.teamA[0]||'') + '</td>'
+                + '<td class="' + (isA ? 'winner-a' : '') + '">' + (g.teamA[1]||'') + '</td>'
+                + '<td class="' + (!isA ? 'winner-b' : '') + '">' + (g.teamB[0]||'') + '</td>'
+                + '<td class="' + (!isA ? 'winner-b' : '') + '">' + (g.teamB[1]||'') + '</td>'
+                + '<td>' + (g.scoreA !== '' ? g.scoreA : '—') + '</td>'
+                + '<td>' + (g.scoreB !== '' ? g.scoreB : '—') + '</td>'
+                + '<td style="font-weight:bold;color:' + (isA ? '#90caf9' : '#f48fb1') + '">' + (g.winner||'') + '</td>'
+                + '<td>' + fmtDuration(g.durationSec) + '</td>'
+                + '<td>' + fmtTimestamp(g.timestamp) + '</td>'
+                + '</tr>';
+        }).join('');
+        document.getElementById('reportOverlay').classList.add('open');
+    }
+
+    function closeReport() {
+        document.getElementById('reportOverlay').classList.remove('open');
     }
 
     function exportStats() {
@@ -1476,6 +1566,33 @@
     }
 
     function dragStart(ev, type, index, courtIdx = null) { ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); }
+
+    function nmpAllowDrop(ev) {
+        const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
+        if (data.type === 'rack') { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+    }
+    function nmpLeaveDrop(ev) { ev.currentTarget.classList.remove('drag-over'); }
+    function dropToNextMatch(ev) {
+        ev.preventDefault();
+        ev.currentTarget.classList.remove('drag-over');
+        const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
+        if (data.type !== 'rack') return;
+        // Swap dragged player with the last IN player in the preview (rotate them to front)
+        const qIdx = data.index;
+        if (qIdx === undefined) return;
+        // Move this player to the front of the IN section of the queue
+        const player = state.queue.splice(qIdx, 1)[0];
+        // Find first IN player index to insert before
+        const firstInIdx = state.queue.findIndex(p => p.in);
+        if (firstInIdx !== -1) {
+            state.queue.splice(firstInIdx, 0, player);
+        } else {
+            state.queue.unshift(player);
+        }
+        sync();
+        showToast(player.name + ' moved to front of queue', false);
+    }
+
     function nmpDragStart(ev, name) {
         ev.dataTransfer.setData("text", JSON.stringify({type:'nextmatch', name: name}));
     }
