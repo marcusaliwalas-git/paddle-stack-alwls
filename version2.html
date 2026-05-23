@@ -1229,12 +1229,15 @@
         document.getElementById('matchingOverlay').classList.remove('open');
         sync();
 
-        // If snake mode and no ratings set, prompt organizer
+        // If snake mode, remind organizer to set ratings
         if (_selectedMode === 'snake') {
             showToast('Snake Draft: tap the ★ badge next to each player to set their rating.', false);
         }
-        // Auto-fill all empty courts using chosen algorithm
-        fillAllCourts();
+
+        // If queue already has 4+ players, auto-fill courts
+        if (state.queue.length >= 4) {
+            fillAllCourts();
+        }
     }
 
     function getModeLabel(mode) {
@@ -1541,19 +1544,19 @@
             setTimeout(() => {
                 const liveState = (typeof state !== 'undefined' && state.courts) ? state : null;
                 if (liveState) {
-                    console.log('[Auth] pushing in-memory state to Firebase, courts:', liveState.courts.length);
                     window.fbWrite(liveState);
                 } else {
                     const saved = localStorage.getItem('pb_stacker_v12');
                     if (saved) {
-                        try {
-                            const parsed = JSON.parse(saved);
-                            console.log('[Auth] pushing localStorage state to Firebase');
-                            window.fbWrite(parsed);
-                        } catch(e) {}
+                        try { window.fbWrite(JSON.parse(saved)); } catch(e) {}
                     }
                 }
-            }, 200);
+
+                // Show mode selection if not yet chosen
+                if (typeof state !== 'undefined' && !state.matchingMode) {
+                    showMatchingModal();
+                }
+            }, 300);
         } else {
             authPage.classList.add('active');
             mainApp.style.display = 'none';
