@@ -2292,15 +2292,13 @@
 
     function renderLiveView(liveState) {
         const courtsEl = document.getElementById('liveCourts');
-
-        // ── Courts ──────────────────────────────────────────────────────
         const courts = toArray(liveState.courts);
+
+        // ── Courts: only show courts with an active game (has players) ──────
         const activeCourts = courts.filter(c => {
             if (!c) return false;
-            // Active = has a startTime (game running/paused) OR has at least one player
-            if (c.startTime) return true;
             const players = toPlayers(c.players);
-            return players.some(p => p !== null && p !== undefined);
+            return players.some(p => p && p.name);
         });
 
         if (activeCourts.length === 0) {
@@ -2308,7 +2306,6 @@
         } else {
             courtsEl.innerHTML = activeCourts.map((c, ci) => {
                 const players = toPlayers(c.players);
-                // Respect pause: if paused use pausedAt snapshot
                 const effectiveElapsed = c.pausedAt
                     ? Math.floor((c.pausedAt - c.startTime) / 1000)
                     : (c.startTime ? Math.floor((Date.now() - c.startTime) / 1000) : 0);
@@ -2326,7 +2323,7 @@
                 }).join('');
                 return '<div class="live-court-card ' + (isOT ? 'ot' : '') + '" data-start="' + (c.startTime||0) + '" data-paused="' + (c.pausedAt||0) + '" data-court="' + ci + '">'
                     + '<div class="live-court-header">'
-                    + '<span class="live-court-name">&#127955; Court ' + c.id + (isOT ? ' &#9888;&#65039;' : '') + '</span>'
+                    + '<span class="live-court-name">&#127955; Court ' + c.id + (isOT ? ' &#9888;' : '') + '</span>'
                     + '<span class="live-court-timer" id="lct-' + ci + '">' + timerStr + '</span>'
                     + '</div>'
                     + '<div style="margin:6px 0 2px;font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
@@ -2337,65 +2334,39 @@
             }).join('');
         }
 
-        // ── Next Match (IN players only) ─────────────────────────────────
+        // ── Next Up: IN queue players only, always show as "On Deck" ────────
         const queueEl = document.getElementById('liveQueue');
         const allQueue = toArray(liveState.queue);
-        const inQueue = allQueue.filter(p => p && p.in);
-        const emptyCts = courts.filter(c => {
-            if (!c) return false;
-            if (c.startTime) return false; // has active game
-            const players = toPlayers(c.players);
-            return players.every(p => !p);
-        });
+        const inQueue = allQueue.filter(p => p && p.name && p.in);
 
         if (inQueue.length === 0) {
-            queueEl.innerHTML = '<div class="live-empty">No players in queue yet.</div>';
+            queueEl.innerHTML = '<div class="live-empty">No players queued up yet.</div>';
         } else {
-            let html = '';
-            if (emptyCts.length > 0) {
-                // Show per empty court
-                emptyCts.forEach((ec, ei) => {
-                    const upcoming = inQueue.slice(ei * 4, ei * 4 + 4);
-                    if (ei > 0) html += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:8px 0">';
-                    html += '<div style="font-size:11px;font-weight:bold;color:#81c784;margin-bottom:6px;">Court ' + ec.id + '</div>';
-                    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:4px;">';
-                    html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
-                    [0,1].forEach(j => {
-                        html += upcoming[j]
-                            ? '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6)">' + upcoming[j].name + '</div>'
-                            : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
-                    });
-                    html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:4px;">Team B</div>';
-                    [2,3].forEach(j => {
-                        html += upcoming[j]
-                            ? '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6)">' + upcoming[j].name + '</div>'
-                            : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
-                    });
-                    html += '</div>';
-                    if (upcoming.length < 4) html += '<div class="live-empty" style="font-size:11px;">&#9650; ' + (4-upcoming.length) + ' more IN needed</div>';
-                });
-            } else {
-                // All courts active — show on deck
-                html += '<div style="font-size:11px;font-weight:bold;color:#81c784;margin-bottom:6px;">On Deck</div>';
-                html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">';
-                html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
-                [0,1].forEach(j => {
-                    html += inQueue[j]
-                        ? '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6)">' + inQueue[j].name + '</div>'
-                        : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
-                });
-                html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:4px;">Team B</div>';
-                [2,3].forEach(j => {
-                    html += inQueue[j]
-                        ? '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6)">' + inQueue[j].name + '</div>'
-                        : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
-                });
-                html += '</div>';
-                if (inQueue.length < 4) html += '<div class="live-empty" style="font-size:11px;margin-top:6px;">&#9650; ' + (4-inQueue.length) + ' more IN needed</div>';
+            const next4 = inQueue.slice(0, 4);
+            let html = '<div style="font-size:11px;font-weight:bold;color:#81c784;margin-bottom:8px;">On Deck</div>';
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">';
+            html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
+            [0,1].forEach(j => {
+                html += next4[j]
+                    ? '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6)">' + next4[j].name + '</div>'
+                    : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+            });
+            html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
+            [2,3].forEach(j => {
+                html += next4[j]
+                    ? '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6)">' + next4[j].name + '</div>'
+                    : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+            });
+            html += '</div>';
+            if (inQueue.length < 4) {
+                html += '<div class="live-empty" style="font-size:11px;margin-top:6px;">&#9650; ' + (4-inQueue.length) + ' more IN needed</div>';
+            }
+            if (inQueue.length > 4) {
+                html += '<div style="font-size:11px;color:#546e7a;margin-top:8px;text-align:center;">+' + (inQueue.length-4) + ' more in queue</div>';
             }
             queueEl.innerHTML = html;
         }
-        document.getElementById('liveUpdated').textContent = '&#9889; Live &#8212; updated ' + new Date().toLocaleTimeString();
+        document.getElementById('liveUpdated').textContent = '&#9889; Live — updated ' + new Date().toLocaleTimeString();
     }
 
     function tickLiveTimers() {
