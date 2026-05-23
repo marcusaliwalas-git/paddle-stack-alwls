@@ -863,6 +863,7 @@
     </div>
     <div style="display:flex;justify-content:center;align-items:center;"><span style="font-size:1.4rem;font-weight:900;color:white;letter-spacing:2px;">Pikol</span></div>
     <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;">
+        <button class="theme-toggle" id="forceSyncBtn" onclick="forceSync()" title="Push current state to Firebase">🔄 Sync</button>
         <button class="theme-toggle" onclick="showQR()">📱 QR Live</button>
         <button class="theme-toggle" onclick="toggleTheme()">🌓 Mode</button>
     </div>
@@ -1068,6 +1069,30 @@
             c.pausedAt = Date.now();
         }
         sync();
+    }
+
+
+    function forceSync() {
+        const btn = document.getElementById('forceSyncBtn');
+        btn.textContent = '⏳ Syncing...';
+        btn.disabled = true;
+        sync();
+        if (window.fbWrite) {
+            window.fbWrite(state);
+            setTimeout(() => {
+                btn.textContent = '✅ Synced!';
+                setTimeout(() => {
+                    btn.textContent = '🔄 Sync';
+                    btn.disabled = false;
+                }, 1500);
+            }, 800);
+        } else {
+            btn.textContent = '❌ Not signed in';
+            setTimeout(() => {
+                btn.textContent = '🔄 Sync';
+                btn.disabled = false;
+            }, 2000);
+        }
     }
 
     function toggleTheme() {
@@ -2000,9 +2025,12 @@
         return uid ? 'sessions/' + uid : null;
     }
     // Firebase keys can't contain . # $ / [ ]  — sanitize player name keys in stats
+    // Also: Firebase drops null array entries — preserve court player slots as objects
     function sanitizeForFirebase(data) {
         if (!data) return data;
-        const clean = Object.assign({}, data);
+        const clean = JSON.parse(JSON.stringify(data)); // deep clone
+
+        // Sanitize stats keys
         if (clean.stats) {
             const safeStats = {};
             Object.keys(clean.stats).forEach(name => {
@@ -2011,6 +2039,28 @@
             });
             clean.stats = safeStats;
         }
+
+        // Preserve null slots in court players arrays by converting to keyed objects
+        // Firebase drops nulls from arrays; using an object keeps all 4 slots
+        if (clean.courts) {
+            const courtsArr = Array.isArray(clean.courts) ? clean.courts : Object.values(clean.courts);
+            clean.courts = courtsArr.map(c => {
+                if (!c) return c;
+                const court = Object.assign({}, c);
+                if (court.players) {
+                    const playersArr = Array.isArray(court.players) ? court.players : Object.values(court.players);
+                    const playersObj = {};
+                    for (let i = 0; i < 4; i++) {
+                        playersObj[i] = playersArr[i] || null;
+                    }
+                    court.players = playersObj;
+                } else {
+                    court.players = { 0: null, 1: null, 2: null, 3: null };
+                }
+                return court;
+            });
+        }
+
         return clean;
     }
 
@@ -2221,32 +2271,48 @@
     function toArray(val) {
         if (!val) return [];
         if (Array.isArray(val)) return val;
-        // Firebase object: { "0": x, "1": y, ... }
+        // Firebase converts arrays to objects and drops null entries entirely
+        // e.g. [player, null, player, null] becomes {"0": player, "2": player}
+        // So we reconstruct a full 4-slot array
         const keys = Object.keys(val).map(Number).sort((a,b) => a-b);
-        return keys.map(k => val[k]);
+        if (keys.length === 0) return [];
+        const maxKey = Math.max(...keys);
+        const result = [];
+        for (let i = 0; i <= maxKey; i++) result.push(val[i] !== undefined ? val[i] : null);
+        return result;
+    }
+
+    function toPlayers(val) {
+        // Always return a 4-slot array for court players
+        if (!val) return [null, null, null, null];
+        const arr = toArray(val);
+        while (arr.length < 4) arr.push(null);
+        return arr.slice(0, 4);
     }
 
     function renderLiveView(liveState) {
-        console.log('[Live] renderLiveView called, courts:', JSON.stringify(liveState.courts), 'queue:', JSON.stringify(liveState.queue));
         const courtsEl = document.getElementById('liveCourts');
-
-        // Normalize courts array (Firebase may have converted it to an object)
         const courts = toArray(liveState.courts);
+
+        // ── Courts: only show courts with an active game (has players) ──────
         const activeCourts = courts.filter(c => {
             if (!c) return false;
-            const players = toArray(c.players);
-            return players.some(p => p !== null && p !== undefined);
+            const players = toPlayers(c.players);
+            return players.some(p => p && p.name);
         });
 
         if (activeCourts.length === 0) {
             courtsEl.innerHTML = '<div class="live-empty">No active courts right now.</div>';
         } else {
             courtsEl.innerHTML = activeCourts.map((c, ci) => {
-                const players = toArray(c.players);
-                const elapsed = c.startTime ? Math.floor((Date.now() - c.startTime) / 1000) : 0;
-                const timerStr = c.startTime ? Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0') : '--:--';
-                const isOT = elapsed >= 900;
-                // Team A = slots 0,1 | Team B = slots 2,3
+                const players = toPlayers(c.players);
+                const effectiveElapsed = c.pausedAt
+                    ? Math.floor((c.pausedAt - c.startTime) / 1000)
+                    : (c.startTime ? Math.floor((Date.now() - c.startTime) / 1000) : 0);
+                const timerStr = c.startTime
+                    ? Math.floor(effectiveElapsed/60) + ':' + String(effectiveElapsed%60).padStart(2,'0') + (c.pausedAt ? ' ⏸' : '')
+                    : '--:--';
+                const isOT = effectiveElapsed >= 900 && !c.pausedAt;
                 const teamA = [0,1].map(j => {
                     const p = players[j];
                     return '<div class="live-player-slot ' + (p ? '' : 'empty') + '">' + (p ? p.name : '&mdash;') + '</div>';
@@ -2255,9 +2321,9 @@
                     const p = players[j];
                     return '<div class="live-player-slot ' + (p ? '' : 'empty') + '">' + (p ? p.name : '&mdash;') + '</div>';
                 }).join('');
-                return '<div class="live-court-card ' + (isOT ? 'ot' : '') + '" data-start="' + (c.startTime||0) + '" data-court="' + ci + '">'
+                return '<div class="live-court-card ' + (isOT ? 'ot' : '') + '" data-start="' + (c.startTime||0) + '" data-paused="' + (c.pausedAt||0) + '" data-court="' + ci + '">'
                     + '<div class="live-court-header">'
-                    + '<span class="live-court-name">&#127955; Court ' + c.id + (isOT ? ' &#9888;&#65039;' : '') + '</span>'
+                    + '<span class="live-court-name">&#127955; Court ' + c.id + (isOT ? ' &#9888;' : '') + '</span>'
                     + '<span class="live-court-timer" id="lct-' + ci + '">' + timerStr + '</span>'
                     + '</div>'
                     + '<div style="margin:6px 0 2px;font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
@@ -2268,30 +2334,52 @@
             }).join('');
         }
 
+        // ── Next Up: IN queue players only, always show as "On Deck" ────────
         const queueEl = document.getElementById('liveQueue');
-        const queue = toArray(liveState.queue);
-        if (queue.length === 0) {
-            queueEl.innerHTML = '<div class="live-empty">Queue is empty.</div>';
+        const allQueue = toArray(liveState.queue);
+        const inQueue = allQueue.filter(p => p && p.name && p.in);
+
+        if (inQueue.length === 0) {
+            queueEl.innerHTML = '<div class="live-empty">No players queued up yet.</div>';
         } else {
-            queueEl.innerHTML = queue.map((p, i) =>
-                '<div class="live-queue-item">'
-                + '<span class="live-queue-num">' + (i+1) + '</span>'
-                + '<span>' + (p ? p.name : '?') + '</span>'
-                + (i < 4 ? '<span class="live-next-badge">Next Up</span>' : '')
-                + '</div>'
-            ).join('');
+            const next4 = inQueue.slice(0, 4);
+            let html = '<div style="font-size:11px;font-weight:bold;color:#81c784;margin-bottom:8px;">On Deck</div>';
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">';
+            html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
+            [0,1].forEach(j => {
+                html += next4[j]
+                    ? '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6)">' + next4[j].name + '</div>'
+                    : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+            });
+            html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
+            [2,3].forEach(j => {
+                html += next4[j]
+                    ? '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6)">' + next4[j].name + '</div>'
+                    : '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+            });
+            html += '</div>';
+            if (inQueue.length < 4) {
+                html += '<div class="live-empty" style="font-size:11px;margin-top:6px;">&#9650; ' + (4-inQueue.length) + ' more IN needed</div>';
+            }
+            if (inQueue.length > 4) {
+                html += '<div style="font-size:11px;color:#546e7a;margin-top:8px;text-align:center;">+' + (inQueue.length-4) + ' more in queue</div>';
+            }
+            queueEl.innerHTML = html;
         }
-        document.getElementById('liveUpdated').textContent = '&#9889; Live &#8212; updated ' + new Date().toLocaleTimeString();
+        document.getElementById('liveUpdated').textContent = '&#9889; Live — updated ' + new Date().toLocaleTimeString();
     }
 
     function tickLiveTimers() {
         document.querySelectorAll('.live-court-card[data-start]').forEach((el, ci) => {
             const start = parseInt(el.dataset.start);
+            const paused = parseInt(el.dataset.paused) || 0;
             if (!start) return;
-            const elapsed = Math.floor((Date.now() - start) / 1000);
+            const elapsed = paused
+                ? Math.floor((paused - start) / 1000)
+                : Math.floor((Date.now() - start) / 1000);
             const timerEl = document.getElementById('lct-' + ci);
-            if (timerEl) timerEl.textContent = Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0');
-            if (elapsed >= 900) el.classList.add('ot');
+            if (timerEl) timerEl.textContent = Math.floor(elapsed/60) + ':' + String(elapsed%60).padStart(2,'0') + (paused ? ' ⏸' : '');
+            if (elapsed >= 900 && !paused) el.classList.add('ot');
         });
     }
 
