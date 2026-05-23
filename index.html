@@ -2000,9 +2000,12 @@
         return uid ? 'sessions/' + uid : null;
     }
     // Firebase keys can't contain . # $ / [ ]  — sanitize player name keys in stats
+    // Also: Firebase drops null array entries — preserve court player slots as objects
     function sanitizeForFirebase(data) {
         if (!data) return data;
-        const clean = Object.assign({}, data);
+        const clean = JSON.parse(JSON.stringify(data)); // deep clone
+
+        // Sanitize stats keys
         if (clean.stats) {
             const safeStats = {};
             Object.keys(clean.stats).forEach(name => {
@@ -2011,6 +2014,28 @@
             });
             clean.stats = safeStats;
         }
+
+        // Preserve null slots in court players arrays by converting to keyed objects
+        // Firebase drops nulls from arrays; using an object keeps all 4 slots
+        if (clean.courts) {
+            const courtsArr = Array.isArray(clean.courts) ? clean.courts : Object.values(clean.courts);
+            clean.courts = courtsArr.map(c => {
+                if (!c) return c;
+                const court = Object.assign({}, c);
+                if (court.players) {
+                    const playersArr = Array.isArray(court.players) ? court.players : Object.values(court.players);
+                    const playersObj = {};
+                    for (let i = 0; i < 4; i++) {
+                        playersObj[i] = playersArr[i] || null;
+                    }
+                    court.players = playersObj;
+                } else {
+                    court.players = { 0: null, 1: null, 2: null, 3: null };
+                }
+                return court;
+            });
+        }
+
         return clean;
     }
 
@@ -2221,9 +2246,23 @@
     function toArray(val) {
         if (!val) return [];
         if (Array.isArray(val)) return val;
-        // Firebase object: { "0": x, "1": y, ... }
+        // Firebase converts arrays to objects and drops null entries entirely
+        // e.g. [player, null, player, null] becomes {"0": player, "2": player}
+        // So we reconstruct a full 4-slot array
         const keys = Object.keys(val).map(Number).sort((a,b) => a-b);
-        return keys.map(k => val[k]);
+        if (keys.length === 0) return [];
+        const maxKey = Math.max(...keys);
+        const result = [];
+        for (let i = 0; i <= maxKey; i++) result.push(val[i] !== undefined ? val[i] : null);
+        return result;
+    }
+
+    function toPlayers(val) {
+        // Always return a 4-slot array for court players
+        if (!val) return [null, null, null, null];
+        const arr = toArray(val);
+        while (arr.length < 4) arr.push(null);
+        return arr.slice(0, 4);
     }
 
     function renderLiveView(liveState) {
@@ -2233,7 +2272,9 @@
         const courts = toArray(liveState.courts);
         const activeCourts = courts.filter(c => {
             if (!c) return false;
-            const players = toArray(c.players);
+            // Active = has a startTime (game running/paused) OR has at least one player
+            if (c.startTime) return true;
+            const players = toPlayers(c.players);
             return players.some(p => p !== null && p !== undefined);
         });
 
@@ -2241,7 +2282,7 @@
             courtsEl.innerHTML = '<div class="live-empty">No active courts right now.</div>';
         } else {
             courtsEl.innerHTML = activeCourts.map((c, ci) => {
-                const players = toArray(c.players);
+                const players = toPlayers(c.players);
                 // Respect pause: if paused use pausedAt snapshot
                 const effectiveElapsed = c.pausedAt
                     ? Math.floor((c.pausedAt - c.startTime) / 1000)
@@ -2276,7 +2317,9 @@
         const allQueue = toArray(liveState.queue);
         const inQueue = allQueue.filter(p => p && p.in);
         const emptyCts = courts.filter(c => {
-            const players = toArray(c.players);
+            if (!c) return false;
+            if (c.startTime) return false; // has active game
+            const players = toPlayers(c.players);
             return players.every(p => !p);
         });
 
