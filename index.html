@@ -2075,7 +2075,9 @@
         if (!state.playerRatings) state.playerRatings = {};
         inPlayers.forEach((p, i) => {
             const el = document.getElementById('ri_' + i);
-            if (el && el.value) state.playerRatings[p.name] = parseFloat(el.value) || 3.0;
+            // Always save — use entered value or default to 3.0 if left blank
+            const val = el && el.value !== '' ? parseFloat(el.value) : 3.0;
+            state.playerRatings[p.name] = isNaN(val) ? 3.0 : val;
         });
         document.getElementById('ratingInputOverlay').classList.remove('open');
         sync();
