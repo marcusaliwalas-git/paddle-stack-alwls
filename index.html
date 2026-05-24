@@ -1387,7 +1387,12 @@
         if (c.players.every(p => p === null)) {
             if (state.queue.filter(p => p.in).length < 4) { alert('Need at least 4 players tagged IN to start a court!'); return; }
             if (!state.matchingMode) { showMatchingModal(); return; }
-            if (state.matchingMode === 'snake') { openRatingInput(); return; }
+            if (state.matchingMode === 'snake') {
+                // Only prompt for ratings if none have been set yet for IN players
+                const inPlayers = state.queue.filter(p => p.in);
+                const ratingsSet = inPlayers.some(p => (state.playerRatings || {})[p.name] !== undefined);
+                if (!ratingsSet) { openRatingInput(); return; }
+            }
             fillAllCourts();
             return;
         }
