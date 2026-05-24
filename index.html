@@ -931,11 +931,12 @@
             border-radius: 8px;
             background: rgba(255,255,255,0.08);
             border: 1px solid rgba(255,109,0,0.25);
-            color: white;
+            color: #1a1a1a;
             font-size: 15px;
             font-weight: 600;
             letter-spacing: 0.3px;
             margin: 0;
+            background: rgba(255,255,255,0.92);
             transition: border 0.2s, box-shadow 0.2s;
         }
         .session-name-input:focus {
@@ -943,7 +944,7 @@
             border-color: #ff6d00;
             box-shadow: 0 0 0 3px rgba(255,109,0,0.15);
         }
-        .session-name-input::placeholder { color: rgba(255,255,255,0.3); font-weight: 400; }
+        .session-name-input::placeholder { color: rgba(0,0,0,0.35); font-weight: 400; }
 
         /* Add Players section at bottom of sidebar */
         .add-players-section {
@@ -956,6 +957,43 @@
             color: var(--primary);
             font-size: 13px;
         }
+
+        /* Live Rankings */
+        .live-ranking-tabs {
+            display: flex; gap: 5px; margin-bottom: 12px;
+            background: rgba(255,255,255,0.05); border-radius: 10px; padding: 4px;
+        }
+        .live-rank-tab {
+            flex: 1; padding: 7px 4px; border: none; border-radius: 7px;
+            font-size: 11px; font-weight: bold; cursor: pointer;
+            background: transparent; color: #78909c; transition: all 0.2s;
+        }
+        .live-rank-tab.active { background: #ff6d00; color: white; }
+        .live-podium { display: flex; align-items: flex-end; justify-content: center; gap: 6px; margin-bottom: 14px; min-height: 120px; }
+        .live-podium-place {
+            flex: 1; border-radius: 10px 10px 0 0;
+            display: flex; flex-direction: column; align-items: center;
+            padding: 10px 6px 8px; transition: all 0.3s;
+        }
+        .live-podium-place.p1 { background: linear-gradient(160deg,#7b5e00,#f9a825); min-height: 110px; order: 2; }
+        .live-podium-place.p2 { background: linear-gradient(160deg,#3a3a3a,#9e9e9e); min-height: 85px; order: 1; }
+        .live-podium-place.p3 { background: linear-gradient(160deg,#4e2d00,#a1632a); min-height: 65px; order: 3; }
+        .live-podium-medal { font-size: 18px; margin-bottom: 3px; }
+        .live-podium-name { font-size: 12px; font-weight: bold; color: white; text-align: center; word-break: break-word; margin-bottom: 2px; }
+        .live-podium-stat { font-size: 10px; color: rgba(255,255,255,0.75); text-align: center; }
+        .live-rank-list { display: flex; flex-direction: column; gap: 5px; }
+        .live-rank-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 12px; border-radius: 8px;
+            background: rgba(255,255,255,0.05); font-size: 13px;
+        }
+        .live-rank-row:nth-child(1) { background: rgba(249,168,37,0.1); border: 1px solid rgba(249,168,37,0.2); }
+        .live-rank-row:nth-child(2) { background: rgba(158,158,158,0.1); border: 1px solid rgba(158,158,158,0.2); }
+        .live-rank-row:nth-child(3) { background: rgba(161,99,42,0.1); border: 1px solid rgba(161,99,42,0.2); }
+        .live-rank-num { font-size: 11px; font-weight: bold; color: #78909c; width: 18px; }
+        .live-rank-name { flex: 1; color: white; font-weight: 600; }
+        .live-rank-stat { font-size: 11px; color: #ff8a65; font-weight: bold; background: rgba(255,109,0,0.1); padding: 2px 7px; border-radius: 8px; }
+        .live-no-stats { color: #546e7a; font-style: italic; font-size: 13px; padding: 10px 0; text-align: center; }
     </style>
 </head>
 <body>
@@ -1026,6 +1064,13 @@
         <div class="live-courts" id="liveCourts"></div>
         <div class="live-section-title">⏳ Queue / Next Up</div>
         <div class="live-queue" id="liveQueue"></div>
+        <div class="live-section-title">🏆 Rankings</div>
+        <div class="live-ranking-tabs">
+            <button class="live-rank-tab active" id="lrt-wins" onclick="switchLiveRank('wins')">🏆 Wins</button>
+            <button class="live-rank-tab" id="lrt-winpct" onclick="switchLiveRank('winpct')">📊 Win %</button>
+            <button class="live-rank-tab" id="lrt-points" onclick="switchLiveRank('points')">🎯 Points</button>
+        </div>
+        <div id="liveRankings"></div>
         <div class="live-last-updated" id="liveUpdated"></div>
     </div>
 </div>
@@ -2928,6 +2973,88 @@
 
     // ── Live view renderer ───────────────────────────────────────────────
     // Firebase converts arrays to objects keyed by index — normalize everything
+
+    // ── Live Rankings ─────────────────────────────────────────────────────
+    let _liveRankMode = 'wins';
+    let _liveStateCache = null;
+
+    window.switchLiveRank = function(mode) {
+        _liveRankMode = mode;
+        ['wins','winpct','points'].forEach(m => {
+            const el = document.getElementById('lrt-' + m);
+            if (el) el.classList.toggle('active', m === mode);
+        });
+        if (_liveStateCache) renderLiveRankings(_liveStateCache, mode);
+    };
+
+    function renderLiveRankings(liveState, mode) {
+        _liveStateCache = liveState;
+        const el = document.getElementById('liveRankings');
+        if (!el) return;
+
+        const stats = liveState.stats || {};
+        const gameLog = toArray(liveState.gameLog || []);
+
+        // Compute points from game log
+        const pointsMap = {};
+        gameLog.forEach(g => {
+            if (!g) return;
+            const sA = parseInt(g.scoreA) || 0;
+            const sB = parseInt(g.scoreB) || 0;
+            toArray(g.teamA || []).forEach(n => { if(n) pointsMap[n] = (pointsMap[n]||0) + sA; });
+            toArray(g.teamB || []).forEach(n => { if(n) pointsMap[n] = (pointsMap[n]||0) + sB; });
+        });
+
+        const players = Object.keys(stats).map(name => {
+            const s = stats[name] || { wins:0, games:0 };
+            const losses = (s.games||0) - (s.wins||0);
+            const winPct = s.games > 0 ? ((s.wins / s.games)*100).toFixed(1) : '0.0';
+            return { name, wins: s.wins||0, games: s.games||0, losses, winPct: parseFloat(winPct), points: pointsMap[name]||0 };
+        }).filter(p => p.games > 0).sort((a,b) => {
+            if (mode === 'wins') return b.wins - a.wins || b.games - a.games;
+            if (mode === 'winpct') return b.winPct - a.winPct || b.games - a.games;
+            if (mode === 'points') return b.points - a.points;
+            return 0;
+        });
+
+        if (players.length === 0) {
+            el.innerHTML = '<div class="live-no-stats">No stats yet. Complete some games first.</div>';
+            return;
+        }
+
+        function statLabel(p) {
+            if (mode === 'wins') return p.wins + 'W ' + p.losses + 'L';
+            if (mode === 'winpct') return p.winPct + '%';
+            return p.points + ' pts';
+        }
+
+        // Podium (top 3)
+        const medals = ['🥇','🥈','🥉'];
+        const classes = ['p1','p2','p3'];
+        const top3 = players.slice(0,3);
+        const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
+        const podiumHtml = '<div class="live-podium">'
+            + podiumOrder.map(p => {
+                const ri = top3.indexOf(p);
+                return '<div class="live-podium-place ' + classes[ri] + '">'
+                    + '<div class="live-podium-medal">' + medals[ri] + '</div>'
+                    + '<div class="live-podium-name">' + p.name + '</div>'
+                    + '<div class="live-podium-stat">' + statLabel(p) + '</div>'
+                    + '</div>';
+            }).join('') + '</div>';
+
+        const listHtml = '<div class="live-rank-list">'
+            + players.slice(0,10).map((p,i) =>
+                '<div class="live-rank-row">'
+                + '<span class="live-rank-num">' + (i+1) + '</span>'
+                + '<span class="live-rank-name">' + p.name + '</span>'
+                + '<span class="live-rank-stat">' + statLabel(p) + '</span>'
+                + '</div>'
+            ).join('') + '</div>';
+
+        el.innerHTML = podiumHtml + listHtml;
+    }
+
     function toArray(val) {
         if (!val) return [];
         if (Array.isArray(val)) return val;
