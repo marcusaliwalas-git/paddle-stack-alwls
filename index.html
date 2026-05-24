@@ -750,9 +750,11 @@
             border: 1px solid rgba(255,255,255,0.2); color: white;
         }
         .score-input:focus { outline: none; border-color: #ff6d00; }
-        .score-modal-actions { display: flex; gap: 8px; }
-        .score-confirm-btn { flex: 2; background: #ff6d00; color: white; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: bold; border: none; cursor: pointer; }
+        .score-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .score-confirm-btn { flex: 2; background: #ff6d00; color: white; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; }
         .score-confirm-btn:hover { background: #e65100; }
+        .score-confirm-clear-btn { flex: 2; background: rgba(255,255,255,0.1); color: #eceff1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2); cursor: pointer; }
+        .score-confirm-clear-btn:hover { background: rgba(255,255,255,0.18); }
         .score-cancel-btn { flex: 1; background: rgba(255,255,255,0.07); color: #ccc; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; }
 
         /* End OP Button */
@@ -1476,7 +1478,8 @@
         </div>
         <div class="score-modal-actions">
             <button class="score-cancel-btn" onclick="closeScoreModal()">Cancel</button>
-            <button class="score-confirm-btn" onclick="confirmScore()">Confirm & Rotate</button>
+            <button class="score-confirm-clear-btn" onclick="confirmScore('clear')">✓ Confirm & Clear</button>
+            <button class="score-confirm-btn" onclick="confirmScore('rotate')">✓ Confirm & Rotate</button>
         </div>
     </div>
 </div>
@@ -1696,7 +1699,7 @@
         document.getElementById('scoreModalOverlay').classList.add('open');
     }
 
-    function confirmScore() {
+    function confirmScore(action) {
         if (!_scoreCtx) return;
         // Capture all values BEFORE closing (closeScoreModal nulls _scoreCtx)
         const courtIdx = _scoreCtx.courtIdx;
@@ -1707,18 +1710,66 @@
         const scoreB = rawB !== '' ? parseInt(rawB) : undefined;
         closeScoreModal();
 
-        // For snake draft: check if any IN player is missing a rating before rotating
-        if (state.matchingMode === 'snake') {
-            const inPlayers = state.queue.filter(p => p.in);
-            const missingRatings = inPlayers.some(p => (state.playerRatings || {})[p.name] === undefined);
-            if (missingRatings) {
-                // Store rotate args so we can call after ratings saved
-                _pendingRotate = { courtIdx, winningTeam, scoreA, scoreB };
-                openRatingInput();
-                return;
+        if (action === 'clear') {
+            // Record result then clear court without rotating new players in
+            clearCourtWithResult(courtIdx, winningTeam, scoreA, scoreB);
+        } else {
+            // For snake draft: check if any IN player is missing a rating before rotating
+            if (state.matchingMode === 'snake') {
+                const inPlayers = state.queue.filter(p => p.in);
+                const missingRatings = inPlayers.some(p => (state.playerRatings || {})[p.name] === undefined);
+                if (missingRatings) {
+                    _pendingRotate = { courtIdx, winningTeam, scoreA, scoreB };
+                    openRatingInput();
+                    return;
+                }
             }
+            rotateCourt(courtIdx, winningTeam, scoreA, scoreB);
         }
-        rotateCourt(courtIdx, winningTeam, scoreA, scoreB);
+    }
+
+    function clearCourtWithResult(courtIdx, winningTeam, scoreA, scoreB) {
+        const c = state.courts[courtIdx];
+        const winIdx = winningTeam === 'A' ? [0,1] : [2,3];
+        const teamAPlayers = [c.players[0], c.players[1]].filter(Boolean);
+        const teamBPlayers = [c.players[2], c.players[3]].filter(Boolean);
+        const teamLabel = winningTeam === 'A' ? 'Team A' : 'Team B';
+
+        // Record stats
+        c.players.forEach((p, i) => {
+            if (!p) return;
+            if (!state.stats[p.name]) state.stats[p.name] = { wins: 0, games: 0 };
+            state.stats[p.name].games++;
+            if (winIdx.includes(i)) state.stats[p.name].wins++;
+        });
+
+        // Record history & game log
+        const scoreStr = (scoreA !== undefined && scoreB !== undefined) ? ' [' + scoreA + '-' + scoreB + ']' : '';
+        const winners = winningTeam === 'A' ? teamAPlayers : teamBPlayers;
+        state.history.unshift('C' + c.id + ': ' + teamLabel + ' won' + scoreStr + ' (' + winners.map(w => w.name).join(' & ') + ')');
+        if (state.history.length > 5) state.history.pop();
+
+        const duration = c.startTime ? Math.round((Date.now() - c.startTime) / 1000) : 0;
+        if (!state.gameLog) state.gameLog = [];
+        state.gameLog.push({
+            court: c.id,
+            sessionName: state.sessionName || '',
+            teamA: teamAPlayers.map(p => p.name),
+            teamB: teamBPlayers.map(p => p.name),
+            scoreA: scoreA !== undefined ? scoreA : '',
+            scoreB: scoreB !== undefined ? scoreB : '',
+            winner: teamLabel,
+            durationSec: duration,
+            timestamp: new Date().toISOString()
+        });
+
+        // Return all players to queue, keep their IN status
+        c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true }); });
+        c.players = [null, null, null, null];
+        c.startTime = null;
+        c.alerted = false;
+        c.pausedAt = null;
+        sync();
     }
 
     function closeScoreModal() {
