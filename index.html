@@ -994,6 +994,11 @@
         .live-rank-name { flex: 1; color: white; font-weight: 600; }
         .live-rank-stat { font-size: 11px; color: #ff8a65; font-weight: bold; background: rgba(255,109,0,0.1); padding: 2px 7px; border-radius: 8px; }
         .live-no-stats { color: #546e7a; font-style: italic; font-size: 13px; padding: 10px 0; text-align: center; }
+
+        /* Live Ranking Tabs */
+        .live-ranking-tabs { display:flex;gap:5px;margin-bottom:12px;background:rgba(255,255,255,0.05);border-radius:10px;padding:4px; }
+        .live-rank-tab { flex:1;padding:7px 4px;border:none;border-radius:7px;font-size:11px;font-weight:bold;cursor:pointer;background:transparent;color:#78909c;transition:all 0.2s; }
+        .live-rank-tab.active { background:#ff6d00;color:white; }
     </style>
 </head>
 <body>
@@ -2976,7 +2981,7 @@
 
     // ── Live Rankings ─────────────────────────────────────────────────────
     let _liveRankMode = 'wins';
-    let _liveStateCache = null;
+    let _liveRankState = null;
 
     window.switchLiveRank = function(mode) {
         _liveRankMode = mode;
@@ -2984,74 +2989,85 @@
             const el = document.getElementById('lrt-' + m);
             if (el) el.classList.toggle('active', m === mode);
         });
-        if (_liveStateCache) renderLiveRankings(_liveStateCache, mode);
+        if (_liveRankState) renderLiveRankings(_liveRankState, mode);
     };
 
-    function renderLiveRankings(liveState, mode) {
-        _liveStateCache = liveState;
-        const el = document.getElementById('liveRankings');
-        if (!el) return;
-
-        const stats = liveState.stats || {};
+    function getLiveRankings(liveState, mode) {
+        const rawStats = liveState.stats || {};
         const gameLog = toArray(liveState.gameLog || []);
-
-        // Compute points from game log
         const pointsMap = {};
         gameLog.forEach(g => {
             if (!g) return;
             const sA = parseInt(g.scoreA) || 0;
             const sB = parseInt(g.scoreB) || 0;
-            toArray(g.teamA || []).forEach(n => { if(n) pointsMap[n] = (pointsMap[n]||0) + sA; });
-            toArray(g.teamB || []).forEach(n => { if(n) pointsMap[n] = (pointsMap[n]||0) + sB; });
+            toArray(g.teamA || []).forEach(n => { if(n) pointsMap[String(n)] = (pointsMap[String(n)]||0) + sA; });
+            toArray(g.teamB || []).forEach(n => { if(n) pointsMap[String(n)] = (pointsMap[String(n)]||0) + sB; });
         });
-
-        const players = Object.keys(stats).map(name => {
-            const s = stats[name] || { wins:0, games:0 };
+        const realNames = new Set();
+        gameLog.forEach(g => {
+            if (!g) return;
+            toArray(g.teamA||[]).forEach(n => { if(n) realNames.add(String(n)); });
+            toArray(g.teamB||[]).forEach(n => { if(n) realNames.add(String(n)); });
+        });
+        toArray(liveState.queue || []).forEach(p => { if(p && p.name) realNames.add(p.name); });
+        function safeKey(n) { return n.split('.').join('_').split('#').join('_').split('[').join('_').split(']').join('_'); }
+        const result = [];
+        Object.keys(rawStats).forEach(statKey => {
+            const s = rawStats[statKey] || { wins:0, games:0 };
+            if (!s.games) return;
+            let displayName = statKey;
+            for (const rn of realNames) {
+                if (safeKey(rn) === statKey || rn === statKey) { displayName = rn; break; }
+            }
             const losses = (s.games||0) - (s.wins||0);
-            const winPct = s.games > 0 ? ((s.wins / s.games)*100).toFixed(1) : '0.0';
-            return { name, wins: s.wins||0, games: s.games||0, losses, winPct: parseFloat(winPct), points: pointsMap[name]||0 };
-        }).filter(p => p.games > 0).sort((a,b) => {
-            if (mode === 'wins') return b.wins - a.wins || b.games - a.games;
+            const winPct = s.games > 0 ? parseFloat(((s.wins/s.games)*100).toFixed(1)) : 0;
+            const points = pointsMap[displayName] || pointsMap[statKey] || 0;
+            result.push({ name: displayName, wins: s.wins||0, games: s.games||0, losses, winPct, points });
+        });
+        return result.sort((a,b) => {
+            if (mode === 'wins')   return b.wins - a.wins || b.games - a.games;
             if (mode === 'winpct') return b.winPct - a.winPct || b.games - a.games;
             if (mode === 'points') return b.points - a.points;
             return 0;
         });
+    }
 
-        if (players.length === 0) {
-            el.innerHTML = '<div class="live-no-stats">No stats yet. Complete some games first.</div>';
+    function liveStatLabel(p, mode) {
+        if (mode === 'wins')   return p.wins + 'W / ' + p.losses + 'L';
+        if (mode === 'winpct') return p.winPct + '% (' + p.games + ' games)';
+        if (mode === 'points') return p.points + ' pts';
+        return '';
+    }
+
+    function renderLiveRankings(liveState, mode) {
+        _liveRankState = liveState;
+        const el = document.getElementById('liveRankings');
+        if (!el) return;
+        const ranked = getLiveRankings(liveState, mode);
+        if (ranked.length === 0) {
+            el.innerHTML = '<div style="color:#546e7a;text-align:center;padding:14px;font-style:italic;font-size:13px;">No stats yet. Complete some games first.</div>';
             return;
         }
-
-        function statLabel(p) {
-            if (mode === 'wins') return p.wins + 'W ' + p.losses + 'L';
-            if (mode === 'winpct') return p.winPct + '%';
-            return p.points + ' pts';
-        }
-
-        // Podium (top 3)
-        const medals = ['🥇','🥈','🥉'];
+        const medals = ['&#129351;','&#129352;','&#129353;'];
         const classes = ['p1','p2','p3'];
-        const top3 = players.slice(0,3);
+        const top3 = ranked.slice(0,3);
         const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
-        const podiumHtml = '<div class="live-podium">'
+        const podiumHtml = '<div class="endop-podium" style="margin-bottom:12px;">'
             + podiumOrder.map(p => {
                 const ri = top3.indexOf(p);
-                return '<div class="live-podium-place ' + classes[ri] + '">'
-                    + '<div class="live-podium-medal">' + medals[ri] + '</div>'
-                    + '<div class="live-podium-name">' + p.name + '</div>'
-                    + '<div class="live-podium-stat">' + statLabel(p) + '</div>'
+                return '<div class="podium-place ' + classes[ri] + '">'
+                    + '<div class="podium-rank">' + medals[ri] + '</div>'
+                    + '<div class="podium-name">' + p.name + '</div>'
+                    + '<div class="podium-stat">' + liveStatLabel(p, mode) + '</div>'
                     + '</div>';
             }).join('') + '</div>';
-
-        const listHtml = '<div class="live-rank-list">'
-            + players.slice(0,10).map((p,i) =>
-                '<div class="live-rank-row">'
-                + '<span class="live-rank-num">' + (i+1) + '</span>'
-                + '<span class="live-rank-name">' + p.name + '</span>'
-                + '<span class="live-rank-stat">' + statLabel(p) + '</span>'
-                + '</div>'
-            ).join('') + '</div>';
-
+        const listHtml = ranked.slice(0,10).map((p,i) =>
+            '<div class="endop-list-row">'
+            + '<span class="endop-rank-num">' + (i+1) + '</span>'
+            + '<span class="endop-player-name">' + p.name + '</span>'
+            + '<span class="endop-stat-pill">' + liveStatLabel(p, mode) + '</span>'
+            + '</div>'
+        ).join('');
         el.innerHTML = podiumHtml + listHtml;
     }
 
@@ -3191,6 +3207,7 @@
         }
 
         queueEl.innerHTML = html;
+        renderLiveRankings(liveState, _liveRankMode);
         document.getElementById('liveUpdated').textContent = '&#9889; Live — updated ' + new Date().toLocaleTimeString();
     }
 
