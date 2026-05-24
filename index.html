@@ -1224,6 +1224,7 @@
 
     // ── Score Modal ─────────────────────────────────────────────────────
     let _scoreCtx = null; // { courtIdx, winningTeam }
+    let _pendingRotate = null; // queued rotate after rating input
 
     function openScoreModal(courtIdx, winningTeam) {
         const c = state.courts[courtIdx];
@@ -1252,6 +1253,18 @@
         const scoreA = rawA !== '' ? parseInt(rawA) : undefined;
         const scoreB = rawB !== '' ? parseInt(rawB) : undefined;
         closeScoreModal();
+
+        // For snake draft: check if any IN player is missing a rating before rotating
+        if (state.matchingMode === 'snake') {
+            const inPlayers = state.queue.filter(p => p.in);
+            const missingRatings = inPlayers.some(p => (state.playerRatings || {})[p.name] === undefined);
+            if (missingRatings) {
+                // Store rotate args so we can call after ratings saved
+                _pendingRotate = { courtIdx, winningTeam, scoreA, scoreB };
+                openRatingInput();
+                return;
+            }
+        }
         rotateCourt(courtIdx, winningTeam, scoreA, scoreB);
     }
 
@@ -2086,13 +2099,26 @@
         });
         document.getElementById('ratingInputOverlay').classList.remove('open');
         sync();
-        fillAllCourts();
+        // If this was triggered from confirmScore, execute the pending rotate
+        if (_pendingRotate) {
+            const { courtIdx, winningTeam, scoreA, scoreB } = _pendingRotate;
+            _pendingRotate = null;
+            rotateCourt(courtIdx, winningTeam, scoreA, scoreB);
+        } else {
+            fillAllCourts();
+        }
     }
 
     function closeRatingInput() {
         document.getElementById('ratingInputOverlay').classList.remove('open');
-        // Still fill courts even if ratings skipped (defaults to 3.0)
-        if (state.queue.filter(p => p.in).length >= 4) fillAllCourts();
+        // Still fill courts / rotate even if ratings skipped (defaults to 3.0)
+        if (_pendingRotate) {
+            const { courtIdx, winningTeam, scoreA, scoreB } = _pendingRotate;
+            _pendingRotate = null;
+            rotateCourt(courtIdx, winningTeam, scoreA, scoreB);
+        } else if (state.queue.filter(p => p.in).length >= 4) {
+            fillAllCourts();
+        }
     }
 
     function getModeLabel(mode) {
