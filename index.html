@@ -818,6 +818,40 @@
         /* Next match drop zone */
         .nmp-drop-zone { border: 2px dashed rgba(255,255,255,0.15); border-radius: 8px; }
         .nmp-drop-zone.drag-over { border-color: #ff6d00; background: rgba(255,109,0,0.08); }
+
+        /* DUPR Rating Input Modal */
+        .rating-input-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.82); z-index: 900;
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        .rating-input-overlay.open { display: flex; }
+        .rating-input-modal {
+            background: #16213e; border-radius: 18px; padding: 26px 24px;
+            width: 92%; max-width: 440px; max-height: 80vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,109,0,0.2);
+        }
+        .rating-input-modal h3 { margin: 0 0 4px; color: white; font-size: 1rem; }
+        .rating-input-modal .ri-sub { color: #78909c; font-size: 12px; margin-bottom: 16px; }
+        .rating-rows { overflow-y: auto; flex: 1; margin-bottom: 14px; }
+        .rating-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .rating-row .rr-name { flex: 1; font-size: 13px; color: #eceff1; }
+        .rating-row input {
+            width: 70px; padding: 7px 8px; border-radius: 7px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: white; font-size: 14px; text-align: center; margin: 0;
+        }
+        .rating-row input:focus { border-color: #ff6d00; outline: none; }
+        .ri-actions { display: flex; gap: 8px; }
+        .ri-save-btn { flex: 2; padding: 11px; background: #ff6d00; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .ri-save-btn:hover { background: #e65100; }
+        .ri-cancel-btn { flex: 1; padding: 11px; background: rgba(255,255,255,0.07); color: #ccc; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -1012,7 +1046,113 @@
             <button class="header-signout-btn" onclick="doSignOut()">Sign Out</button>
         </div>
     </div>
-    <div style="display:flex;justify-content:center;align-items:center;"><span style="font-size:1.4rem;font-weight:900;color:white;letter-spacing:2px;">Pikol</span></div>
+    <div style="display:flex;justify-content:center;align-items:center;"><svg viewBox="0 0 520 200" xmlns="http://www.w3.org/2000/svg" width="520" height="200">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a1628;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0d2040;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="ballGrad" cx="38%" cy="35%" r="55%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.9" />
+      <stop offset="40%" style="stop-color:#f0f0f0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c8c8c8;stop-opacity:1" />
+    </radialGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#00c9a7" flood-opacity="0.35"/>
+    </filter>
+    <filter id="textShadow">
+      <feDropShadow dx="1" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00c9a7" />
+      <stop offset="100%" style="stop-color:#00e8c4" />
+    </linearGradient>
+    <linearGradient id="paddleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8a020" />
+      <stop offset="100%" style="stop-color:#c97c10" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="520" height="200" rx="16" fill="url(#bgGrad)"/>
+
+  <!-- Subtle grid lines -->
+  <line x1="30" y1="170" x2="490" y2="170" stroke="#1e4a70" stroke-width="1" stroke-dasharray="6,4"/>
+
+  <!-- Paddle handle -->
+  <rect x="52" y="118" width="12" height="36" rx="6" fill="#5a3010" transform="rotate(-15, 58, 136)"/>
+  <!-- Paddle face -->
+  <ellipse cx="68" cy="98" rx="28" ry="32" fill="url(#paddleGrad)" transform="rotate(-15, 68, 98)" filter="url(#shadow)"/>
+  <ellipse cx="68" cy="98" rx="22" ry="26" fill="none" stroke="#f0c060" stroke-width="1.5" transform="rotate(-15, 68, 98)" opacity="0.6"/>
+  <!-- Paddle holes -->
+  <g opacity="0.5" transform="rotate(-15, 68, 98)">
+    <circle cx="62" cy="88" r="2.2" fill="#b86a08"/>
+    <circle cx="72" cy="88" r="2.2" fill="#b86a08"/>
+    <circle cx="58" cy="98" r="2.2" fill="#b86a08"/>
+    <circle cx="68" cy="98" r="2.2" fill="#b86a08"/>
+    <circle cx="78" cy="98" r="2.2" fill="#b86a08"/>
+    <circle cx="62" cy="108" r="2.2" fill="#b86a08"/>
+    <circle cx="72" cy="108" r="2.2" fill="#b86a08"/>
+  </g>
+
+  <!-- Ball drop trail -->
+  <ellipse cx="100" cy="75" rx="14" ry="5" fill="#00c9a7" opacity="0.12"/>
+  <ellipse cx="100" cy="70" rx="13" ry="4" fill="#00c9a7" opacity="0.08"/>
+  <!-- Ball -->
+  <circle cx="100" cy="62" r="16" fill="url(#ballGrad)" filter="url(#shadow)"/>
+  <!-- Ball holes -->
+  <g opacity="0.22">
+    <circle cx="96" cy="57" r="2" fill="#666"/>
+    <circle cx="104" cy="57" r="2" fill="#666"/>
+    <circle cx="100" cy="63" r="2" fill="#666"/>
+    <circle cx="94" cy="67" r="2" fill="#666"/>
+    <circle cx="106" cy="67" r="2" fill="#666"/>
+  </g>
+  <circle cx="94" cy="56" r="4" fill="white" opacity="0.5"/>
+  <!-- Drop arc -->
+  <path d="M 100 78 Q 108 95 100 108" stroke="#00c9a7" stroke-width="1.5" fill="none" stroke-dasharray="3,3" opacity="0.45"/>
+
+  <!-- Wordmark: "dink" -->
+  <text x="135" y="105"
+    font-family="Georgia, serif"
+    font-size="58"
+    font-weight="700"
+    font-style="italic"
+    fill="#ffffff"
+    letter-spacing="-1"
+    filter="url(#textShadow)">dink</text>
+
+  <!-- Wordmark: "drop" -->
+  <text x="276" y="105"
+    font-family="Georgia, serif"
+    font-size="58"
+    font-weight="700"
+    font-style="italic"
+    fill="url(#accentGrad)"
+    letter-spacing="-1"
+    filter="url(#shadow)">drop</text>
+
+  <!-- Underline accent -->
+  <rect x="135" y="112" width="350" height="3" rx="1.5" fill="url(#accentGrad)" opacity="0.8"/>
+
+  <!-- .live pill -->
+  <rect x="392" y="120" width="64" height="22" rx="11" fill="#00c9a7" opacity="0.15"/>
+  <text x="424" y="136"
+    font-family="'Courier New', Courier, monospace"
+    font-size="13"
+    fill="#00e8c4"
+    text-anchor="middle"
+    letter-spacing="1"
+    opacity="0.9">.live</text>
+
+  <!-- Tagline -->
+  <text x="135" y="155"
+    font-family="Georgia, serif"
+    font-size="12"
+    fill="#5a8aaa"
+    letter-spacing="3.5"
+    font-style="italic">PICKLEBALL MATCHMAKING</text>
+</svg></div>
     <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;">
         <button class="theme-toggle" id="forceSyncBtn" onclick="forceSync()" title="Push current state to Firebase">🔄 Sync</button>
         <button class="theme-toggle" onclick="showQR()">📱 QR Live</button>
@@ -1148,6 +1288,20 @@
         <div class="report-actions">
             <button class="report-close-btn" onclick="closeReport()">Close</button>
             <button class="report-download-btn" onclick="exportStats()">⬇️ Download CSV</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- DUPR Rating Input Modal -->
+<div class="rating-input-overlay" id="ratingInputOverlay">
+    <div class="rating-input-modal">
+        <h3>🐍 Snake Draft — Set DUPR Ratings</h3>
+        <div class="ri-sub">Enter each player's DUPR rating before courts are filled. Players without a rating default to 3.0.</div>
+        <div class="rating-rows" id="ratingRows"></div>
+        <div class="ri-actions">
+            <button class="ri-cancel-btn" onclick="closeRatingInput()">Skip</button>
+            <button class="ri-save-btn" onclick="saveRatingsAndFill()">Save & Fill Courts</button>
         </div>
     </div>
 </div>
@@ -1444,8 +1598,8 @@
         // Empty court — start it
         if (c.players.every(p => p === null)) {
             if (state.queue.filter(p => p.in).length < 4) { alert('Need at least 4 players tagged IN to start a court!'); return; }
-            // Show matching modal if mode not selected yet
             if (!state.matchingMode) { showMatchingModal(); return; }
+            if (state.matchingMode === 'snake') { openRatingInput(); return; }
             fillAllCourts();
             return;
         }
@@ -2106,15 +2260,44 @@
         document.getElementById('matchingOverlay').classList.remove('open');
         sync();
 
-        // If snake mode, remind organizer to set ratings
         if (_selectedMode === 'snake') {
-            showToast('Snake Draft: tap the ★ badge next to each player to set their rating.', false);
-        }
-
-        // If queue already has 4+ players, auto-fill courts
-        if (state.queue.length >= 4) {
+            // Always prompt for ratings before filling
+            openRatingInput();
+        } else if (state.queue.filter(p => p.in).length >= 4) {
             fillAllCourts();
         }
+    }
+
+    function openRatingInput() {
+        const inPlayers = state.queue.filter(p => p.in);
+        if (inPlayers.length === 0) { showToast('Tag players IN first.', true); return; }
+        const rows = document.getElementById('ratingRows');
+        rows.innerHTML = inPlayers.map((p, i) => {
+            const cur = (state.playerRatings || {})[p.name] || '';
+            return '<div class="rating-row">'
+                + '<span class="rr-name">' + p.name + '</span>'
+                + '<input type="number" id="ri_' + i + '" min="1.0" max="6.5" step="0.1" placeholder="3.0" value="' + cur + '">'
+                + '</div>';
+        }).join('');
+        document.getElementById('ratingInputOverlay').classList.add('open');
+    }
+
+    function saveRatingsAndFill() {
+        const inPlayers = state.queue.filter(p => p.in);
+        if (!state.playerRatings) state.playerRatings = {};
+        inPlayers.forEach((p, i) => {
+            const el = document.getElementById('ri_' + i);
+            if (el && el.value) state.playerRatings[p.name] = parseFloat(el.value) || 3.0;
+        });
+        document.getElementById('ratingInputOverlay').classList.remove('open');
+        sync();
+        fillAllCourts();
+    }
+
+    function closeRatingInput() {
+        document.getElementById('ratingInputOverlay').classList.remove('open');
+        // Still fill courts even if ratings skipped (defaults to 3.0)
+        if (state.queue.filter(p => p.in).length >= 4) fillAllCourts();
     }
 
     function getModeLabel(mode) {
