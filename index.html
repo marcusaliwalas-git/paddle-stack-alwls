@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALWLS Pickleball Stacking</title>
+    <title>DinkDrop Live - Pickleball Matchmaking</title>
     <style>
         :root { 
             --primary: #ff6d00; 
@@ -1579,19 +1579,21 @@
         const inQueue = state.queue.filter(p => p.in);
 
         function buildTeamGrid(players) {
-            const makeDraggable = (p, color) => {
-                if (!p) return '<div class="nmp-player" style="opacity:0.35;font-style:italic;font-size:11px;">Waiting...</div>';
+            const makeSlot = (p, color, slotIdx) => {
+                const dropAttrs = 'ondragover="nmpSlotDragOver(event)" ondragleave="nmpSlotDragLeave(event)" '
+                    + 'ondrop="dropToNextMatchSlot(event,' + slotIdx + ')"';
+                if (!p) return '<div class="nmp-player" ' + dropAttrs + ' style="opacity:0.35;font-style:italic;font-size:11px;cursor:copy;">Drop here</div>';
                 const safeName = p.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-                return '<div class="nmp-player" draggable="true" '
+                return '<div class="nmp-player" draggable="true" ' + dropAttrs + ' '
                     + 'ondragstart="nmpDragStart(event,&quot;' + safeName + '&quot;)" '
                     + 'style="border-left:3px solid ' + color + ';cursor:grab;">' + p.name + '</div>';
             };
             const ta = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
                 + '<div class="nmp-players-grid" style="margin-bottom:8px;">'
-                + [0,1].map(j => makeDraggable(players[j], 'rgba(25,118,210,0.5)')).join('') + '</div>';
+                + [0,1].map(j => makeSlot(players[j], 'rgba(25,118,210,0.5)', j)).join('') + '</div>';
             const tb = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;">Team B</div>'
                 + '<div class="nmp-players-grid">'
-                + [2,3].map(j => makeDraggable(players[j], 'rgba(194,24,91,0.5)')).join('') + '</div>';
+                + [2,3].map(j => makeSlot(players[j], 'rgba(194,24,91,0.5)', j)).join('') + '</div>';
             return ta + tb;
         }
 
@@ -1681,28 +1683,55 @@
 
     function dragStart(ev, type, index, courtIdx = null) { ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); }
 
+    function nmpSlotDragOver(ev) { ev.preventDefault(); ev.currentTarget.style.outline = '2px solid #ff6d00'; }
+    function nmpSlotDragLeave(ev) { ev.currentTarget.style.outline = ''; }
     function nmpAllowDrop(ev) {
-        const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
-        if (data.type === 'rack') { ev.preventDefault(); ev.currentTarget.classList.add('drag-over'); }
+        ev.preventDefault();
+        ev.currentTarget.classList.add('drag-over');
     }
     function nmpLeaveDrop(ev) { ev.currentTarget.classList.remove('drag-over'); }
+
+    // Drop onto a specific Next Match slot — swap with the player currently in that slot
+    function dropToNextMatchSlot(ev, slotIndex) {
+        ev.preventDefault(); ev.stopPropagation();
+        ev.currentTarget.classList.remove('drag-over');
+        const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
+        if (data.type !== 'rack') return;
+
+        const incoming = state.queue[data.index];
+        if (!incoming) return;
+
+        // Get the current IN queue preview (same logic as previewNextFoursome)
+        const inQueue = state.queue.filter(p => p.in);
+        const displaced = inQueue[slotIndex]; // player currently shown in that slot
+
+        if (!displaced || displaced.name === incoming.name) return;
+
+        // Find their actual indices in state.queue
+        const incomingQIdx = data.index;
+        const displacedQIdx = state.queue.findIndex(p => p.name === displaced.name);
+
+        if (displacedQIdx === -1) return;
+
+        // Swap their positions in the queue
+        const temp = state.queue[incomingQIdx];
+        state.queue[incomingQIdx] = state.queue[displacedQIdx];
+        state.queue[displacedQIdx] = temp;
+
+        sync();
+        showToast(incoming.name + ' swapped with ' + displaced.name, false);
+    }
+
     function dropToNextMatch(ev) {
+        // Panel-level drop fallback — move dragged player to front of IN queue
         ev.preventDefault();
         ev.currentTarget.classList.remove('drag-over');
         const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
         if (data.type !== 'rack') return;
-        // Swap dragged player with the last IN player in the preview (rotate them to front)
-        const qIdx = data.index;
-        if (qIdx === undefined) return;
-        // Move this player to the front of the IN section of the queue
-        const player = state.queue.splice(qIdx, 1)[0];
-        // Find first IN player index to insert before
+        const player = state.queue.splice(data.index, 1)[0];
         const firstInIdx = state.queue.findIndex(p => p.in);
-        if (firstInIdx !== -1) {
-            state.queue.splice(firstInIdx, 0, player);
-        } else {
-            state.queue.unshift(player);
-        }
+        if (firstInIdx !== -1) state.queue.splice(firstInIdx, 0, player);
+        else state.queue.unshift(player);
         sync();
         showToast(player.name + ' moved to front of queue', false);
     }
