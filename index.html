@@ -1010,14 +1010,15 @@
 
 <div class="app-container">
     <div class="sidebar">
-        <h3 style="margin:0 0 10px 0; color:var(--primary)">Paddles</h3>
-        <input type="text" id="nameInput" placeholder="Add Name">
-        <textarea id="bulkInput" rows="2" placeholder="Bulk (One per line)"></textarea>
-        <div style="margin-bottom:8px;">
-            <input type="text" id="sessionNameInput" placeholder="Session name (e.g. Saturday OP)" 
+        <div style="margin-bottom:10px;">
+            <label style="font-size:11px;color:#78909c;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Session Name</label>
+            <input type="text" id="sessionNameInput" placeholder="e.g. Saturday Open Play"
                 style="width:100%;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:white;font-size:13px;margin:0;"
                 oninput="state.sessionName=this.value;sync()" value="">
         </div>
+        <h3 style="margin:0 0 10px 0; color:var(--primary)">Add Players Manually</h3>
+        <input type="text" id="nameInput" placeholder="Add Name">
+        <textarea id="bulkInput" rows="2" placeholder="Bulk (One per line)"></textarea>
         <button class="btn-add" onclick="addPlayers()">Add to Rack</button>
 
         <input type="file" id="importFileInput" accept=".txt" onchange="importFromTxt(event)">
