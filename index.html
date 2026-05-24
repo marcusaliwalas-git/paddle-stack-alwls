@@ -911,6 +911,51 @@
             padding: 5px 10px; font-size: 12px; cursor: pointer;
         }
         .btn-manage-access:hover { background: rgba(255,255,255,0.15); }
+
+        /* Fancy Session Name */
+        .session-name-block {
+            margin-bottom: 14px;
+            background: linear-gradient(135deg, rgba(255,109,0,0.12), rgba(255,109,0,0.05));
+            border: 1px solid rgba(255,109,0,0.3);
+            border-radius: 12px;
+            padding: 10px 14px;
+        }
+        .session-name-block h3 {
+            margin: 0 0 6px 0;
+            color: var(--primary);
+            font-size: 13px;
+        }
+        .session-name-input {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,109,0,0.25);
+            color: white;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            margin: 0;
+            transition: border 0.2s, box-shadow 0.2s;
+        }
+        .session-name-input:focus {
+            outline: none;
+            border-color: #ff6d00;
+            box-shadow: 0 0 0 3px rgba(255,109,0,0.15);
+        }
+        .session-name-input::placeholder { color: rgba(255,255,255,0.3); font-weight: 400; }
+
+        /* Add Players section at bottom of sidebar */
+        .add-players-section {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255,255,255,0.07);
+        }
+        .add-players-section h3 {
+            margin: 0 0 8px 0;
+            color: var(--primary);
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -1010,26 +1055,22 @@
 
 <div class="app-container">
     <div class="sidebar">
-        <div style="margin-bottom:10px;">
-            <label style="font-size:11px;color:#78909c;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Session Name</label>
-            <input type="text" id="sessionNameInput" placeholder="e.g. Saturday Open Play"
-                style="width:100%;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:white;font-size:13px;margin:0;"
+        <!-- Session Name / OP Name — top of sidebar -->
+        <div class="session-name-block">
+            <h3>Session Name / OP Name</h3>
+            <input type="text" id="sessionNameInput" class="session-name-input"
+                placeholder="e.g. Saturday Open Play"
                 oninput="state.sessionName=this.value;sync()" value="">
         </div>
-        <h3 style="margin:0 0 10px 0; color:var(--primary)">Add Players Manually</h3>
-        <input type="text" id="nameInput" placeholder="Add Name">
-        <textarea id="bulkInput" rows="2" placeholder="Bulk (One per line)"></textarea>
-        <button class="btn-add" onclick="addPlayers()">Add to Rack</button>
 
-        <input type="file" id="importFileInput" accept=".txt" onchange="importFromTxt(event)">
-        <button class="btn-import" onclick="document.getElementById('importFileInput').click()">📂 Import Players (Reclub)</button>
-        
+        <!-- Matching mode bar -->
         <div class="matching-mode-bar" id="matchingModeBar" style="display:none">
             <span>Mode: <strong id="modeBarLabel"></strong></span>
             <button class="change-mode-btn" onclick="showMatchingModal()">Change</button>
         </div>
         <button class="btn-call" onclick="callNextUp()">📢 Call Next Up</button>
-        
+
+        <!-- Active/Total + bulk tag -->
         <div class="player-count-bar">
             <span class="pc-label">Active / Total</span>
             <span class="pc-nums"><span id="countIn">0</span> / <span id="countTotal">0</span></span>
@@ -1039,8 +1080,11 @@
             <button class="bulk-tag-btn bulk-tag-in" onclick="bulkTag(true)">✅ Tag All In</button>
             <button class="bulk-tag-btn bulk-tag-out" onclick="bulkTag(false)">⬜ Tag All Out</button>
         </div>
+
+        <!-- Queue -->
         <div id="paddleRack" class="paddle-rack" ondrop="dropToRack(event)" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)"></div>
-        
+
+        <!-- Leaderboard -->
         <div style="margin-top:20px;">
             <strong style="font-size: 13px; display: block; margin-bottom: 5px;">🏆 Top Players</strong>
             <table class="leader-table">
@@ -1048,10 +1092,21 @@
                 <tbody id="leaderboardBody"></tbody>
             </table>
         </div>
-        
+
+        <!-- History -->
         <div style="margin-top:15px;">
             <strong style="font-size: 13px;">📜 History</strong>
             <div id="historyLog" style="margin-top:5px;"></div>
+        </div>
+
+        <!-- Add Players — moved to bottom -->
+        <div class="add-players-section">
+            <h3>Add Players Manually</h3>
+            <input type="text" id="nameInput" placeholder="Add Name">
+            <textarea id="bulkInput" rows="2" placeholder="Bulk (One per line)"></textarea>
+            <button class="btn-add" onclick="addPlayers()">Add to Rack</button>
+            <input type="file" id="importFileInput" accept=".txt" onchange="importFromTxt(event)">
+            <button class="btn-import" onclick="document.getElementById('importFileInput').click()">📂 Import Players (Reclub)</button>
         </div>
 
         <button class="btn-export" onclick="openReport()">📊 View & Export Results</button>
