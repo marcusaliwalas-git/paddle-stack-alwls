@@ -956,7 +956,7 @@
         <button class="btn-add" onclick="addPlayers()">Add to Rack</button>
 
         <input type="file" id="importFileInput" accept=".txt" onchange="importFromTxt(event)">
-        <button class="btn-import" onclick="document.getElementById('importFileInput').click()">📂 Import from .txt File</button>
+        <button class="btn-import" onclick="document.getElementById('importFileInput').click()">📂 Import Players (Reclub)</button>
         
         <div class="matching-mode-bar" id="matchingModeBar" style="display:none">
             <span>Mode: <strong id="modeBarLabel"></strong></span>
@@ -967,6 +967,7 @@
         <div class="player-count-bar">
             <span class="pc-label">Active / Total</span>
             <span class="pc-nums"><span id="countIn">0</span> / <span id="countTotal">0</span></span>
+            <button onclick="exportPlayersAsTxt()" title="Export all players as .txt file" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#90caf9;border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px;">⬇ Export</button>
         </div>
         <div class="bulk-tag-bar">
             <button class="bulk-tag-btn bulk-tag-in" onclick="bulkTag(true)">✅ Tag All In</button>
@@ -1163,6 +1164,34 @@
         setInterval(checkTimers, 1000);
     };
 
+
+
+    function exportPlayersAsTxt() {
+        if (state.queue.length === 0) { showToast('No players in queue to export.', true); return; }
+        const date = new Date();
+        const dateStr = date.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
+        const timeStr = date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
+        const total = state.queue.length;
+        let txt = 'DinkDrop Live Session\n';
+        txt += dateStr + ' @' + timeStr + '\n';
+        txt += 'Exported from DinkDrop Live\n';
+        txt += '\n';
+        txt += ' (2) \n 1. Organizer\n2. DinkDrop\n\n';
+        txt += 'Participants (' + total + ') \n ';
+        txt += state.queue.map((p, i) => (i + 1) + '. ' + p.name).join('\n');
+        txt += '\n';
+
+        const blob = new Blob([txt], { type: 'text/plain;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'players_' + new Date().toLocaleDateString().replace(/\//g, '-') + '.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('✅ Exported ' + total + ' player' + (total !== 1 ? 's' : '') + ' as .txt');
+    }
 
     function togglePlayerIn(idx) {
         if (state.queue[idx]) {
