@@ -1003,7 +1003,7 @@
     <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;">
         <button class="theme-toggle" id="forceSyncBtn" onclick="forceSync()" title="Push current state to Firebase">🔄 Sync</button>
         <button class="theme-toggle" onclick="showQR()">📱 QR Live</button>
-        <button class="btn-manage-access" onclick="openAllowlist()" title="Manage who can sign in">🔒 Access</button>
+        <button class="btn-manage-access" id="manageAccessBtn" onclick="openAllowlist()" title="Manage who can sign in" style="display:none">🔒 Access</button>
         <button class="theme-toggle" onclick="toggleTheme()">🌓 Mode</button>
     </div>
 </header>
@@ -2653,6 +2653,11 @@
 
                 // Store uid FIRST so fbWrite uses the right path
                 window._sessionUid = user.uid;
+
+                // Only the hardcoded owner sees Manage Access
+                const OWNER_UID = 'cm9SGavCLzXt1hBEgPfr9X0rSKe2';
+                const btn = document.getElementById('manageAccessBtn');
+                if (btn) btn.style.display = user.uid === OWNER_UID ? '' : 'none';
 
             // On login: pull active session from Firebase first.
             // If Firebase has data, use it (handles new device / another tab).
