@@ -750,6 +750,8 @@
             border: 1px solid rgba(255,255,255,0.2); color: white;
         }
         .score-input:focus { outline: none; border-color: #ff6d00; }
+        .score-input.invalid { border-color: #ff1744 !important; background: rgba(255,23,68,0.1) !important; animation: shake 0.3s ease; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
         .score-modal-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .score-confirm-btn { flex: 2; background: #ff6d00; color: white; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: bold; border: none; cursor: pointer; }
         .score-confirm-btn:hover { background: #e65100; }
@@ -1692,8 +1694,10 @@
         document.getElementById('scoreTeamBPlayers').textContent = teamB;
         document.getElementById('scoreWinnerBadgeA').style.display = winningTeam === 'A' ? 'inline-block' : 'none';
         document.getElementById('scoreWinnerBadgeB').style.display = winningTeam === 'B' ? 'inline-block' : 'none';
-        document.getElementById('scoreA').value = '';
-        document.getElementById('scoreB').value = '';
+        const sA = document.getElementById('scoreA');
+        const sB = document.getElementById('scoreB');
+        sA.value = ''; sA.classList.remove('invalid');
+        sB.value = ''; sB.classList.remove('invalid');
         // Auto-focus winning team score
         setTimeout(() => document.getElementById(winningTeam === 'A' ? 'scoreA' : 'scoreB').focus(), 100);
         document.getElementById('scoreModalOverlay').classList.add('open');
@@ -1701,13 +1705,30 @@
 
     function confirmScore(action) {
         if (!_scoreCtx) return;
+        const rawA = document.getElementById('scoreA').value;
+        const rawB = document.getElementById('scoreB').value;
+
+        // Validate: both scores required
+        let valid = true;
+        if (rawA === '' || rawA === null) {
+            document.getElementById('scoreA').classList.add('invalid');
+            valid = false;
+        } else {
+            document.getElementById('scoreA').classList.remove('invalid');
+        }
+        if (rawB === '' || rawB === null) {
+            document.getElementById('scoreB').classList.add('invalid');
+            valid = false;
+        } else {
+            document.getElementById('scoreB').classList.remove('invalid');
+        }
+        if (!valid) { showToast('Please enter scores for both teams.', true); return; }
+
         // Capture all values BEFORE closing (closeScoreModal nulls _scoreCtx)
         const courtIdx = _scoreCtx.courtIdx;
         const winningTeam = _scoreCtx.winningTeam;
-        const rawA = document.getElementById('scoreA').value;
-        const rawB = document.getElementById('scoreB').value;
-        const scoreA = rawA !== '' ? parseInt(rawA) : undefined;
-        const scoreB = rawB !== '' ? parseInt(rawB) : undefined;
+        const scoreA = parseInt(rawA);
+        const scoreB = parseInt(rawB);
         closeScoreModal();
 
         if (action === 'clear') {
@@ -2654,13 +2675,13 @@
 
     function previewRoundRobin() {
         if (!state.partnerHistory) state.partnerHistory = {};
-        // Mirror fillRoundRobin logic but don't mutate
+        // Exact mirror of fillRoundRobin — sort by games ASC
         let pool = [...state.queue.filter(p => p.in)].sort((a, b) => {
             const ga = (state.stats[a.name] || {}).games || 0;
             const gb = (state.stats[b.name] || {}).games || 0;
             return ga - gb;
         });
-        // Remove sit-outs
+        // Sit-out players with most games until divisible by 4
         while (pool.length % 4 !== 0 && pool.length > 0) {
             let maxG = -1, idx = pool.length - 1;
             pool.forEach((p, i) => {
@@ -2670,7 +2691,11 @@
             pool.splice(idx, 1);
         }
         if (pool.length < 4) return state.queue.filter(p => p.in).slice(0, 4);
-        return pickFreshFoursome(pool, []) || pool.slice(0, 4);
+        // pickFreshFoursome with empty assigned list — same as first court in fillRoundRobin
+        const foursome = pickFreshFoursome(pool, []);
+        // Return in same order: [pair1[0], pair1[1], pair2[0], pair2[1]]
+        // = slots 0,1 = Team A; slots 2,3 = Team B
+        return foursome || pool.slice(0, 4);
     }
 
     function previewSnakeDraft() {
@@ -2869,6 +2894,20 @@
     const db  = getDatabase(app);
     const auth = getAuth(app);
 
+    // Catch the missing-initial-state error that happens on iOS in-app browsers
+    // Firebase tries to process a pending redirect and fails — show a friendly message
+    auth.onIdTokenChanged(() => {}); // init auth listener early
+    window.addEventListener('unhandledrejection', e => {
+        if (e.reason && (e.reason.code === 'auth/missing-initial-state' || (e.reason.message && e.reason.message.includes('missing initial state')))) {
+            e.preventDefault();
+            const errEl = document.getElementById('authError');
+            if (errEl) {
+                errEl.textContent = '⚠️ Sign-in unavailable in this browser. Please open DinkDrop Live directly in Safari or Chrome.';
+                errEl.classList.add('show');
+            }
+        }
+    });
+
     // ── Helpers exposed to non-module code ───────────────────────────────
     // Session path is per-user: sessions/{uid}
     function getSessionPath() {
@@ -2975,11 +3014,22 @@
 
 
     window.doGoogleSignIn = async function() {
+        // Detect restricted in-app browser (Messenger, Facebook, Instagram etc.)
+        // These block sessionStorage which breaks Firebase Auth
+        const ua = navigator.userAgent || '';
+        const isInAppBrowser = /FBAN|FBAV|Instagram|Messenger|Line|Twitter|MicroMessenger/i.test(ua);
+        if (isInAppBrowser) {
+            showAuthError('Google Sign-In is not supported in this browser. Please open this page in Safari or Chrome to continue.');
+            return;
+        }
+
         const provider = new GoogleAuthProvider();
         try {
             await signInWithPopup(auth, provider);
         } catch(e) {
-            if (e.code !== 'auth/popup-closed-by-user') {
+            if (e.code === 'auth/missing-initial-state' || e.code === 'auth/internal-error') {
+                showAuthError('Sign-in failed. Please open this page directly in Safari or Chrome (not from Messenger or Facebook).');
+            } else if (e.code !== 'auth/popup-closed-by-user') {
                 showAuthError(friendlyAuthError(e.code));
             }
         }
