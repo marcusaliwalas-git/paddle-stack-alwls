@@ -2754,9 +2754,24 @@
         if (window.fbFetchHistory) {
             window.fbFetchHistory().then(fbSessions => {
                 const local = getSessionHistory();
-                const byId  = {};
+
+                // Build merged map — Firebase wins on conflicts
+                const byId = {};
                 local.forEach(s => { if (s && s.id) byId[s.id] = s; });
                 fbSessions.forEach(s => { if (s && s.id) byId[s.id] = s; });
+
+                // Backfill: upload any local session that Firebase doesn't have.
+                // This recovers sessions saved before Firebase writes were working,
+                // and propagates this device's history to all other devices.
+                if (window.fbSaveHistory) {
+                    const fbIds = new Set(fbSessions.map(s => s && s.id).filter(Boolean));
+                    local.forEach(s => {
+                        if (s && s.id && !fbIds.has(s.id)) {
+                            window.fbSaveHistory(s);
+                        }
+                    });
+                }
+
                 const merged = Object.values(byId).sort((a, b) => new Date(b.date) - new Date(a.date));
                 try { localStorage.setItem('pb_session_history', JSON.stringify(merged.slice(0, 50))); } catch(e) {}
                 finish(merged);
