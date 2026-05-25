@@ -1215,6 +1215,22 @@
         .hist-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--text-main); }
         .hist-table tr:last-child td { border-bottom:none; }
         .hist-table .ht-winner { font-weight:bold; color:#90caf9; }
+
+        /* Queue player meta (games played + wait time) */
+        .queue-player-name { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .queue-meta { display:block; font-size:10px; font-weight:normal; color:rgba(255,255,255,0.55); margin-top:1px; letter-spacing:0.2px; }
+
+        /* History ranking tabs */
+        .hist-rank-tabs { display:flex; gap:4px; margin-bottom:10px; flex-wrap:wrap; }
+        .hist-rank-tab { padding:4px 11px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#78909c; border-radius:6px; font-size:11px; cursor:pointer; transition:all 0.15s; }
+        .hist-rank-tab:hover { background:rgba(255,255,255,0.1); color:#ccc; }
+        .hist-rank-tab.active { background:rgba(255,109,0,0.18); border-color:rgba(255,109,0,0.4); color:#ff8a65; font-weight:bold; }
+
+        /* History player-stats full table */
+        .hist-stats-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+        .hist-stats-table th { padding:6px 10px; text-align:left; color:#ff8a65; font-size:11px; font-weight:bold; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.1); white-space:nowrap; }
+        .hist-stats-table td { padding:6px 10px; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--text-main); }
+        .hist-stats-table tr:last-child td { border-bottom:none; }
         .hist-empty,.hist-loading { color:#546e7a; font-size:13px; text-align:center; padding:40px 0; font-style:italic; }
     </style>
 </head>
@@ -1420,12 +1436,6 @@
                 <thead><tr><th>Name</th><th>W</th><th>P</th></tr></thead>
                 <tbody id="leaderboardBody"></tbody>
             </table>
-        </div>
-
-        <!-- History -->
-        <div style="margin-top:15px;">
-            <strong style="font-size: 13px;">📜 History</strong>
-            <div id="historyLog" style="margin-top:5px;"></div>
         </div>
 
         <!-- Add Players — moved to bottom -->
@@ -1902,8 +1912,9 @@
             timestamp: new Date().toISOString()
         });
 
-        // Return all players to queue, keep their IN status
-        c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true }); });
+        // Return all players to queue, keep their IN status; stamp last-game time for wait display
+        const _recTs = Date.now();
+        c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true, lastGameTime: _recTs }); });
         c.players = [null, null, null, null];
         c.startTime = null;
         c.alerted = false;
@@ -2093,8 +2104,9 @@
             });
         }
 
-        // Return all players to queue — keep their IN status
-        c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true }); });
+        // Return all players to queue — keep their IN status; stamp last-game time for wait display
+        const _rotTs = Date.now();
+        c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true, lastGameTime: _rotTs }); });
         c.players = [null, null, null, null];
 
         if (state.queue.length >= 4) {
@@ -2132,6 +2144,17 @@
                     updateDisplay();
                 }
             }
+        });
+
+        // Live-update queue waiting times without re-rendering the whole rack
+        const now = Date.now();
+        state.queue.forEach((p, i) => {
+            const el = document.getElementById('qmeta-' + i);
+            if (!el) return;
+            const since  = parseInt(el.dataset.since) || 0;
+            const games  = (state.stats && state.stats[p.name]) ? (state.stats[p.name].games || 0) : 0;
+            const wait   = since ? (now - since < 60000 ? '< 1m wait' : Math.floor((now - since) / 60000) + 'm wait') : 'no games yet';
+            el.textContent = games + ' game' + (games !== 1 ? 's' : '') + ' · ⏱ ' + wait;
         });
     }
 
@@ -2171,15 +2194,23 @@
             const ratingBadge = state.matchingMode === 'snake'
                 ? `<span class="rating-badge" onclick="event.stopPropagation();const r=prompt('Rating for ${p.name} (e.g. 3.5):','${rating||3.0}');if(r)setPlayerRating('${p.name}',r)" title="Set rating">★${rating||'?'}</span>`
                 : '';
+            const gamesPlayed = (state.stats && state.stats[p.name]) ? (state.stats[p.name].games || 0) : 0;
+            const waitMins    = p.lastGameTime ? Math.floor((Date.now() - p.lastGameTime) / 60000) : null;
+            const waitStr     = waitMins !== null ? (waitMins < 1 ? '< 1m wait' : waitMins + 'm wait') : 'no games yet';
+            const metaStr     = gamesPlayed + ' game' + (gamesPlayed !== 1 ? 's' : '') + ' · ⏱ ' + waitStr;
+            const safeName    = p.name.replace(/`/g, '\\`');
             return `<div class="paddle ${isIn ? 'is-in' : 'is-out'}" draggable="true" ondragstart="dragStart(event,'rack',${i})">
                 <button class="paddle-in-btn ${isIn ? 'active' : ''}" onclick="event.stopPropagation();togglePlayerIn(${i})" title="${isIn ? 'Mark as Out' : 'Mark as In'}">${isIn ? 'IN' : 'OUT'}</button>
-                <span style="flex:1">${p.name}</span>
+                <span style="flex:1;min-width:0;">
+                    <span class="queue-player-name">${p.name}</span>
+                    <span class="queue-meta" id="qmeta-${i}" data-since="${p.lastGameTime || ''}">${metaStr}</span>
+                </span>
                 ${ratingBadge}
                 <button class="paddle-edit-btn" onclick="event.stopPropagation();openQueueEdit(${i})" title="Edit">✎</button>
             </div>`;
         }).join('') || '<small style="opacity:0.5">Queue is empty</small>';
 
-        document.getElementById('historyLog').innerHTML = state.history.map(h => `<div class="history-item">${h}</div>`).join('') || '<small>...</small>';
+        // historyLog sidebar removed — results visible in View & Export / Session History
 
         // ── Next Match Panel ───────────────────────────────────────────
         const nmpEl = document.getElementById('nextMatchPanel');
@@ -2861,17 +2892,59 @@
         }).join('');
     }
 
+    function computeHistRankings(s, mode) {
+        const stats = s.stats || {};
+        const log   = s.gameLog || [];
+        const pointsMap = {};
+        log.forEach(g => {
+            const sA = parseInt(g.scoreA) || 0, sB = parseInt(g.scoreB) || 0;
+            (g.teamA || []).forEach(n => { pointsMap[n] = (pointsMap[n] || 0) + sA; });
+            (g.teamB || []).forEach(n => { pointsMap[n] = (pointsMap[n] || 0) + sB; });
+        });
+        return Object.keys(stats).map(name => {
+            const st = stats[name] || {};
+            const wins = st.wins || 0, games = st.games || 0;
+            const losses = games - wins;
+            const winPct = games > 0 ? ((wins / games) * 100).toFixed(1) : '0.0';
+            return { name, wins, games, losses, winPct: parseFloat(winPct), points: pointsMap[name] || 0 };
+        }).filter(p => p.games > 0).sort((a, b) => {
+            if (mode === 'winpct')  return b.winPct - a.winPct  || b.games - a.games;
+            if (mode === 'points')  return b.points - a.points;
+            return b.wins - a.wins || b.games - a.games; // default: wins
+        });
+    }
+
+    window.switchHistRank = function(cardIdx, mode) {
+        ['wins','winpct','points'].forEach(m => {
+            const t = document.getElementById('hrk-' + cardIdx + '-' + m);
+            if (t) t.classList.toggle('active', m === mode);
+        });
+        const el = document.getElementById('hrankings-' + cardIdx);
+        if (!el) return;
+        const s = _histFiltered[cardIdx];
+        if (!s) return;
+        const ranked = computeHistRankings(s, mode);
+        el.innerHTML = ranked.slice(0, 8).map((p, ri) => {
+            const stat = mode === 'winpct' ? p.winPct + '% (' + p.games + 'G)'
+                       : mode === 'points' ? p.points + ' pts'
+                       : p.wins + 'W · ' + p.losses + 'L';
+            return '<div class="hist-rank-item">'
+                + '<span class="hist-rank-num">' + (ri+1) + '</span>'
+                + '<span class="hist-rank-name">' + p.name + '</span>'
+                + '<span class="hist-rank-stat">' + stat + '</span>'
+                + '</div>';
+        }).join('');
+    };
+
     function buildHistCardDetail(s, i, playerOpts) {
-        const stats  = s.stats  || {};
         const log    = s.gameLog || [];
-        const ranked = Object.keys(stats).map(k => {
-            const p = stats[k];
-            return { name: k, wins: p.wins||0, games: p.games||0, losses: (p.games||0)-(p.wins||0) };
-        }).sort((a, b) => b.wins - a.wins).slice(0, 8);
+        const ranked = computeHistRankings(s, 'wins');
+        const allPlayers = computeHistRankings(s, 'wins'); // sorted by wins for stats table
 
+        // ── Action buttons ──
         let html = '<div class="hist-detail-actions">'
-            + '<button class="hist-btn-dl" onclick="histDownloadSessionCSV(' + i + ')">⬇ All Games (CSV)</button>';
-
+            + '<button class="hist-btn-dl" onclick="histDownloadSessionCSV(' + i + ')">⬇ Games (CSV)</button>'
+            + '<button class="hist-btn-dl" style="background:#5c6bc0;" onclick="histDownloadStatsCSV(' + i + ')">⬇ Player Stats (CSV)</button>';
         if (playerOpts) {
             html += '<select class="hist-player-select" id="hpsel-' + i + '">'
                 + '<option value="">Filter by player…</option>' + playerOpts
@@ -2880,9 +2953,16 @@
         }
         html += '</div>';
 
+        // ── Top Players (tabbed views) ──
         if (ranked.length > 0) {
-            html += '<div class="hist-section-title">🏆 Top Players</div><div class="hist-rankings">'
-                + ranked.map((p, ri) =>
+            html += '<div class="hist-section-title">🏆 Top Players</div>'
+                + '<div class="hist-rank-tabs">'
+                + '<button class="hist-rank-tab active" id="hrk-' + i + '-wins"   onclick="switchHistRank(' + i + ',\'wins\')">Most Wins</button>'
+                + '<button class="hist-rank-tab"        id="hrk-' + i + '-winpct" onclick="switchHistRank(' + i + ',\'winpct\')">Win %</button>'
+                + '<button class="hist-rank-tab"        id="hrk-' + i + '-points" onclick="switchHistRank(' + i + ',\'points\')">Most Points</button>'
+                + '</div>'
+                + '<div class="hist-rankings" id="hrankings-' + i + '">'
+                + ranked.slice(0, 8).map((p, ri) =>
                     '<div class="hist-rank-item">'
                     + '<span class="hist-rank-num">' + (ri+1) + '</span>'
                     + '<span class="hist-rank-name">' + p.name + '</span>'
@@ -2892,16 +2972,38 @@
                 + '</div>';
         }
 
-        html += '<div class="hist-section-title">📋 Game Log</div>';
+        // ── All Players Stats table ──
+        if (allPlayers.length > 0) {
+            html += '<div class="hist-section-title">👥 All Player Stats</div>'
+                + '<div class="hist-table-wrap"><table class="hist-stats-table">'
+                + '<thead><tr><th>#</th><th>Player</th><th>Games</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Points</th></tr></thead>'
+                + '<tbody>'
+                + allPlayers.map((p, ri) =>
+                    '<tr>'
+                    + '<td>' + (ri+1) + '</td>'
+                    + '<td>' + p.name + '</td>'
+                    + '<td>' + p.games + '</td>'
+                    + '<td>' + p.wins + '</td>'
+                    + '<td>' + p.losses + '</td>'
+                    + '<td>' + p.winPct + '%</td>'
+                    + '<td>' + p.points + '</td>'
+                    + '</tr>'
+                ).join('')
+                + '</tbody></table></div>';
+        }
+
+        // ── Game Log (numbered) ──
+        html += '<div class="hist-section-title" style="margin-top:14px;">📋 Game Log</div>';
         if (log.length === 0) {
             html += '<div style="color:#546e7a;font-style:italic;font-size:13px;">No games recorded.</div>';
         } else {
             html += '<div class="hist-table-wrap"><table class="hist-table">'
-                + '<thead><tr><th>Court</th><th>Team A</th><th>Team B</th><th>Score</th><th>Winner</th><th>Duration</th></tr></thead>'
+                + '<thead><tr><th>#</th><th>Court</th><th>Team A</th><th>Team B</th><th>Score</th><th>Winner</th><th>Duration</th></tr></thead>'
                 + '<tbody>'
-                + log.map(g => {
+                + log.map((g, gi) => {
                     const isA = g.winner === 'Team A';
                     return '<tr>'
+                        + '<td style="color:#78909c;">' + (gi+1) + '</td>'
                         + '<td>' + (g.court||'') + '</td>'
                         + '<td' + (isA  ? ' class="ht-winner"' : '') + '>' + (g.teamA||[]).join(' &amp; ') + '</td>'
                         + '<td' + (!isA ? ' class="ht-winner"' : '') + '>' + (g.teamB||[]).join(' &amp; ') + '</td>'
@@ -2924,8 +3026,9 @@
     }
 
     function _histExportCSV(s, log, playerFilter) {
-        const headers = ['Session','Court','Team A P1','Team A P2','Team B P1','Team B P2','Score A','Score B','Winner','Duration','Timestamp'];
-        const rows = log.map(g => [
+        const headers = ['#','Session','Court','Team A P1','Team A P2','Team B P1','Team B P2','Score A','Score B','Winner','Duration','Timestamp'];
+        const rows = log.map((g, gi) => [
+            gi + 1,
             s.sessionName || '',
             g.court,
             (g.teamA||[])[0]||'', (g.teamA||[])[1]||'',
@@ -2969,12 +3072,33 @@
         _histExportCSV(s, log, player);
     }
 
+    function histDownloadStatsCSV(i) {
+        const s = _histFiltered[i];
+        if (!s) return;
+        const ranked = computeHistRankings(s, 'wins');
+        if (ranked.length === 0) { showToast('No player stats in this session.', true); return; }
+        const headers = ['#','Player','Games','Wins','Losses','Win %','Points'];
+        const rows = ranked.map((p, ri) => [ri+1, p.name, p.games, p.wins, p.losses, p.winPct + '%', p.points].map(csvEscape).join(','));
+        const csv  = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url;
+        const safeName = (s.sessionName || 'session').replace(/[^a-z0-9]/gi,'_').toLowerCase();
+        a.download = safeName + '_player_stats_' + new Date(s.date).toLocaleDateString().replace(/\//g,'-') + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
     function histDownloadAllFiltered() {
         if (_histFiltered.length === 0) { showToast('No sessions to download.', true); return; }
         const allRows = [];
+        let gameNum = 0;
         _histFiltered.forEach(s => {
-            (s.gameLog || []).forEach(g => {
+            (s.gameLog || []).forEach((g, gi) => {
+                gameNum++;
                 allRows.push([
+                    gameNum,
                     s.sessionName || '',
                     new Date(s.date).toLocaleDateString(),
                     g.court,
@@ -2989,7 +3113,7 @@
             });
         });
         if (allRows.length === 0) { showToast('No games in the filtered sessions.', true); return; }
-        const headers = ['Session','Date','Court','Team A P1','Team A P2','Team B P1','Team B P2','Score A','Score B','Winner','Duration','Timestamp'];
+        const headers = ['#','Session','Date','Court','Team A P1','Team A P2','Team B P1','Team B P2','Score A','Score B','Winner','Duration','Timestamp'];
         const csv  = [headers.join(','), ...allRows].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url  = URL.createObjectURL(blob);
