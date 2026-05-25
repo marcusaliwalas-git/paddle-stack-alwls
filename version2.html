@@ -1164,6 +1164,58 @@
         .sh-empty { color:#546e7a; font-style:italic; font-size:13px; text-align:center; padding:20px 0; }
         .sh-close-btn { width:100%; padding:11px; background:rgba(255,255,255,0.07); color:#ccc; border:none; border-radius:10px; font-size:14px; cursor:pointer; }
         .sh-detail-back { background:none; border:none; color:#ff6d00; font-size:13px; cursor:pointer; margin-bottom:10px; padding:0; font-weight:bold; }
+
+        /* ── History Page ──────────────────────────────────────────────────── */
+        #historyPage { display:none; min-height:100vh; background:var(--bg); }
+        #historyPage.active { display:block; }
+        .hist-header { background:var(--header-bg,#263238); border-bottom:2px solid var(--primary); padding:12px 20px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:10; }
+        .hist-back-btn { background:none; border:1px solid rgba(255,255,255,0.25); color:var(--text-main); padding:7px 14px; border-radius:8px; cursor:pointer; font-size:13px; white-space:nowrap; }
+        .hist-back-btn:hover { background:rgba(255,255,255,0.08); }
+        .hist-page-title { color:var(--text-main); font-size:1.05rem; font-weight:bold; flex:1; }
+        .hist-body { max-width:900px; margin:0 auto; padding:20px 16px; }
+        .hist-filters { background:var(--card); border-radius:12px; padding:16px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+        .hist-filter-label { font-size:11px; color:#78909c; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+        .hist-filter-group { display:flex; flex-direction:column; flex:1; min-width:150px; }
+        .hist-filter-input,.hist-filter-date { padding:9px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:var(--input-bg); color:var(--text-main); font-size:13px; width:100%; box-sizing:border-box; }
+        .hist-filter-input::placeholder { color:#546e7a; }
+        .hist-filter-actions { display:flex; gap:8px; align-items:flex-end; }
+        .hist-clear-btn { padding:9px 16px; background:rgba(255,255,255,0.08); color:#ccc; border:none; border-radius:8px; font-size:13px; cursor:pointer; white-space:nowrap; }
+        .hist-clear-btn:hover { background:rgba(255,255,255,0.14); }
+        .hist-top-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+        .hist-summary-text { color:#78909c; font-size:13px; }
+        .hist-dl-all-btn { padding:8px 16px; background:#1565c0; color:white; border:none; border-radius:8px; font-size:12px; cursor:pointer; font-weight:bold; }
+        .hist-dl-all-btn:hover { background:#0d47a1; }
+        .hist-session-card { background:var(--card); border-radius:12px; border:1px solid rgba(255,255,255,0.07); margin-bottom:12px; overflow:hidden; }
+        .hist-card-top { padding:14px 16px; cursor:pointer; display:flex; align-items:flex-start; gap:12px; user-select:none; }
+        .hist-card-top:hover { background:rgba(255,255,255,0.04); }
+        .hist-card-info { flex:1; min-width:0; }
+        .hist-card-name { font-size:15px; font-weight:bold; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .hist-card-date { font-size:11px; color:#78909c; margin-top:3px; }
+        .hist-card-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+        .hist-chip { font-size:11px; background:rgba(255,109,0,0.12); color:#ff8a65; padding:3px 8px; border-radius:8px; border:1px solid rgba(255,109,0,0.2); }
+        .hist-card-chevron { color:#78909c; font-size:14px; padding-top:3px; flex-shrink:0; transition:transform 0.2s; }
+        .hist-card-chevron.open { transform:rotate(180deg); }
+        .hist-card-detail { display:none; border-top:1px solid rgba(255,255,255,0.07); padding:16px; }
+        .hist-card-detail.open { display:block; }
+        .hist-detail-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+        .hist-btn-dl { padding:8px 16px; background:#1565c0; color:white; border:none; border-radius:8px; font-size:12px; cursor:pointer; font-weight:bold; }
+        .hist-btn-dl:hover { background:#0d47a1; }
+        .hist-btn-dl-player { padding:8px 16px; background:#2e7d32; color:white; border:none; border-radius:8px; font-size:12px; cursor:pointer; font-weight:bold; }
+        .hist-btn-dl-player:hover { background:#1b5e20; }
+        .hist-player-select { padding:7px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:var(--input-bg); color:var(--text-main); font-size:12px; max-width:200px; }
+        .hist-section-title { font-size:11px; font-weight:bold; color:#ff6d00; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
+        .hist-rankings { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+        .hist-rank-item { background:rgba(255,255,255,0.05); border-radius:8px; padding:8px 12px; display:flex; align-items:center; gap:8px; min-width:130px; }
+        .hist-rank-num { font-size:11px; color:#ff6d00; font-weight:bold; width:18px; text-align:center; }
+        .hist-rank-name { font-size:13px; color:var(--text-main); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .hist-rank-stat { font-size:11px; color:#78909c; white-space:nowrap; }
+        .hist-table-wrap { overflow-x:auto; }
+        .hist-table { width:100%; border-collapse:collapse; font-size:12px; min-width:460px; }
+        .hist-table th { padding:8px 10px; text-align:left; color:#ff8a65; font-size:11px; font-weight:bold; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.1); white-space:nowrap; }
+        .hist-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--text-main); }
+        .hist-table tr:last-child td { border-bottom:none; }
+        .hist-table .ht-winner { font-weight:bold; color:#90caf9; }
+        .hist-empty,.hist-loading { color:#546e7a; font-size:13px; text-align:center; padding:40px 0; font-style:italic; }
     </style>
 </head>
 <body>
@@ -1387,6 +1439,7 @@
         </div>
 
         <button class="btn-export" onclick="openReport()">📊 View & Export Results</button>
+        <button class="btn-export" onclick="window.location.hash='#history'" style="background:rgba(255,255,255,0.07);color:#ccc;margin-top:6px;">📚 Session History</button>
         <button class="btn-end-op" onclick="openEndOP()">🏁 End OP</button>
         <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
     </div>
@@ -1553,6 +1606,38 @@
     </div>
 </div>
 </div><!-- /mainApp -->
+
+<!-- ── History Page (requires auth, hash = #history) ─────────────────── -->
+<div id="historyPage">
+    <header class="hist-header">
+        <button class="hist-back-btn" onclick="window.location.hash=''">← Back to App</button>
+        <span class="hist-page-title">📚 Session History</span>
+    </header>
+    <div class="hist-body">
+        <div class="hist-filters">
+            <div class="hist-filter-group">
+                <div class="hist-filter-label">Search</div>
+                <input class="hist-filter-input" id="histSearch" type="text" placeholder="Session name or player…" oninput="applyHistFilters()">
+            </div>
+            <div class="hist-filter-group" style="max-width:160px;">
+                <div class="hist-filter-label">From</div>
+                <input class="hist-filter-date" id="histFrom" type="date" onchange="applyHistFilters()">
+            </div>
+            <div class="hist-filter-group" style="max-width:160px;">
+                <div class="hist-filter-label">To</div>
+                <input class="hist-filter-date" id="histTo" type="date" onchange="applyHistFilters()">
+            </div>
+            <div class="hist-filter-actions">
+                <button class="hist-clear-btn" onclick="clearHistFilters()">Clear</button>
+            </div>
+        </div>
+        <div class="hist-top-bar">
+            <div class="hist-summary-text" id="histSummary">Loading…</div>
+            <button class="hist-dl-all-btn" onclick="histDownloadAllFiltered()">⬇ Download All (CSV)</button>
+        </div>
+        <div id="histList"><div class="hist-loading">Loading sessions…</div></div>
+    </div>
+</div>
 
 <div class="import-toast" id="importToast"></div>
 
@@ -2657,6 +2742,255 @@
         _shDetailSession = null;
     }
 
+    // ── History Page ──────────────────────────────────────────────────────
+    let _histSessions = [];
+    let _histFiltered = [];
+
+    window.loadHistoryPage = function() {
+        const listEl = document.getElementById('histList');
+        const sumEl  = document.getElementById('histSummary');
+        if (listEl) listEl.innerHTML = '<div class="hist-loading">Loading…</div>';
+        if (sumEl)  sumEl.textContent = 'Loading sessions…';
+
+        const finish = (sessions) => {
+            _histSessions = sessions;
+            applyHistFilters();
+        };
+
+        if (window.fbFetchHistory) {
+            window.fbFetchHistory().then(fbSessions => {
+                const local = getSessionHistory();
+                const byId  = {};
+                local.forEach(s => { if (s && s.id) byId[s.id] = s; });
+                fbSessions.forEach(s => { if (s && s.id) byId[s.id] = s; });
+                const merged = Object.values(byId).sort((a, b) => new Date(b.date) - new Date(a.date));
+                try { localStorage.setItem('pb_session_history', JSON.stringify(merged.slice(0, 50))); } catch(e) {}
+                finish(merged);
+            }).catch(() => finish(getSessionHistory()));
+        } else {
+            finish(getSessionHistory());
+        }
+    };
+
+    function applyHistFilters() {
+        const search   = (document.getElementById('histSearch') || {}).value || '';
+        const fromVal  = (document.getElementById('histFrom')   || {}).value || '';
+        const toVal    = (document.getElementById('histTo')     || {}).value || '';
+        const q        = search.trim().toLowerCase();
+        const fromDate = fromVal ? new Date(fromVal) : null;
+        const toDate   = toVal   ? new Date(toVal + 'T23:59:59') : null;
+
+        _histFiltered = _histSessions.filter(s => {
+            if (!s) return false;
+            const d = new Date(s.date);
+            if (fromDate && d < fromDate) return false;
+            if (toDate   && d > toDate)   return false;
+            if (q) {
+                const nameHit   = (s.sessionName || '').toLowerCase().includes(q);
+                const playerHit = Object.keys(s.stats || {}).some(k => k.toLowerCase().includes(q));
+                if (!nameHit && !playerHit) return false;
+            }
+            return true;
+        });
+
+        renderHistList();
+    }
+
+    function clearHistFilters() {
+        ['histSearch','histFrom','histTo'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        applyHistFilters();
+    }
+
+    function renderHistList() {
+        const listEl = document.getElementById('histList');
+        const sumEl  = document.getElementById('histSummary');
+        if (!listEl) return;
+
+        const total   = _histSessions.length;
+        const showing = _histFiltered.length;
+        if (sumEl) sumEl.textContent = total === 0
+            ? 'No sessions saved yet.'
+            : showing === total
+                ? total + ' session' + (total !== 1 ? 's' : '')
+                : showing + ' of ' + total + ' sessions match filters';
+
+        if (showing === 0) {
+            listEl.innerHTML = total === 0
+                ? '<div class="hist-empty">No sessions yet. End a session to save it here.</div>'
+                : '<div class="hist-empty">No sessions match the current filters.</div>';
+            return;
+        }
+
+        listEl.innerHTML = _histFiltered.map((s, i) => {
+            const d        = new Date(s.date);
+            const dateStr  = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+            const timeStr  = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
+            const modeLbl  = { manual:'Manual', roundrobin:'Round Robin', snake:'Snake Draft' }[s.matchingMode] || (s.matchingMode || 'Manual');
+            const players  = Object.keys(s.stats || {});
+            const playerOpts = players.map(p => '<option value="' + p.replace(/"/g,'&quot;') + '">' + p + '</option>').join('');
+
+            return '<div class="hist-session-card" id="hcard-' + i + '">'
+                + '<div class="hist-card-top" onclick="toggleHistCard(' + i + ')">'
+                +   '<div class="hist-card-info">'
+                +     '<div class="hist-card-name">' + (s.sessionName || 'Unnamed Session') + '</div>'
+                +     '<div class="hist-card-date">' + dateStr + ' · ' + timeStr + '</div>'
+                +     '<div class="hist-card-chips">'
+                +       '<span class="hist-chip">' + (s.totalGames || 0) + ' games</span>'
+                +       '<span class="hist-chip">' + (s.totalPlayers || players.length) + ' players</span>'
+                +       '<span class="hist-chip">' + modeLbl + '</span>'
+                +     '</div>'
+                +   '</div>'
+                +   '<span class="hist-card-chevron" id="hchev-' + i + '">▼</span>'
+                + '</div>'
+                + '<div class="hist-card-detail" id="hdetail-' + i + '">'
+                +   buildHistCardDetail(s, i, playerOpts)
+                + '</div>'
+                + '</div>';
+        }).join('');
+    }
+
+    function buildHistCardDetail(s, i, playerOpts) {
+        const stats  = s.stats  || {};
+        const log    = s.gameLog || [];
+        const ranked = Object.keys(stats).map(k => {
+            const p = stats[k];
+            return { name: k, wins: p.wins||0, games: p.games||0, losses: (p.games||0)-(p.wins||0) };
+        }).sort((a, b) => b.wins - a.wins).slice(0, 8);
+
+        let html = '<div class="hist-detail-actions">'
+            + '<button class="hist-btn-dl" onclick="histDownloadSessionCSV(' + i + ')">⬇ All Games (CSV)</button>';
+
+        if (playerOpts) {
+            html += '<select class="hist-player-select" id="hpsel-' + i + '">'
+                + '<option value="">Filter by player…</option>' + playerOpts
+                + '</select>'
+                + '<button class="hist-btn-dl-player" onclick="histDownloadPlayerCSV(' + i + ')">⬇ Player CSV</button>';
+        }
+        html += '</div>';
+
+        if (ranked.length > 0) {
+            html += '<div class="hist-section-title">🏆 Top Players</div><div class="hist-rankings">'
+                + ranked.map((p, ri) =>
+                    '<div class="hist-rank-item">'
+                    + '<span class="hist-rank-num">' + (ri+1) + '</span>'
+                    + '<span class="hist-rank-name">' + p.name + '</span>'
+                    + '<span class="hist-rank-stat">' + p.wins + 'W · ' + p.losses + 'L</span>'
+                    + '</div>'
+                ).join('')
+                + '</div>';
+        }
+
+        html += '<div class="hist-section-title">📋 Game Log</div>';
+        if (log.length === 0) {
+            html += '<div style="color:#546e7a;font-style:italic;font-size:13px;">No games recorded.</div>';
+        } else {
+            html += '<div class="hist-table-wrap"><table class="hist-table">'
+                + '<thead><tr><th>Court</th><th>Team A</th><th>Team B</th><th>Score</th><th>Winner</th><th>Duration</th></tr></thead>'
+                + '<tbody>'
+                + log.map(g => {
+                    const isA = g.winner === 'Team A';
+                    return '<tr>'
+                        + '<td>' + (g.court||'') + '</td>'
+                        + '<td' + (isA  ? ' class="ht-winner"' : '') + '>' + (g.teamA||[]).join(' &amp; ') + '</td>'
+                        + '<td' + (!isA ? ' class="ht-winner"' : '') + '>' + (g.teamB||[]).join(' &amp; ') + '</td>'
+                        + '<td>' + (g.scoreA != null && g.scoreA !== '' ? g.scoreA : '—') + ' – ' + (g.scoreB != null && g.scoreB !== '' ? g.scoreB : '—') + '</td>'
+                        + '<td style="font-weight:bold;color:' + (isA ? '#90caf9' : '#f48fb1') + '">' + (g.winner||'') + '</td>'
+                        + '<td>' + fmtDuration(g.durationSec) + '</td>'
+                        + '</tr>';
+                }).join('')
+                + '</tbody></table></div>';
+        }
+        return html;
+    }
+
+    function toggleHistCard(i) {
+        const detail = document.getElementById('hdetail-' + i);
+        const chev   = document.getElementById('hchev-'   + i);
+        if (!detail) return;
+        const open = detail.classList.toggle('open');
+        if (chev) chev.classList.toggle('open', open);
+    }
+
+    function _histExportCSV(s, log, playerFilter) {
+        const headers = ['Session','Court','Team A P1','Team A P2','Team B P1','Team B P2','Score A','Score B','Winner','Duration','Timestamp'];
+        const rows = log.map(g => [
+            s.sessionName || '',
+            g.court,
+            (g.teamA||[])[0]||'', (g.teamA||[])[1]||'',
+            (g.teamB||[])[0]||'', (g.teamB||[])[1]||'',
+            g.scoreA != null && g.scoreA !== '' ? g.scoreA : '',
+            g.scoreB != null && g.scoreB !== '' ? g.scoreB : '',
+            g.winner||'',
+            fmtDuration(g.durationSec),
+            fmtTimestamp(g.timestamp)
+        ].map(csvEscape).join(','));
+        const csv  = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url;
+        const safeName   = (s.sessionName || 'session').replace(/[^a-z0-9]/gi,'_').toLowerCase();
+        const safeSuffix = playerFilter ? '_' + playerFilter.replace(/[^a-z0-9]/gi,'_').toLowerCase() : '';
+        a.download = safeName + safeSuffix + '_' + new Date(s.date).toLocaleDateString().replace(/\//g,'-') + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function histDownloadSessionCSV(i) {
+        const s = _histFiltered[i];
+        if (!s) return;
+        const log = s.gameLog || [];
+        if (log.length === 0) { showToast('No games in this session.', true); return; }
+        _histExportCSV(s, log);
+    }
+
+    function histDownloadPlayerCSV(i) {
+        const s   = _histFiltered[i];
+        if (!s) return;
+        const sel = document.getElementById('hpsel-' + i);
+        const player = sel ? sel.value : '';
+        if (!player) { showToast('Select a player first.', true); return; }
+        const log = (s.gameLog || []).filter(g =>
+            (g.teamA||[]).includes(player) || (g.teamB||[]).includes(player)
+        );
+        if (log.length === 0) { showToast('No games found for ' + player + '.', true); return; }
+        _histExportCSV(s, log, player);
+    }
+
+    function histDownloadAllFiltered() {
+        if (_histFiltered.length === 0) { showToast('No sessions to download.', true); return; }
+        const allRows = [];
+        _histFiltered.forEach(s => {
+            (s.gameLog || []).forEach(g => {
+                allRows.push([
+                    s.sessionName || '',
+                    new Date(s.date).toLocaleDateString(),
+                    g.court,
+                    (g.teamA||[])[0]||'', (g.teamA||[])[1]||'',
+                    (g.teamB||[])[0]||'', (g.teamB||[])[1]||'',
+                    g.scoreA != null && g.scoreA !== '' ? g.scoreA : '',
+                    g.scoreB != null && g.scoreB !== '' ? g.scoreB : '',
+                    g.winner||'',
+                    fmtDuration(g.durationSec),
+                    fmtTimestamp(g.timestamp)
+                ].map(csvEscape).join(','));
+            });
+        });
+        if (allRows.length === 0) { showToast('No games in the filtered sessions.', true); return; }
+        const headers = ['Session','Date','Court','Team A P1','Team A P2','Team B P1','Team B P2','Score A','Score B','Winner','Duration','Timestamp'];
+        const csv  = [headers.join(','), ...allRows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url;
+        a.download = 'pickleball_history_' + new Date().toLocaleDateString().replace(/\//g,'-') + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
     function getSessionHistory() {
         try { return JSON.parse(localStorage.getItem('pb_session_history') || '[]'); } catch(e) { return []; }
     }
@@ -3375,7 +3709,8 @@
                 }
 
                 authPage.classList.remove('active');
-                mainApp.style.display = '';
+                // Show mainApp only when not on the history page
+                if (window.location.hash !== '#history') mainApp.style.display = '';
 
                 // Populate user pill
                 pill.style.display = 'flex';
@@ -3522,25 +3857,28 @@
 
     // ── Routing ──────────────────────────────────────────────────────────
     function getHashParams() {
-        // hash format: #live/{uid}
         const hash = window.location.hash;
-        if (hash.startsWith('#live/')) {
-            return { isLive: true, uid: hash.slice(6) };
-        }
-        if (hash === '#live') {
-            return { isLive: true, uid: null };
-        }
-        return { isLive: false, uid: null };
+        if (hash.startsWith('#live/')) return { isLive: true, isHistory: false, uid: hash.slice(6) };
+        if (hash === '#live')          return { isLive: true, isHistory: false, uid: null };
+        if (hash === '#history')       return { isLive: false, isHistory: true, uid: null };
+        return { isLive: false, isHistory: false, uid: null };
     }
 
     function routePage() {
-        const { isLive, uid } = getHashParams();
+        const { isLive, isHistory, uid } = getHashParams();
         const liveEl = document.getElementById('liveView');
+        const histEl = document.getElementById('historyPage');
         const mainEl = document.getElementById('mainApp');
         if (!liveEl) return;
+
         liveEl.classList.toggle('active', isLive);
-        if (mainEl && !isLive && auth.currentUser) mainEl.style.display = '';
-        if (mainEl && isLive) mainEl.style.display = 'none';
+
+        if (histEl) histEl.classList.toggle('active', isHistory && !!auth.currentUser);
+        if (mainEl) mainEl.style.display = (!isLive && !isHistory && auth.currentUser) ? '' : 'none';
+
+        if (isHistory && auth.currentUser) {
+            if (typeof window.loadHistoryPage === 'function') window.loadHistoryPage();
+        }
 
         if (isLive) {
             document.getElementById('authPage').classList.remove('active');
