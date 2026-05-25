@@ -55,7 +55,7 @@
         [data-design="optic"] .court-card.overtime-active { border-color: #ff6d00 !important; }
         [data-design="optic"] .slot { background: #1a1a1a !important; color: #c6f135 !important; border: 1px solid rgba(198,241,53,0.2) !important; }
         [data-design="optic"] .paddle { background: linear-gradient(135deg, #c6f135, #a8d400) !important; color: #000 !important; }
-        [data-design="optic"] .theme-toggle, [data-design="optic"] .btn-add, [data-design="optic"] .btn-rotate { background: #c6f135 !important; color: #000 !important; }
+        [data-design="optic"] .theme-toggle, [data-design="optic"] .btn-add, [data-design="optic"] .btn-rotate, [data-design="optic"] .btn-export { background: #c6f135 !important; color: #000 !important; }
         [data-design="optic"] .btn-win-a { background: #ff6d00 !important; }
         [data-design="optic"] .btn-win-b { background: #ff3d00 !important; }
         [data-design="optic"] .team-a-label { color: #c6f135 !important; }
@@ -84,7 +84,7 @@
         [data-design="sleek"] .court-card { background: linear-gradient(135deg, #0d1f3c, #0a1830) !important; border: 1px solid rgba(0,229,255,0.12) !important; }
         [data-design="sleek"] .slot { background: rgba(0,229,255,0.05) !important; border: 1px solid rgba(0,229,255,0.15) !important; color: #e8f4f8 !important; border-radius: 8px !important; }
         [data-design="sleek"] .paddle { background: linear-gradient(135deg, #00b8d4, #0097a7) !important; }
-        [data-design="sleek"] .theme-toggle, [data-design="sleek"] .btn-add, [data-design="sleek"] .btn-rotate { background: linear-gradient(135deg, #00e5ff, #00b8d4) !important; color: #000 !important; }
+        [data-design="sleek"] .theme-toggle, [data-design="sleek"] .btn-add, [data-design="sleek"] .btn-rotate, [data-design="sleek"] .btn-export { background: linear-gradient(135deg, #00e5ff, #00b8d4) !important; color: #000 !important; }
         [data-design="sleek"] .btn-win-a { background: linear-gradient(135deg, #00e5ff, #00acc1) !important; color: #000 !important; }
         [data-design="sleek"] .btn-win-b { background: linear-gradient(135deg, #7c4dff, #651fff) !important; }
         [data-design="sleek"] .next-match-panel { border: 1px solid rgba(0,229,255,0.2) !important; background: rgba(0,229,255,0.03) !important; box-shadow: 0 0 20px rgba(0,229,255,0.05) !important; }
@@ -112,7 +112,7 @@
         [data-design="professional"] .court-card { background: #fff !important; border: 1px solid #dce3ec !important; box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important; color: #1a2332 !important; }
         [data-design="professional"] .slot { background: #f8f9fb !important; border: 1px solid #dce3ec !important; color: #1a2332 !important; border-radius: 4px !important; }
         [data-design="professional"] .paddle { background: #1976d2 !important; border-radius: 4px !important; }
-        [data-design="professional"] .theme-toggle, [data-design="professional"] .btn-add, [data-design="professional"] .btn-rotate { background: #1976d2 !important; border-radius: 4px !important; }
+        [data-design="professional"] .theme-toggle, [data-design="professional"] .btn-add, [data-design="professional"] .btn-rotate, [data-design="professional"] .btn-export { background: #1976d2 !important; border-radius: 4px !important; color: white !important; }
         [data-design="professional"] .btn-win-a { background: #1976d2 !important; border-radius: 4px !important; }
         [data-design="professional"] .btn-win-b { background: #c62828 !important; border-radius: 4px !important; }
         [data-design="professional"] .team-a-label { background: rgba(25,118,210,0.1) !important; color: #1565c0 !important; border-color: rgba(25,118,210,0.3) !important; }
@@ -339,7 +339,7 @@
         .btn-call { background: var(--success); color: white; width: 100%; margin-bottom: 15px; padding: 10px; }
         .btn-rotate { background: var(--primary); color: white; flex: 2; padding: 10px; }
         .btn-clear { background: #78909c; color: white; flex: 1; font-size: 11px; }
-        .btn-export { background: #546e7a; color: white; width: 100%; margin-top: 15px; padding: 10px; font-size: 12px; }
+        .btn-export { background: var(--primary); color: white; width: 100%; margin-top: 15px; padding: 10px; font-size: 12px; }
         .btn-import { background: #1565c0; color: white; width: 100%; margin-bottom: 8px; padding: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .btn-import:hover { background: #0d47a1; }
         #importFileInput { display: none; }
@@ -1512,7 +1512,7 @@
         </div>
 
         <button class="btn-export" onclick="openReport()">📊 View & Export Results</button>
-        <button class="btn-export" onclick="window.location.hash='#history'" style="background:rgba(255,255,255,0.07);color:#ccc;margin-top:6px;">📚 Session History</button>
+        <button class="btn-export" onclick="window.location.hash='#history'" style="margin-top:6px;opacity:0.82;">📚 Session History</button>
         <button class="btn-end-op" onclick="openEndOP()">🏆 View Leaderboard</button>
         <button class="btn-end-op" onclick="endAndReset()" style="background:linear-gradient(135deg,#b71c1c,#c62828);margin-top:6px;">🏁 End OP</button>
         <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
@@ -1550,6 +1550,13 @@
         <button class="matching-start-btn" id="matchingStartBtn" onclick="confirmMatchingMode()" disabled>
             Start Session
         </button>
+
+        <div style="margin-top:14px;text-align:center;border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;">
+            <button onclick="document.getElementById('matchingOverlay').classList.remove('open'); window.location.hash='#history';"
+                    style="background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;opacity:0.8;text-decoration:underline;padding:4px 8px;">
+                📚 View Session History
+            </button>
+        </div>
     </div>
 </div>
 
@@ -2272,7 +2279,7 @@
                 : (gamesPlayed > 0 ? 'in queue' : 'waiting');
             const metaStr     = gamesPlayed + ' game' + (gamesPlayed !== 1 ? 's' : '') + ' · ⏱ ' + waitStr;
             const safeName    = p.name.replace(/`/g, '\\`');
-            return `<div class="paddle ${isIn ? 'is-in' : 'is-out'}" draggable="true" ondragstart="dragStart(event,'rack',${i})">
+            return `<div class="paddle ${isIn ? 'is-in' : 'is-out'}" ${isIn ? `draggable="true" ondragstart="dragStart(event,'rack',${i})"` : 'draggable="false"'}>
                 <button class="paddle-in-btn ${isIn ? 'active' : ''}" onclick="event.stopPropagation();togglePlayerIn(${i})" title="${isIn ? 'Mark as Out' : 'Mark as In'}">${isIn ? 'IN' : 'OUT'}</button>
                 <span style="flex:1;min-width:0;">
                     <span class="queue-player-name">${p.name}</span>
@@ -2406,7 +2413,13 @@
 
     }
 
-    function dragStart(ev, type, index, courtIdx = null) { ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); }
+    function dragStart(ev, type, index, courtIdx = null) {
+        if (type === 'rack') {
+            const p = state.queue[index];
+            if (p && p.in === false) { ev.preventDefault(); return; }
+        }
+        ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx }));
+    }
 
     function nmpSlotDragOver(ev) { ev.preventDefault(); ev.currentTarget.style.outline = '2px solid #ff6d00'; }
     function nmpSlotDragLeave(ev) { ev.currentTarget.style.outline = ''; }
@@ -2424,7 +2437,7 @@
         if (data.type !== 'rack') return;
 
         const incoming = state.queue[data.index];
-        if (!incoming) return;
+        if (!incoming || incoming.in === false) return;
 
         // Get the current IN queue preview (same logic as previewNextFoursome)
         const inQueue = state.queue.filter(p => p.in);
@@ -2453,6 +2466,8 @@
         ev.currentTarget.classList.remove('drag-over');
         const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
         if (data.type !== 'rack') return;
+        const _dmPlayer = state.queue[data.index];
+        if (!_dmPlayer || _dmPlayer.in === false) return;
         const player = state.queue.splice(data.index, 1)[0];
         const firstInIdx = state.queue.findIndex(p => p.in);
         if (firstInIdx !== -1) state.queue.splice(firstInIdx, 0, player);
@@ -2480,7 +2495,9 @@
         const displaced = state.courts[courtIdx].players[slotIdx]; // player currently in target slot
 
         if (data.type === 'rack') {
-            // Dragging from queue → court: send displaced player back to queue
+            // Dragging from queue → court: block OUT players
+            const _rackPlayer = state.queue[data.index];
+            if (!_rackPlayer || _rackPlayer.in === false) return;
             const incoming = state.queue.splice(data.index, 1)[0];
             if (displaced) state.queue.splice(data.index, 0, displaced); // put displaced back at same queue position
             state.courts[courtIdx].players[slotIdx] = incoming;
@@ -3371,6 +3388,19 @@
 
     function confirmMatchingMode() {
         if (!_selectedMode) return;
+
+        // Require a session name before courts can be filled
+        if (!state.sessionName || !state.sessionName.trim()) {
+            document.getElementById('matchingOverlay').classList.remove('open');
+            showToast('⚠️ Please enter a Session / OP Name before filling courts.', true);
+            const snInput = document.getElementById('sessionNameInput');
+            if (snInput) { snInput.focus(); snInput.style.outline = '2px solid var(--warning)'; setTimeout(() => { snInput.style.outline = ''; }, 2000); }
+            state.matchingMode = _selectedMode;
+            state.partnerHistory = {};
+            sync();
+            return;
+        }
+
         state.matchingMode = _selectedMode;
         state.partnerHistory = {};
         document.getElementById('matchingOverlay').classList.remove('open');
@@ -3502,6 +3532,13 @@
     }
 
     function fillAllCourts() {
+        // Require a session name before play begins
+        if (!state.sessionName || !state.sessionName.trim()) {
+            showToast('⚠️ Please enter a Session / OP Name before filling courts.', true);
+            const snInput = document.getElementById('sessionNameInput');
+            if (snInput) { snInput.focus(); snInput.style.outline = '2px solid var(--warning)'; setTimeout(() => { snInput.style.outline = ''; }, 2000); }
+            return;
+        }
         const emptyCourts = state.courts.filter(c => c.players.every(p => p === null));
         const inPlayers = getInQueue();
         if (emptyCourts.length === 0 || inPlayers.length < 4) {
