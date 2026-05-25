@@ -2630,8 +2630,26 @@
 
     function openSessionHistory() {
         _shDetailSession = null;
-        renderSessionHistoryList();
         document.getElementById('shOverlay').classList.add('open');
+        document.getElementById('shSub').textContent = 'Loading sessions…';
+        document.getElementById('shList').innerHTML = '<div class="sh-empty">Loading…</div>';
+
+        const finish = () => renderSessionHistoryList();
+
+        if (window.fbFetchHistory) {
+            window.fbFetchHistory().then(fbSessions => {
+                // Merge Firebase records with localStorage; Firebase is authoritative on conflicts
+                const localHistory = getSessionHistory();
+                const byId = {};
+                localHistory.forEach(s => { if (s && s.id) byId[s.id] = s; });
+                fbSessions.forEach(s => { if (s && s.id) byId[s.id] = s; });
+                const merged = Object.values(byId).sort((a, b) => new Date(b.date) - new Date(a.date));
+                try { localStorage.setItem('pb_session_history', JSON.stringify(merged.slice(0, 50))); } catch(e) {}
+                finish();
+            }).catch(finish);
+        } else {
+            finish();
+        }
     }
 
     function closeSessionHistory() {
@@ -3199,6 +3217,20 @@
         } catch(e) {
             console.warn('FB write exception:', e.message);
         }
+    };
+
+    // Returns a promise that resolves to an array of session records from Firebase,
+    // sorted newest-first. Resolves to [] if not logged in or on error.
+    window.fbFetchHistory = () => {
+        const uid = (auth.currentUser && auth.currentUser.uid) || window._sessionUid;
+        if (!uid) return Promise.resolve([]);
+        return get(ref(db, 'sessionHistories/' + uid))
+            .then(snapshot => {
+                const data = snapshot.val();
+                if (!data) return [];
+                return Object.values(data).sort((a, b) => new Date(b.date) - new Date(a.date));
+            })
+            .catch(() => []);
     };
 
     window.doLogin = async function() {
