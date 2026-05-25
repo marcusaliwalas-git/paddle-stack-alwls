@@ -1533,8 +1533,8 @@
         <p class="subtitle">Select how players will be assigned to courts each round</p>
 
         <div class="matching-card" id="mcard-manual" onclick="selectMatchingMode('manual')">
-            <h3>🎲 Manual / Paddle Stack <span class="badge">Classic</span></h3>
-            <p>Players join the queue in order. First 4 in queue fill each court. No algorithm — pure first-come, first-served.</p>
+            <h3>🏘️ Larong Kalye <span class="badge">Community</span></h3>
+            <p>Larong Kalye is our custom-built, auto-balancing open-play mode designed for players who want to smash balls, make friends, and enjoy the ultimate barkada experience on the court — ensuring that everyone gets to mingle, nobody gets cliqued out, and the community grows tighter naturally.</p>
         </div>
 
         <div class="matching-card" id="mcard-roundrobin" onclick="selectMatchingMode('roundrobin')">
@@ -2180,23 +2180,14 @@
         c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true, lastGameTime: _rotTs }); });
         c.players = [null, null, null, null];
 
-        if (state.queue.length >= 4) {
+        if (state.queue.filter(p => p.in).length >= 4) {
             if (state.matchingMode === 'roundrobin') {
                 fillRoundRobin([c]);
             } else if (state.matchingMode === 'snake') {
                 fillSnakeDraft([c]);
             } else {
-                // Manual: take the first 4 IN players only (same filter as fillAllCourts)
-                const inNow = state.queue.filter(p => p.in);
-                if (inNow.length >= 4) {
-                    const chosen = inNow.slice(0, 4);
-                    chosen.forEach(p => {
-                        const idx = state.queue.findIndex(q => q.name === p.name);
-                        if (idx !== -1) state.queue.splice(idx, 1);
-                    });
-                    c.players = chosen;
-                    c.startTime = Date.now(); c.alerted = false;
-                }
+                // Larong Kalye: FIFO + anti-staleness algorithm
+                fillLarongKalye([c]);
             }
         } else {
             // Not enough for a full court — leave empty
@@ -2257,10 +2248,11 @@
             }
         }
 
-        // Player count
-        const inCount = state.queue.filter(p => p.in).length;
-        const totalCount = state.queue.length;
-        const countInEl = document.getElementById('countIn');
+        // Player count — queue + players currently on courts
+        const courtPlayerCount = state.courts.reduce((n, c) => n + c.players.filter(p => p !== null).length, 0);
+        const inCount    = state.queue.filter(p => p.in).length + courtPlayerCount;
+        const totalCount = state.queue.length + courtPlayerCount;
+        const countInEl  = document.getElementById('countIn');
         const countTotalEl = document.getElementById('countTotal');
         if (countInEl) countInEl.textContent = inCount;
         if (countTotalEl) countTotalEl.textContent = totalCount;
@@ -2328,7 +2320,7 @@
                 + (inCount2 >= 4 && emptyCourtsArr.length > 0 ? '<button onclick="fillAllCourts()" style="background:#ff6d00;color:white;border:none;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:bold;cursor:pointer;">&#9654; Fill Courts</button>' : '')
                 + '<button onclick="openNextMatchEdit()" style="background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">&#9998; Edit</button>'
                 + '</div></div>';
-            const isAlgo = state.matchingMode && state.matchingMode !== 'manual';
+            const isAlgo = !!state.matchingMode; // all modes (incl. Larong Kalye) use algorithm-based preview
 
             if (emptyCourtsArr.length > 0) {
                 emptyCourtsArr.forEach((ec, ei) => {
@@ -2969,7 +2961,7 @@
             const d        = new Date(s.date);
             const dateStr  = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
             const timeStr  = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
-            const modeLbl  = { manual:'Manual', roundrobin:'Round Robin', snake:'Snake Draft' }[s.matchingMode] || (s.matchingMode || 'Manual');
+            const modeLbl  = { manual:'Larong Kalye', roundrobin:'Round Robin', snake:'Snake Draft' }[s.matchingMode] || (s.matchingMode || 'Larong Kalye');
             const players  = Object.keys(s.stats || {});
             const playerOpts = players.map(p => '<option value="' + p.replace(/"/g,'&quot;') + '">' + p + '</option>').join('');
 
@@ -3244,7 +3236,7 @@
             const d = new Date(s.date);
             const dateStr = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
             const timeStr = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
-            const modeLabel = { manual:'🎲 Manual', roundrobin:'🔄 Round Robin', snake:'🐍 Snake Draft' }[s.matchingMode] || s.matchingMode;
+            const modeLabel = { manual:'🏘️ Larong Kalye', roundrobin:'🔄 Round Robin', snake:'🐍 Snake Draft' }[s.matchingMode] || s.matchingMode;
             return '<div class="sh-card">'
                 + '<div class="sh-card-header">'
                 + '<div><div class="sh-card-title">' + (s.sessionName || 'Unnamed Session') + '</div>'
@@ -3462,22 +3454,15 @@
     }
 
     function getModeLabel(mode) {
-        return { manual: '🎲 Manual Stack', roundrobin: '🔄 Round Robin', snake: '🐍 Snake Draft' }[mode] || mode;
+        return { manual: '🏘️ Larong Kalye', roundrobin: '🔄 Round Robin', snake: '🐍 Snake Draft' }[mode] || mode;
     }
 
 
     // ── Preview next foursome without mutating state ─────────────────────
     function previewNextFoursome() {
-        if (!state.matchingMode || state.matchingMode === 'manual') {
-            // Manual: just first 4 IN players in queue order
-            return state.queue.filter(p => p.in).slice(0, 4);
-        }
-        if (state.matchingMode === 'roundrobin') {
-            return previewRoundRobin();
-        }
-        if (state.matchingMode === 'snake') {
-            return previewSnakeDraft();
-        }
+        if (state.matchingMode === 'roundrobin') return previewRoundRobin();
+        if (state.matchingMode === 'snake') return previewSnakeDraft();
+        if (state.matchingMode === 'manual') return previewLarongKalye();
         return state.queue.filter(p => p.in).slice(0, 4);
     }
 
@@ -3552,21 +3537,129 @@
         } else if (state.matchingMode === 'snake') {
             fillSnakeDraft(emptyCourts);
         } else {
-            // Manual: take first 4 "in" players
-            emptyCourts.forEach(c => {
-                const inNow = state.queue.filter(p => p.in);
-                if (inNow.length >= 4) {
-                    const chosen = inNow.slice(0, 4);
-                    chosen.forEach(p => {
-                        const idx = state.queue.findIndex(q => q.name === p.name);
-                        if (idx !== -1) state.queue.splice(idx, 1);
-                    });
-                    c.players = chosen;
-                    c.startTime = Date.now(); c.alerted = false;
-                }
-            });
+            // Larong Kalye: FIFO + anti-staleness algorithm
+            fillLarongKalye(emptyCourts);
         }
         sync();
+    }
+
+    // ── Larong Kalye — FIFO + Anti-Staleness Matchmaking ────────────────
+    //
+    //  Core goal: First-In-First-Out wait efficiency + "anti-clique" social
+    //  randomization so the same 4 people don't keep playing each other.
+    //
+    //  Steps:
+    //   1. Pool: top POOL_SIZE IN players ranked by longest wait time.
+    //   2. Combinations: every possible 4-player subset of the pool.
+    //   3. Collision score per pair from recent game log:
+    //        played together last game  → +10
+    //        played together 2 games ago → +5
+    //        otherwise                  →  0
+    //   4. Decay: if a player has waited ≥ DECAY_MS, their pair penalties
+    //      drop to 0 — they are forced into the next available match.
+    //   5. Select the combination with the LOWEST total collision score.
+
+    function _lkPairScore(a, b, recentGames) {
+        const DECAY_MS   = 8 * 60 * 1000;
+        const SCORE_LAST = 10;
+        const SCORE_2AGO = 5;
+
+        // Forced players skip collision check entirely
+        if (a.waitMs >= DECAY_MS || b.waitMs >= DECAY_MS) return 0;
+
+        for (let i = 0; i < Math.min(2, recentGames.length); i++) {
+            const g = recentGames[i];
+            const four = [...(g.teamA || []), ...(g.teamB || [])];
+            if (four.includes(a.name) && four.includes(b.name)) {
+                return i === 0 ? SCORE_LAST : SCORE_2AGO;
+            }
+        }
+        return 0;
+    }
+
+    function larongKalyePickFour(candidatePool) {
+        const POOL_SIZE    = 8;
+        const LOOKBACK_MS  = 60 * 60 * 1000; // 60-minute collision window
+        const now          = Date.now();
+
+        // Enrich each player with a comparable waitMs
+        const enriched = candidatePool.map(p => ({
+            ...p,
+            waitMs: p.lastGameTime ? (now - p.lastGameTime) : Infinity
+        }));
+
+        // Sort: longest wait first; Infinity (never played) sorts to the front
+        enriched.sort((a, b) => {
+            if (a.waitMs === b.waitMs) return 0;
+            if (a.waitMs === Infinity) return -1;
+            if (b.waitMs === Infinity) return 1;
+            return b.waitMs - a.waitMs;
+        });
+
+        const pool = enriched.slice(0, Math.min(POOL_SIZE, enriched.length));
+        if (pool.length < 4) return null;
+
+        // Recent match history — most recent first
+        const cutoff     = now - LOOKBACK_MS;
+        const recentGames = [...(state.gameLog || [])]
+            .filter(g => g.timestamp && new Date(g.timestamp).getTime() > cutoff)
+            .reverse();
+
+        // Generate all C(pool, 4) combinations and pick lowest collision score
+        let bestCombo = null;
+        let bestScore = Infinity;
+
+        for (let a = 0; a < pool.length - 3; a++) {
+            for (let b = a + 1; b < pool.length - 2; b++) {
+                for (let c = b + 1; c < pool.length - 1; c++) {
+                    for (let d = c + 1; d < pool.length; d++) {
+                        const combo = [pool[a], pool[b], pool[c], pool[d]];
+                        let score = 0;
+                        // Sum collision scores for all 6 pairs in the combo
+                        for (let x = 0; x < 3; x++) {
+                            for (let y = x + 1; y < 4; y++) {
+                                score += _lkPairScore(combo[x], combo[y], recentGames);
+                            }
+                        }
+                        if (score < bestScore) {
+                            bestScore = score;
+                            bestCombo = combo;
+                            if (score === 0) break; // perfect — can't improve
+                        }
+                    }
+                    if (bestScore === 0) break;
+                }
+                if (bestScore === 0) break;
+            }
+            if (bestScore === 0) break;
+        }
+
+        return bestCombo || pool.slice(0, 4);
+    }
+
+    function fillLarongKalye(emptyCourts) {
+        emptyCourts.forEach(c => {
+            const available = state.queue.filter(p => p.in);
+            if (available.length < 4) return;
+
+            const chosen = larongKalyePickFour(available);
+            if (!chosen) return;
+
+            chosen.forEach(p => {
+                const idx = state.queue.findIndex(q => q.name === p.name);
+                if (idx !== -1) state.queue.splice(idx, 1);
+            });
+
+            c.players = chosen;
+            c.startTime = Date.now();
+            c.alerted   = false;
+        });
+    }
+
+    function previewLarongKalye() {
+        const available = state.queue.filter(p => p.in);
+        if (available.length < 4) return available.slice(0, 4);
+        return larongKalyePickFour(available) || available.slice(0, 4);
     }
 
     // ── Round Robin Randomized ───────────────────────────────────────────
