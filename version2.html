@@ -4080,15 +4080,18 @@
 
             // Firebase sanitizes dots/special chars in object KEYS (e.g. "Ian B." → "Ian B_").
             // state.stats and state.playerRatings both use player names as keys, so they arrive
-            // with sanitized keys after Object.assign. We need to remap them back to original names.
+            // with sanitized keys after Object.assign. We remap them back using original names.
             //
-            // The ONLY reliable source of original names is data stored as Firebase VALUES (not keys):
-            //   • queue[].name, court players[].name  — object field values, never sanitized
-            //   • gameLog[].teamA / teamB             — array values, never sanitized
+            // CRITICAL: we source from fbData.stats / fbData.playerRatings directly (defaulting
+            // to {}) rather than from state.* after Object.assign.  If Firebase omitted a key
+            // (e.g. playerRatings was cleared to null after a reset), Object.assign silently
+            // skips overwriting state.* — leaving stale values from localStorage intact.
+            // Sourcing from fbData guarantees a clean slate when Firebase has no data for a key.
             (function remapSanitizedKeys() {
                 const sk = k => k.replace(/[.#$\/\[\]]/g, '_');
 
-                // Build a set of original player names from value-stored sources
+                // Build original player names exclusively from Firebase VALUE-stored sources
+                // (object field values / array elements are never key-sanitized by Firebase).
                 const origNames = new Set();
 
                 state.queue.forEach(p => { if (p && p.name) origNames.add(p.name); });
@@ -4110,17 +4113,17 @@
                     [...tA, ...tB].forEach(name => { if (name) origNames.add(name); });
                 });
 
-                // Generic remap helper: for each known original name, look up by its sanitized
-                // form in the incoming keyed object and store under the original name.
+                // Remap a sanitized-key object back to original player name keys.
+                // Always returns a plain object (never undefined) so state is fully replaced.
                 function remapObj(obj) {
-                    if (!obj || typeof obj !== 'object') return obj;
+                    if (!obj || typeof obj !== 'object') return {};
                     const out = {};
                     origNames.forEach(name => {
                         const sanitized = sk(name);
-                        if (obj[sanitized] !== undefined)      out[name] = obj[sanitized];
-                        else if (obj[name] !== undefined)      out[name] = obj[name];
+                        if (obj[sanitized] !== undefined)  out[name] = obj[sanitized];
+                        else if (obj[name] !== undefined)  out[name] = obj[name];
                     });
-                    // Preserve keys that have no special chars and weren't matched above
+                    // Preserve entries whose key has no special chars and wasn't matched above
                     Object.keys(obj).forEach(k => {
                         if (!Array.from(origNames).some(n => sk(n) === k || n === k)) {
                             out[k] = obj[k];
@@ -4129,8 +4132,10 @@
                     return out;
                 }
 
-                state.stats         = remapObj(state.stats);
-                state.playerRatings = remapObj(state.playerRatings);
+                // Source directly from fbData so a missing/null Firebase node → empty object,
+                // never inheriting leftover values that Object.assign failed to clear.
+                state.stats         = remapObj(fbData.stats         || {});
+                state.playerRatings = remapObj(fbData.playerRatings || {});
             })();
 
             localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
