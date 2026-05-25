@@ -2727,18 +2727,23 @@
             saveSessionToHistory();
         }
 
-        state.courts.forEach(c => {
-            c.players = [null, null, null, null];
-            c.startTime = null; c.alerted = false;
-        });
-        state.queue       = [];
-        state.history     = [];
-        state.stats       = {};
-        state.gameLog     = [];
-        state.matchingMode = null;
-        state.partnerHistory = {};
-        state.sessionName = '';   // clear OP name for next session
-        clearSessionUI();         // wipe report table + session name input
+        // Full reset — same as resetAll() but preserves the current theme + design
+        const currentTheme  = state.theme       || 'dark';
+        const currentDesign = state.designTheme || null;
+        state = {
+            theme:          currentTheme,
+            designTheme:    currentDesign,
+            queue:          [],
+            history:        [],
+            stats:          {},
+            courts:         [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }],
+            matchingMode:   null,
+            partnerHistory: {},
+            playerRatings:  {},
+            gameLog:        [],
+            sessionName:    ''
+        };
+        clearSessionUI();   // wipe report table + session name input
         sync();
         showMatchingModal();
     }
@@ -3801,7 +3806,7 @@
 
     function resetAll() {
         if (!confirm("Reset everything?")) return;
-        state = { theme: state.theme || 'dark', queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '' };
+        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '' };
         clearSessionUI(); // wipe report table + session name input
         sync();
     }
