@@ -1429,15 +1429,6 @@
         <!-- Queue -->
         <div id="paddleRack" class="paddle-rack" ondrop="dropToRack(event)" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)"></div>
 
-        <!-- Leaderboard -->
-        <div style="margin-top:20px;">
-            <strong style="font-size: 13px; display: block; margin-bottom: 5px;">🏆 Top Players</strong>
-            <table class="leader-table">
-                <thead><tr><th>Name</th><th>W</th><th>P</th></tr></thead>
-                <tbody id="leaderboardBody"></tbody>
-            </table>
-        </div>
-
         <!-- Add Players — moved to bottom -->
         <div class="add-players-section">
             <h3>Add Players Manually</h3>
@@ -2151,18 +2142,16 @@
         state.queue.forEach((p, i) => {
             const el = document.getElementById('qmeta-' + i);
             if (!el) return;
-            const since  = parseInt(el.dataset.since) || 0;
-            const games  = (state.stats && state.stats[p.name]) ? (state.stats[p.name].games || 0) : 0;
-            const wait   = since ? (now - since < 60000 ? '< 1m wait' : Math.floor((now - since) / 60000) + 'm wait') : 'no games yet';
+            const since = parseInt(el.dataset.since) || 0;
+            const games = (state.stats && state.stats[p.name]) ? (state.stats[p.name].games || 0) : 0;
+            const wait  = since
+                ? (now - since < 60000 ? '< 1m wait' : Math.floor((now - since) / 60000) + 'm wait')
+                : (games > 0 ? 'in queue' : 'waiting');
             el.textContent = games + ' game' + (games !== 1 ? 's' : '') + ' · ⏱ ' + wait;
         });
     }
 
     function updateDisplay() {
-        const sorted = Object.keys(state.stats).sort((a,b) => state.stats[b].wins - state.stats[a].wins);
-        document.getElementById('leaderboardBody').innerHTML = sorted.slice(0, 5).map(n => `
-            <tr><td>${n}</td><td>${state.stats[n].wins}</td><td>${state.stats[n].games}</td></tr>
-        `).join('') || '<tr><td colspan="3">...</td></tr>';
 
         // Sync session name input
         const snInput = document.getElementById('sessionNameInput');
@@ -2196,7 +2185,9 @@
                 : '';
             const gamesPlayed = (state.stats && state.stats[p.name]) ? (state.stats[p.name].games || 0) : 0;
             const waitMins    = p.lastGameTime ? Math.floor((Date.now() - p.lastGameTime) / 60000) : null;
-            const waitStr     = waitMins !== null ? (waitMins < 1 ? '< 1m wait' : waitMins + 'm wait') : 'no games yet';
+            const waitStr     = waitMins !== null
+                ? (waitMins < 1 ? '< 1m wait' : waitMins + 'm wait')
+                : (gamesPlayed > 0 ? 'in queue' : 'waiting');
             const metaStr     = gamesPlayed + ' game' + (gamesPlayed !== 1 ? 's' : '') + ' · ⏱ ' + waitStr;
             const safeName    = p.name.replace(/`/g, '\\`');
             return `<div class="paddle ${isIn ? 'is-in' : 'is-out'}" draggable="true" ondragstart="dragStart(event,'rack',${i})">
