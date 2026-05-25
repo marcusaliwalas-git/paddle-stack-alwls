@@ -1142,6 +1142,28 @@
         .live-ranking-tabs { display:flex;gap:5px;margin-bottom:12px;background:rgba(255,255,255,0.05);border-radius:10px;padding:4px; }
         .live-rank-tab { flex:1;padding:7px 4px;border:none;border-radius:7px;font-size:11px;font-weight:bold;cursor:pointer;background:transparent;color:#78909c;transition:all 0.2s; }
         .live-rank-tab.active { background:#ff6d00;color:white; }
+
+        /* Session History Modal */
+        .sh-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.82); z-index:800; align-items:center; justify-content:center; padding:20px; }
+        .sh-overlay.open { display:flex; }
+        .sh-modal { background:#16213e; border-radius:18px; padding:24px 22px; width:92%; max-width:560px; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(0,0,0,0.6); border:1px solid rgba(255,109,0,0.2); }
+        .sh-modal h3 { margin:0 0 4px; color:white; font-size:1.1rem; }
+        .sh-modal .sh-sub { color:#78909c; font-size:12px; margin-bottom:14px; }
+        .sh-list { overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+        .sh-card { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:14px 16px; }
+        .sh-card-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:8px; }
+        .sh-card-title { font-size:14px; font-weight:bold; color:white; }
+        .sh-card-date { font-size:11px; color:#78909c; margin-top:2px; }
+        .sh-card-stats { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+        .sh-stat { font-size:11px; background:rgba(255,109,0,0.12); color:#ff8a65; padding:3px 8px; border-radius:8px; border:1px solid rgba(255,109,0,0.2); }
+        .sh-card-actions { display:flex; gap:6px; }
+        .sh-view-btn { flex:1; padding:7px; background:rgba(255,255,255,0.07); color:#ccc; border:none; border-radius:8px; font-size:12px; cursor:pointer; font-weight:bold; }
+        .sh-view-btn:hover { background:rgba(255,255,255,0.14); }
+        .sh-dl-btn { flex:1; padding:7px; background:#1565c0; color:white; border:none; border-radius:8px; font-size:12px; cursor:pointer; font-weight:bold; }
+        .sh-dl-btn:hover { background:#0d47a1; }
+        .sh-empty { color:#546e7a; font-style:italic; font-size:13px; text-align:center; padding:20px 0; }
+        .sh-close-btn { width:100%; padding:11px; background:rgba(255,255,255,0.07); color:#ccc; border:none; border-radius:10px; font-size:14px; cursor:pointer; }
+        .sh-detail-back { background:none; border:none; color:#ff6d00; font-size:13px; cursor:pointer; margin-bottom:10px; padding:0; font-weight:bold; }
     </style>
 </head>
 <body>
@@ -1220,6 +1242,17 @@
         </div>
         <div id="liveRankings"></div>
         <div class="live-last-updated" id="liveUpdated"></div>
+    </div>
+</div>
+
+
+<!-- Session History Modal -->
+<div class="sh-overlay" id="shOverlay" onclick="if(event.target===this)closeSessionHistory()">
+    <div class="sh-modal">
+        <h3>📚 Session History</h3>
+        <div class="sh-sub" id="shSub">Your past sessions</div>
+        <div class="sh-list" id="shList"></div>
+        <button class="sh-close-btn" onclick="closeSessionHistory()">Close</button>
     </div>
 </div>
 
@@ -2458,6 +2491,12 @@
     function endAndReset() {
         if (!confirm('End this session and start fresh? All courts, queue, stats and match history will be cleared.')) return;
         closeEndOP();
+
+        // Save session to history before clearing
+        if ((state.gameLog || []).length > 0 || Object.keys(state.stats || {}).length > 0) {
+            saveSessionToHistory();
+        }
+
         state.courts.forEach(c => {
             c.players = [null, null, null, null];
             c.startTime = null; c.alerted = false;
@@ -2470,6 +2509,33 @@
         state.partnerHistory = {};
         sync();
         showMatchingModal();
+    }
+
+    function saveSessionToHistory() {
+        const sessionRecord = {
+            id: Date.now().toString(),
+            sessionName: state.sessionName || 'Unnamed Session',
+            date: new Date().toISOString(),
+            gameLog: JSON.parse(JSON.stringify(state.gameLog || [])),
+            stats: JSON.parse(JSON.stringify(state.stats || {})),
+            matchingMode: state.matchingMode || 'manual',
+            totalGames: (state.gameLog || []).length,
+            totalPlayers: Object.keys(state.stats || {}).length
+        };
+        // Save to localStorage
+        let history = [];
+        try { history = JSON.parse(localStorage.getItem('pb_session_history') || '[]'); } catch(e) {}
+        history.unshift(sessionRecord); // newest first
+        if (history.length > 50) history = history.slice(0, 50); // keep last 50
+        localStorage.setItem('pb_session_history', JSON.stringify(history));
+        // Also save to Firebase
+        if (window.fbWrite && window._sessionUid) {
+            import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js').then(({ getDatabase, ref, set }) => {
+                const db2 = getDatabase();
+                set(ref(db2, 'sessionHistories/' + window._sessionUid + '/' + sessionRecord.id), sessionRecord)
+                    .catch(e => console.warn('History save error:', e));
+            });
+        }
     }
 
     function updateEndopSubtitle() {
@@ -2556,6 +2622,149 @@
                 <span class="endop-stat-pill">${getStatLabel(p, mode)}</span>
             </div>`
         ).join('');
+    }
+
+
+    // ── Session History ──────────────────────────────────────────────────
+    let _shDetailSession = null;
+
+    function openSessionHistory() {
+        _shDetailSession = null;
+        renderSessionHistoryList();
+        document.getElementById('shOverlay').classList.add('open');
+    }
+
+    function closeSessionHistory() {
+        document.getElementById('shOverlay').classList.remove('open');
+        _shDetailSession = null;
+    }
+
+    function getSessionHistory() {
+        try { return JSON.parse(localStorage.getItem('pb_session_history') || '[]'); } catch(e) { return []; }
+    }
+
+    function renderSessionHistoryList() {
+        const history = getSessionHistory();
+        const listEl = document.getElementById('shList');
+        const subEl = document.getElementById('shSub');
+        subEl.textContent = history.length + ' session' + (history.length !== 1 ? 's' : '') + ' saved';
+
+        if (history.length === 0) {
+            listEl.innerHTML = '<div class="sh-empty">No sessions saved yet.<br>Complete a session and click "End & Start New Session" to save it here.</div>';
+            return;
+        }
+
+        listEl.innerHTML = history.map((s, i) => {
+            const d = new Date(s.date);
+            const dateStr = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+            const timeStr = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
+            const modeLabel = { manual:'🎲 Manual', roundrobin:'🔄 Round Robin', snake:'🐍 Snake Draft' }[s.matchingMode] || s.matchingMode;
+            return '<div class="sh-card">'
+                + '<div class="sh-card-header">'
+                + '<div><div class="sh-card-title">' + (s.sessionName || 'Unnamed Session') + '</div>'
+                + '<div class="sh-card-date">' + dateStr + ' · ' + timeStr + '</div></div>'
+                + '</div>'
+                + '<div class="sh-card-stats">'
+                + '<span class="sh-stat">' + s.totalGames + ' games</span>'
+                + '<span class="sh-stat">' + s.totalPlayers + ' players</span>'
+                + '<span class="sh-stat">' + modeLabel + '</span>'
+                + '</div>'
+                + '<div class="sh-card-actions">'
+                + '<button class="sh-view-btn" onclick="viewSessionDetail(' + i + ')">👁 View Results</button>'
+                + '<button class="sh-dl-btn" onclick="downloadSessionCSV(' + i + ')">⬇ Download CSV</button>'
+                + '</div>'
+                + '</div>';
+        }).join('');
+    }
+
+    function viewSessionDetail(idx) {
+        const history = getSessionHistory();
+        const s = history[idx];
+        if (!s) return;
+        _shDetailSession = s;
+        const listEl = document.getElementById('shList');
+        const subEl = document.getElementById('shSub');
+        subEl.innerHTML = '<button class="sh-detail-back" onclick="renderSessionHistoryList()">← Back to all sessions</button>';
+
+        const log = s.gameLog || [];
+        const stats = s.stats || {};
+
+        // Top players
+        const ranked = Object.keys(stats).map(k => {
+            const p = stats[k];
+            return { name: k, wins: p.wins||0, games: p.games||0, losses: (p.games||0)-(p.wins||0) };
+        }).sort((a,b) => b.wins - a.wins).slice(0, 5);
+
+        let html = '<div style="margin-bottom:14px;">';
+        html += '<div style="font-size:11px;font-weight:bold;color:#ff6d00;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">🏆 Top Players</div>';
+        if (ranked.length === 0) {
+            html += '<div class="sh-empty" style="padding:6px 0;">No stats recorded.</div>';
+        } else {
+            html += ranked.map((p,i) =>
+                '<div class="endop-list-row">'
+                + '<span class="endop-rank-num">' + (i+1) + '</span>'
+                + '<span class="endop-player-name">' + p.name + '</span>'
+                + '<span class="endop-stat-pill">' + p.wins + 'W / ' + p.losses + 'L</span>'
+                + '</div>'
+            ).join('');
+        }
+        html += '</div>';
+
+        html += '<div style="font-size:11px;font-weight:bold;color:#ff6d00;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📋 Game Log</div>';
+        if (log.length === 0) {
+            html += '<div class="sh-empty" style="padding:6px 0;">No games recorded.</div>';
+        } else {
+            html += '<div style="overflow-x:auto;"><table class="report-table" style="min-width:500px;">'
+                + '<thead><tr><th>Court</th><th>Team A</th><th>Team B</th><th>Score</th><th>Winner</th><th>Duration</th></tr></thead>'
+                + '<tbody>' + log.map(g => {
+                    const isA = g.winner === 'Team A';
+                    return '<tr>'
+                        + '<td>' + g.court + '</td>'
+                        + '<td class="' + (isA ? 'winner-a' : '') + '">' + (g.teamA||[]).join(' & ') + '</td>'
+                        + '<td class="' + (!isA ? 'winner-b' : '') + '">' + (g.teamB||[]).join(' & ') + '</td>'
+                        + '<td>' + (g.scoreA !== '' ? g.scoreA : '—') + ' - ' + (g.scoreB !== '' ? g.scoreB : '—') + '</td>'
+                        + '<td style="font-weight:bold;color:' + (isA ? '#90caf9' : '#f48fb1') + '">' + (g.winner||'') + '</td>'
+                        + '<td>' + fmtDuration(g.durationSec) + '</td>'
+                        + '</tr>';
+                }).join('') + '</tbody></table></div>';
+        }
+
+        html += '<div style="margin-top:12px;"><button class="sh-dl-btn" style="width:100%;" onclick="downloadSessionCSV(' + idx + ')">⬇ Download Full CSV</button></div>';
+
+        listEl.innerHTML = html;
+    }
+
+    function downloadSessionCSV(idx) {
+        const history = getSessionHistory();
+        const s = history[idx];
+        if (!s) return;
+        const log = s.gameLog || [];
+        if (log.length === 0) { showToast('No games in this session.', true); return; }
+        const headers = ['Session','Court','Team A Player 1','Team A Player 2','Team B Player 1','Team B Player 2','Team A Score','Team B Score','Winner','Duration','Date & Time'];
+        const rows = log.map(g => [
+            s.sessionName || '',
+            g.court,
+            (g.teamA||[])[0] || '',
+            (g.teamA||[])[1] || '',
+            (g.teamB||[])[0] || '',
+            (g.teamB||[])[1] || '',
+            g.scoreA !== '' ? g.scoreA : '',
+            g.scoreB !== '' ? g.scoreB : '',
+            g.winner || '',
+            fmtDuration(g.durationSec),
+            fmtTimestamp(g.timestamp)
+        ].map(csvEscape).join(','));
+        const csv = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const safeName = (s.sessionName || 'session').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        a.download = safeName + '_' + new Date(s.date).toLocaleDateString().replace(/\//g,'-') + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     // ── Matching Algorithm ───────────────────────────────────────────────
