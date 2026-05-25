@@ -121,6 +121,86 @@
         [data-design="professional"] .paddle-rack { border-color: #dce3ec !important; background: #f8f9fb !important; }
         [data-design="professional"] body { font-family: 'Segoe UI', Arial, sans-serif; }
 
+        /* ══════════════════════════════════════════════════════════════════
+           THEME VISIBILITY FIXES
+           Overrides hardcoded dark-theme colours that become unreadable on
+           light (Light / Professional) or coloured (Optic) backgrounds.
+           ══════════════════════════════════════════════════════════════════ */
+
+        /* ── Shared helper: light-background themes ── */
+        [data-theme="light"],
+        [data-design="professional"] {
+            /* Queue player meta badge (was semi-transparent white → invisible) */
+            & .queue-meta { color: rgba(0,0,0,0.45) !important; }
+
+            /* Report table cells (was #cfd8dc pale grey → invisible on white) */
+            & .report-table td { color: var(--text-main) !important; }
+            & .report-table th { border-bottom-color: rgba(0,0,0,0.1) !important; }
+
+            /* Next-match panel — all text was light-green / near-white */
+            & .nmp-title    { color: #388e3c !important; }
+            & .nmp-court-label { color: #2e7d32 !important; }
+            & .nmp-waiting  { color: #388e3c !important; }
+            & .nmp-player   { background: rgba(0,0,0,0.05) !important; color: var(--text-main) !important; }
+
+            /* Bulk-tag OUT button (was white-transparent bg + grey text → invisible) */
+            & .bulk-tag-out { background: rgba(0,0,0,0.06) !important; color: #546e7a !important; border-color: rgba(0,0,0,0.15) !important; }
+            & .bulk-tag-out:hover { background: rgba(0,0,0,0.12) !important; }
+
+            /* Player count bar — "IN / Total" number (was white → invisible) */
+            & .player-count-bar .pc-nums { color: var(--text-side) !important; }
+            & .player-count-bar .pc-label { color: #546e7a !important; }
+
+            /* History page — rank items, table borders, section titles */
+            & .hist-rank-item   { background: rgba(0,0,0,0.05) !important; }
+            & .hist-rank-stat   { color: #546e7a !important; }
+            & .hist-section-title { color: var(--primary-dark, #e65100) !important; }
+            & .hist-table th,
+            & .hist-stats-table th { border-bottom-color: rgba(0,0,0,0.1) !important; }
+            & .hist-table td,
+            & .hist-stats-table td { border-bottom-color: rgba(0,0,0,0.06) !important; }
+            & .hist-rank-tab        { background: rgba(0,0,0,0.05) !important; border-color: rgba(0,0,0,0.12) !important; color: #546e7a !important; }
+            & .hist-rank-tab.active { background: rgba(230,81,0,0.1)  !important; border-color: rgba(230,81,0,0.3)  !important; color: #e65100 !important; }
+            & .hist-chip { background: rgba(230,81,0,0.08) !important; color: #e65100 !important; border-color: rgba(230,81,0,0.2) !important; }
+
+            /* Session history overlay chips / buttons */
+            & .sh-view-btn { color: #546e7a !important; border: 1px solid rgba(0,0,0,0.12) !important; }
+        }
+
+        /* Professional overrides — accent colour is blue, not orange */
+        [data-design="professional"] {
+            & .hist-section-title   { color: #1565c0 !important; }
+            & .hist-rank-tab.active { background: rgba(25,118,210,0.1) !important; border-color: rgba(25,118,210,0.3) !important; color: #1565c0 !important; }
+            & .hist-chip { background: rgba(25,118,210,0.08) !important; color: #1565c0 !important; border-color: rgba(25,118,210,0.2) !important; }
+            & .nmp-title       { color: #1565c0 !important; }
+            & .nmp-court-label { color: #1565c0 !important; }
+            & .nmp-waiting     { color: #1565c0 !important; }
+            & .matching-mode-bar { color: #1565c0 !important; background: rgba(25,118,210,0.08) !important; border-color: rgba(25,118,210,0.25) !important; }
+        }
+
+        /* ── Optic (yellow/green primary, dark background) ── */
+        [data-design="optic"] {
+            /* queue-meta sits on the yellow paddle — keep text dark */
+            & .queue-meta     { color: rgba(0,0,0,0.55) !important; }
+            & .paddle-in-btn  { color: rgba(0,0,0,0.65) !important; border-color: rgba(0,0,0,0.18) !important; }
+            & .paddle-edit-btn { color: rgba(0,0,0,0.65) !important; background: rgba(0,0,0,0.08) !important; }
+            & .bulk-tag-out   { background: rgba(198,241,53,0.08) !important; color: #c6f135 !important; border-color: rgba(198,241,53,0.25) !important; }
+            & .hist-section-title  { color: #c6f135 !important; }
+            & .hist-rank-tab       { border-color: rgba(198,241,53,0.2) !important; color: #a0a0a0 !important; }
+            & .hist-rank-tab.active { background: rgba(198,241,53,0.15) !important; border-color: rgba(198,241,53,0.45) !important; color: #c6f135 !important; }
+            & .hist-chip { background: rgba(198,241,53,0.08) !important; color: #c6f135 !important; border-color: rgba(198,241,53,0.25) !important; }
+            & .report-table td { color: #e0e0e0 !important; }
+        }
+
+        /* ── Sleek (deep-navy, cyan primary) ── */
+        [data-design="sleek"] {
+            & .queue-meta     { color: rgba(0,229,255,0.5) !important; }
+            & .hist-section-title  { color: #00e5ff !important; }
+            & .hist-rank-tab.active { background: rgba(0,229,255,0.12) !important; border-color: rgba(0,229,255,0.4) !important; color: #00e5ff !important; }
+            & .hist-chip { background: rgba(0,229,255,0.08) !important; color: #00e5ff !important; border-color: rgba(0,229,255,0.25) !important; }
+            & .matching-mode-bar { color: #00e5ff !important; background: rgba(0,229,255,0.06) !important; border-color: rgba(0,229,255,0.2) !important; }
+        }
+
         /* ── Theme Picker Modal ── */
         .theme-picker-overlay {
             display: none; position: fixed; inset: 0;
@@ -2099,8 +2179,17 @@
             } else if (state.matchingMode === 'snake') {
                 fillSnakeDraft([c]);
             } else {
-                c.players = state.queue.splice(0, 4);
-                c.startTime = Date.now(); c.alerted = false;
+                // Manual: take the first 4 IN players only (same filter as fillAllCourts)
+                const inNow = state.queue.filter(p => p.in);
+                if (inNow.length >= 4) {
+                    const chosen = inNow.slice(0, 4);
+                    chosen.forEach(p => {
+                        const idx = state.queue.findIndex(q => q.name === p.name);
+                        if (idx !== -1) state.queue.splice(idx, 1);
+                    });
+                    c.players = chosen;
+                    c.startTime = Date.now(); c.alerted = false;
+                }
             }
         } else {
             // Not enough for a full court — leave empty
