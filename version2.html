@@ -2613,14 +2613,8 @@
         history.unshift(sessionRecord); // newest first
         if (history.length > 50) history = history.slice(0, 50); // keep last 50
         localStorage.setItem('pb_session_history', JSON.stringify(history));
-        // Also save to Firebase
-        if (window.fbWrite && window._sessionUid) {
-            import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js').then(({ getDatabase, ref, set }) => {
-                const db2 = getDatabase();
-                set(ref(db2, 'sessionHistories/' + window._sessionUid + '/' + sessionRecord.id), sessionRecord)
-                    .catch(e => console.warn('History save error:', e));
-            });
-        }
+        // Also save to Firebase (fbSaveHistory sanitizes keys and uses the existing db connection)
+        if (window.fbSaveHistory) window.fbSaveHistory(sessionRecord);
     }
 
     function updateEndopSubtitle() {
@@ -3562,9 +3556,32 @@
             .then(snapshot => {
                 const data = snapshot.val();
                 if (!data) return [];
-                return Object.values(data).sort((a, b) => new Date(b.date) - new Date(a.date));
+                return Object.values(data).map(s => {
+                    if (!s) return null;
+                    // Firebase stores arrays as objects {0:…,1:…} — restore to real arrays
+                    s.gameLog = s.gameLog
+                        ? (Array.isArray(s.gameLog) ? s.gameLog : Object.values(s.gameLog))
+                        : [];
+                    return s;
+                }).filter(Boolean).sort((a, b) => new Date(b.date) - new Date(a.date));
             })
             .catch(() => []);
+    };
+
+    // Writes a session history record to Firebase with sanitized keys.
+    // Called from saveSessionToHistory() in the non-module script.
+    window.fbSaveHistory = (sessionRecord) => {
+        const uid = (auth.currentUser && auth.currentUser.uid) || window._sessionUid;
+        if (!uid) return;
+        const clean    = JSON.parse(JSON.stringify(sessionRecord));
+        const safeKey  = k => k.replace(/[.#$\/\[\]]/g, '_');
+        if (clean.stats) {
+            const safe = {};
+            Object.keys(clean.stats).forEach(n => { safe[safeKey(n)] = clean.stats[n]; });
+            clean.stats = safe;
+        }
+        set(ref(db, 'sessionHistories/' + uid + '/' + clean.id), clean)
+            .catch(e => console.warn('History save error:', e));
     };
 
     window.doLogin = async function() {
@@ -3709,8 +3726,6 @@
                 }
 
                 authPage.classList.remove('active');
-                // Show mainApp only when not on the history page
-                if (window.location.hash !== '#history') mainApp.style.display = '';
 
                 // Populate user pill
                 pill.style.display = 'flex';
@@ -3731,6 +3746,10 @@
                 const OWNER_UID = 'cm9SGavCLzXt1hBEgPfr9X0rSKe2';
                 const btn = document.getElementById('manageAccessBtn');
                 if (btn) btn.style.display = user.uid === OWNER_UID ? '' : 'none';
+
+                // Route to the correct page based on the current hash.
+                // Handles the case where the user refreshes directly on #history.
+                routePage();
 
                 // Tear down any previous listener (e.g. from a prior login)
                 if (_fbSessionUnsubscribe) { _fbSessionUnsubscribe(); _fbSessionUnsubscribe = null; }
