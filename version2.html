@@ -1751,23 +1751,32 @@
 
 
     function exportPlayersAsTxt() {
-        if (state.queue.length === 0) { showToast('No players in queue to export.', true); return; }
-        const date = new Date();
+        // Collect players on courts first (playing), then waiting in queue
+        const onCourt = state.courts.flatMap(c =>
+            c.players.filter(p => p !== null).map(p => ({ name: p.name, status: 'Playing' }))
+        );
+        const inQueue = state.queue.map(p => ({ name: p.name, status: p.in ? 'In Queue' : 'Out' }));
+        const allPlayers = [...onCourt, ...inQueue];
+
+        if (allPlayers.length === 0) { showToast('No players to export.', true); return; }
+
+        const date    = new Date();
         const dateStr = date.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
         const timeStr = date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
-        const total = state.queue.length;
+        const total   = allPlayers.length;
+
         let txt = 'DinkDrop Live Session\n';
         txt += dateStr + ' @' + timeStr + '\n';
         txt += 'Exported from DinkDrop Live\n';
         txt += '\n';
         txt += ' (2) \n 1. Organizer\n2. DinkDrop\n\n';
         txt += 'Participants (' + total + ') \n ';
-        txt += state.queue.map((p, i) => (i + 1) + '. ' + p.name).join('\n');
+        txt += allPlayers.map((p, i) => (i + 1) + '. ' + p.name).join('\n');
         txt += '\n';
 
         const blob = new Blob([txt], { type: 'text/plain;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
         a.href = url;
         a.download = 'players_' + new Date().toLocaleDateString().replace(/\//g, '-') + '.txt';
         document.body.appendChild(a);
@@ -2042,6 +2051,18 @@
 
     function closeReport() {
         document.getElementById('reportOverlay').classList.remove('open');
+    }
+
+    // Wipe report table content and clear the session name field —
+    // called by both End OP and Full Reset so the UI is pristine for the next session.
+    function clearSessionUI() {
+        const tbody = document.getElementById('reportTableBody');
+        if (tbody) tbody.innerHTML = '';
+        const sub = document.getElementById('reportSub');
+        if (sub) sub.textContent = '';
+        closeReport();
+        const snInput = document.getElementById('sessionNameInput');
+        if (snInput) snInput.value = '';
     }
 
     function exportStats() {
@@ -2710,12 +2731,14 @@
             c.players = [null, null, null, null];
             c.startTime = null; c.alerted = false;
         });
-        state.queue = [];
-        state.history = [];
-        state.stats = {};
-        state.gameLog = [];
+        state.queue       = [];
+        state.history     = [];
+        state.stats       = {};
+        state.gameLog     = [];
         state.matchingMode = null;
         state.partnerHistory = {};
+        state.sessionName = '';   // clear OP name for next session
+        clearSessionUI();         // wipe report table + session name input
         sync();
         showMatchingModal();
     }
@@ -3776,7 +3799,12 @@
         sync();
     }
 
-    function resetAll() { if(confirm("Reset everything?")) { state = {theme:'dark', queue:[], history:[], stats:{}, courts:[{id:"1", players:[null,null,null,null], startTime:null, alerted:false}], matchingMode:null, partnerHistory:{}, playerRatings:{}, gameLog:[], sessionName:''}; sync(); } }
+    function resetAll() {
+        if (!confirm("Reset everything?")) return;
+        state = { theme: state.theme || 'dark', queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '' };
+        clearSessionUI(); // wipe report table + session name input
+        sync();
+    }
 </script>
 <!-- Firebase Realtime DB + Auth + QR + Live View -->
 <script type="module">
@@ -4044,6 +4072,34 @@
                 }
                 return c;
             });
+
+            // Firebase sanitizes dots/special chars in keys (e.g. "Ian B." → "Ian B_").
+            // Remap playerRatings back to original player names using queue + stats as reference.
+            if (state.playerRatings && typeof state.playerRatings === 'object') {
+                const sk = k => k.replace(/[.#$\/\[\]]/g, '_');
+                // Gather all known original names from queue players and stats
+                const originalNames = [
+                    ...state.queue.map(p => p && p.name).filter(Boolean),
+                    ...Object.keys(state.stats || {})
+                ];
+                const remapped = {};
+                originalNames.forEach(name => {
+                    const sanitized = sk(name);
+                    if (state.playerRatings[sanitized] !== undefined) {
+                        remapped[name] = state.playerRatings[sanitized];
+                    } else if (state.playerRatings[name] !== undefined) {
+                        remapped[name] = state.playerRatings[name];
+                    }
+                });
+                // Preserve any entries whose key has no special chars and wasn't matched above
+                Object.keys(state.playerRatings).forEach(k => {
+                    if (!originalNames.some(n => sk(n) === k || n === k)) {
+                        remapped[k] = state.playerRatings[k];
+                    }
+                });
+                state.playerRatings = remapped;
+            }
+
             localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
             if (typeof updateDisplay === 'function') updateDisplay();
             return true;
