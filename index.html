@@ -2877,7 +2877,8 @@
     import {
         getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
         signOut, onAuthStateChanged, updateProfile,
-        GoogleAuthProvider, signInWithPopup
+        GoogleAuthProvider, signInWithPopup,
+        browserLocalPersistence, setPersistence
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -2894,17 +2895,25 @@
     const db  = getDatabase(app);
     const auth = getAuth(app);
 
+    // Use localStorage persistence — avoids sessionStorage which breaks in iOS in-app browsers
+    // (Messenger, Facebook, Instagram etc. partition storage, causing "missing initial state" error)
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+
     // Catch the missing-initial-state error that happens on iOS in-app browsers
     // Firebase tries to process a pending redirect and fails — show a friendly message
-    auth.onIdTokenChanged(() => {}); // init auth listener early
     window.addEventListener('unhandledrejection', e => {
         if (e.reason && (e.reason.code === 'auth/missing-initial-state' || (e.reason.message && e.reason.message.includes('missing initial state')))) {
             e.preventDefault();
-            const errEl = document.getElementById('authError');
-            if (errEl) {
-                errEl.textContent = '⚠️ Sign-in unavailable in this browser. Please open DinkDrop Live directly in Safari or Chrome.';
-                errEl.classList.add('show');
-            }
+            document.body.innerHTML = `
+                <div style="font-family:sans-serif;padding:30px;max-width:400px;margin:40px auto;text-align:center;">
+                    <img src="${document.querySelector('img[alt*=DinkDrop]') ? document.querySelector('img[alt*=DinkDrop]').src : ''}" style="max-width:200px;margin-bottom:20px;" alt="DinkDrop">
+                    <h2 style="color:#ff6d00;margin-bottom:12px;">Open in Safari or Chrome</h2>
+                    <p style="color:#555;line-height:1.6;margin-bottom:20px;">
+                        DinkDrop Live can't sign you in from inside Messenger or Facebook.<br><br>
+                        Please open this link directly in <strong>Safari</strong> or <strong>Chrome</strong>.
+                    </p>
+                    <p style="font-size:13px;color:#999;">Tap the <strong>···</strong> menu or share icon and choose <em>"Open in Safari"</em> or <em>"Open in Browser"</em></p>
+                </div>`;
         }
     });
 
