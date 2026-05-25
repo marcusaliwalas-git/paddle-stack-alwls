@@ -1571,9 +1571,15 @@
     };
 
     window.onload = () => {
-        // Don't load from localStorage yet — wait for Firebase to provide authoritative state
-        // Show a brief loading indicator in the main app area
-        document.body.setAttribute('data-theme', 'dark');
+        const saved = localStorage.getItem('pb_stacker_v12');
+        if (saved) { try { state = JSON.parse(saved); } catch(e) {} }
+        document.body.setAttribute('data-theme', state.theme || 'dark');
+        // Restore design theme
+        if (state.designTheme && state.designTheme !== 'default') {
+            document.body.setAttribute('data-design', state.designTheme);
+            if (state.designTheme === 'professional') document.body.removeAttribute('data-theme');
+        }
+        updateDisplay();
         setInterval(checkTimers, 1000);
     };
 
@@ -1983,7 +1989,7 @@
             const teamBPlayers = [c.players[2], c.players[3]].filter(Boolean);
             const scoreStr = (scoreA !== undefined && scoreB !== undefined)
                 ? ` [${scoreA}-${scoreB}]` : '';
-            state.history.unshift('C' + c.id + ': ' + teamLabel + ' won' + scoreStr + ' (' + winners.map(function(w){return w.name;}).join(' & ') + ')');
+            state.history.unshift(`C${c.id}: ${teamLabel} won${scoreStr} (${winners.map(w => w.name).join(' & ')})`);
             if (state.history.length > 5) state.history.pop();
 
             // Full game log entry
@@ -2046,7 +2052,9 @@
 
     function updateDisplay() {
         const sorted = Object.keys(state.stats).sort((a,b) => state.stats[b].wins - state.stats[a].wins);
-        document.getElementById('leaderboardBody').innerHTML = sorted.slice(0, 5).map(function(n) { return '<tr><td>' + n + '</td><td>' + state.stats[n].wins + '</td><td>' + state.stats[n].games + '</td></tr>'; }).join('') || '<tr><td colspan="3">...</td></tr>';
+        document.getElementById('leaderboardBody').innerHTML = sorted.slice(0, 5).map(n => `
+            <tr><td>${n}</td><td>${state.stats[n].wins}</td><td>${state.stats[n].games}</td></tr>
+        `).join('') || '<tr><td colspan="3">...</td></tr>';
 
         // Sync session name input
         const snInput = document.getElementById('sessionNameInput');
@@ -2086,7 +2094,7 @@
             </div>`;
         }).join('') || '<small style="opacity:0.5">Queue is empty</small>';
 
-        document.getElementById('historyLog').innerHTML = state.history.map(function(h) { return '<div class="history-item">' + h + '</div>'; }).join('') || '<small>...</small>';
+        document.getElementById('historyLog').innerHTML = state.history.map(h => `<div class="history-item">${h}</div>`).join('') || '<small>...</small>';
 
         // ── Next Match Panel ───────────────────────────────────────────
         const nmpEl = document.getElementById('nextMatchPanel');
@@ -2144,36 +2152,38 @@
             const isEmpty = c.players.every(p => p === null);
 
             // Team A = slots 0,1 | Team B = slots 2,3
-            const teamAHtml = '<div class="team-section">'
-                + '<span class="team-label team-a-label">Team A</span>'
-                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
-                + [0,1].map(function(j) {
-                    return '<div class="slot slot-team-a" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event,' + i + ',' + j + ')"'
-                        + ' draggable="' + (c.players[j] ? 'true' : 'false') + '" ondragstart="dragStart(event,&quot;court&quot;,' + j + ',' + i + ')">'
-                        + (c.players[j] ? c.players[j].name : '--')
-                        + '</div>';
-                }).join('')
-                + '</div></div>';
+            const teamAHtml = `
+                <div class="team-section">
+                    <span class="team-label team-a-label">Team A</span>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                        ${[0,1].map(j => `
+                            <div class="slot slot-team-a" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event,${i},${j})"
+                                 draggable="${c.players[j] ? 'true' : 'false'}" ondragstart="dragStart(event,'court',${j},${i})">
+                                 ${c.players[j] ? c.players[j].name : '--'}
+                            </div>`).join('')}
+                    </div>
+                </div>`;
 
-            const teamBHtml = '<div class="team-section">'
-                + '<span class="team-label team-b-label">Team B</span>'
-                + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
-                + [2,3].map(function(j) {
-                    return '<div class="slot slot-team-b" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event,' + i + ',' + j + ')"'
-                        + ' draggable="' + (c.players[j] ? 'true' : 'false') + '" ondragstart="dragStart(event,&quot;court&quot;,' + j + ',' + i + ')">'
-                        + (c.players[j] ? c.players[j].name : '--')
-                        + '</div>';
-                }).join('')
-                + '</div></div>';
+            const teamBHtml = `
+                <div class="team-section">
+                    <span class="team-label team-b-label">Team B</span>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                        ${[2,3].map(j => `
+                            <div class="slot slot-team-b" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event,${i},${j})"
+                                 draggable="${c.players[j] ? 'true' : 'false'}" ondragstart="dragStart(event,'court',${j},${i})">
+                                 ${c.players[j] ? c.players[j].name : '--'}
+                            </div>`).join('')}
+                    </div>
+                </div>`;
 
             // Action buttons
-            var inQueue2 = []; for(var qi=0;qi<state.queue.length;qi++){if(state.queue[qi].in)inQueue2.push(state.queue[qi]);} var inCount = inQueue2.length;
+            const inCount = state.queue.filter(p => p.in).length;
             const actionBtns = isEmpty
                 ? `<button class="btn-start" onclick="rotateCourt(${i})" ${inCount < 4 ? 'disabled title="Need 4+ IN players"' : ''}>&#9654; Fill Court</button>
-                   <button class="btn-clear" onclick="clearCourt(${i})">Clear</button>`
+                   <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">Clear</button>`
                 : `<button class="btn-win-a" onclick="openScoreModal(${i},'A')">&#127942; Team A Won</button>
                    <button class="btn-win-b" onclick="openScoreModal(${i},'B')">&#127942; Team B Won</button>
-                   <button class="btn-clear" onclick="clearCourt(${i})">Clear</button>`;
+                   <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">Clear</button>`;
 
             return `
             <div class="court-card ${c.alerted ? 'overtime-active' : ''}">
@@ -2181,7 +2191,7 @@
                     <strong onclick="const n=prompt('Name:','${c.id}'); if(n){state.courts[${i}].id=n;sync();}" style="cursor:pointer;font-size:15px;">Court ${c.id}</strong>
                     <div style="display:flex;align-items:center;gap:5px;">
                         <span id="t-${i}" class="timer">0:00</span>
-                        ${c.startTime ? '<button class="btn-pause ' + (c.pausedAt ? 'paused' : '') + '" onclick="togglePause(' + i + ')">' + (c.pausedAt ? '&#9654;' : '&#9208;') + '</button>' : ''}
+                        ${c.startTime ? `<button class="btn-pause ${c.pausedAt ? 'paused' : ''}" onclick="togglePause(${i})">${c.pausedAt ? '▶' : '⏸'}</button>` : ''}
                     </div>
                     <div style="display:flex;gap:4px;align-items:center;">
                         <button onclick="openCourtEdit(${i})" style="background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;" title="Edit players">✎</button>
@@ -2196,7 +2206,6 @@
 
     }
 
-    function clearCourt(idx) { var cp = state.courts[idx].players; for(var ci=0;ci<cp.length;ci++){if(cp[ci])state.queue.push(cp[ci]);} state.courts[idx].players=[null,null,null,null]; state.courts[idx].startTime=null; state.courts[idx].alerted=false; state.courts[idx].pausedAt=null; sync(); }
     function dragStart(ev, type, index, courtIdx = null) { ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); }
 
     function nmpSlotDragOver(ev) { ev.preventDefault(); ev.currentTarget.style.outline = '2px solid #ff6d00'; }
@@ -3274,6 +3283,37 @@
     }
 
     // ── Auth state listener ──────────────────────────────────────────────
+    // Tracks the real-time Firebase listener so it can be torn down on logout
+    let _fbSessionUnsubscribe = null;
+
+    // Normalizes a Firebase session snapshot into local state and persists it.
+    // Does NOT call fbWrite — avoids echo-writing data we just received.
+    function applyFirebaseState(fbData) {
+        if (!fbData || typeof state === 'undefined') return false;
+        try {
+            Object.assign(state, fbData);
+            // Firebase drops empty arrays as null — always normalise queue explicitly
+            state.queue = fbData.queue
+                ? (Array.isArray(fbData.queue) ? fbData.queue : Object.values(fbData.queue))
+                : [];
+            if (!Array.isArray(state.courts)) state.courts = Object.values(state.courts || {});
+            state.courts = state.courts.map(c => {
+                if (!c) return c;
+                if (c.players && !Array.isArray(c.players)) {
+                    const arr = [null, null, null, null];
+                    Object.keys(c.players).forEach(k => { arr[parseInt(k)] = c.players[k]; });
+                    c.players = arr;
+                } else if (!c.players) {
+                    c.players = [null, null, null, null];
+                }
+                return c;
+            });
+            localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
+            if (typeof updateDisplay === 'function') updateDisplay();
+            return true;
+        } catch(e) { console.warn('Session merge error:', e); return false; }
+    }
+
     onAuthStateChanged(auth, (user) => {
         const authPage = document.getElementById('authPage');
         const mainApp  = document.getElementById('mainApp');
@@ -3325,84 +3365,42 @@
                 const btn = document.getElementById('manageAccessBtn');
                 if (btn) btn.style.display = user.uid === OWNER_UID ? '' : 'none';
 
-                // Set up REAL-TIME listener on this user's session
-                // This ensures any change (including reset from another device) syncs immediately
-                window._sessionUid = user.uid; // set uid before listener fires
+                // Tear down any previous listener (e.g. from a prior login)
+                if (_fbSessionUnsubscribe) { _fbSessionUnsubscribe(); _fbSessionUnsubscribe = null; }
 
-                let _firstLoad = true;
-                onValue(ref(db, 'sessions/' + user.uid), (snapshot) => {
-                    const fbData = snapshot.val();
+                // Real-time listener: fires immediately with current value, then on every change.
+                // This ensures resets / updates from another device are reflected here instantly.
+                let _isFirstFirebaseFire = true;
+                setTimeout(() => {
+                    _fbSessionUnsubscribe = onValue(ref(db, 'sessions/' + user.uid), (snapshot) => {
+                        const fbData = snapshot.val();
+                        const isFirst = _isFirstFirebaseFire;
+                        _isFirstFirebaseFire = false;
 
-                    if (fbData && fbData.courts !== undefined) {
-                        // Firebase is source of truth — always load from it
-                        try {
-                            if (typeof state !== 'undefined') {
-                                // Deep merge Firebase data into state
-                                const newState = Object.assign({}, state, fbData);
-                                // Normalize courts array
-                                if (newState.courts && !Array.isArray(newState.courts)) {
-                                    newState.courts = Object.values(newState.courts);
-                                }
-                                if (!Array.isArray(newState.queue)) {
-                                    newState.queue = newState.queue ? Object.values(newState.queue) : [];
-                                }
-                                newState.courts = (newState.courts || []).map(c => {
-                                    if (!c) return c;
-                                    if (c.players && !Array.isArray(c.players)) {
-                                        const arr = [null,null,null,null];
-                                        Object.keys(c.players).forEach(k => { arr[parseInt(k)] = c.players[k]; });
-                                        c.players = arr;
-                                    } else if (!c.players) {
-                                        c.players = [null,null,null,null];
-                                    }
-                                    return c;
-                                });
-                                Object.assign(state, newState);
-                                // Restore design theme
-                                document.body.setAttribute('data-theme', state.theme || 'dark');
-                                if (state.designTheme && state.designTheme !== 'default') {
-                                    document.body.setAttribute('data-design', state.designTheme);
-                                    if (state.designTheme === 'professional') document.body.removeAttribute('data-theme');
-                                } else {
-                                    document.body.removeAttribute('data-design');
-                                }
-                                localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
-                                if (typeof updateDisplay === 'function') updateDisplay();
+                        if (fbData && fbData.courts) {
+                            // Firebase has session data — always treat it as source of truth
+                            applyFirebaseState(fbData);
+                        } else if (isFirst) {
+                            // First load and nothing in Firebase — push local state up
+                            const liveState = (typeof state !== 'undefined' && state.courts) ? state : null;
+                            if (liveState) {
+                                window.fbWrite(liveState);
+                            } else {
+                                const saved = localStorage.getItem('pb_stacker_v12');
+                                if (saved) { try { window.fbWrite(JSON.parse(saved)); } catch(e) {} }
                             }
-                        } catch(e) { console.warn('Session sync error:', e); }
-                    } else if (_firstLoad) {
-                        // First load and Firebase is empty — use localStorage as seed, push to Firebase
-                        const saved = localStorage.getItem('pb_stacker_v12');
-                        if (saved) {
-                            try {
-                                const parsed = JSON.parse(saved);
-                                Object.assign(state, parsed);
-                                document.body.setAttribute('data-theme', state.theme || 'dark');
-                                if (state.designTheme && state.designTheme !== 'default') {
-                                    document.body.setAttribute('data-design', state.designTheme);
-                                }
-                                if (typeof updateDisplay === 'function') updateDisplay();
-                                window.fbWrite(state);
-                            } catch(e) {}
-                        } else {
-                            if (typeof updateDisplay === 'function') updateDisplay();
                         }
-                    }
 
-                    if (_firstLoad) {
-                        _firstLoad = false;
-                        // Show mode selection if not yet chosen
-                        if (typeof state !== 'undefined' && !state.matchingMode) {
+                        // Show mode selection on first load only if not yet chosen
+                        if (isFirst && typeof state !== 'undefined' && !state.matchingMode) {
                             showMatchingModal();
                         }
-                    }
-                }, (error) => {
-                    console.warn('Session listener error:', error);
-                    // Fallback to localStorage on error
-                    const saved = localStorage.getItem('pb_stacker_v12');
-                    if (saved) { try { Object.assign(state, JSON.parse(saved)); updateDisplay(); } catch(e) {} }
-                });
+                    }, e => console.warn('Session listener error:', e));
+                }, 300);
+            }); // end checkAllowlist.then
         } else {
+            // Logged out — tear down the real-time listener
+            if (_fbSessionUnsubscribe) { _fbSessionUnsubscribe(); _fbSessionUnsubscribe = null; }
             authPage.classList.add('active');
             mainApp.style.display = 'none';
             pill.style.display = 'none';
