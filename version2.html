@@ -4073,32 +4073,60 @@
                 return c;
             });
 
-            // Firebase sanitizes dots/special chars in keys (e.g. "Ian B." → "Ian B_").
-            // Remap playerRatings back to original player names using queue + stats as reference.
-            if (state.playerRatings && typeof state.playerRatings === 'object') {
+            // Firebase sanitizes dots/special chars in object KEYS (e.g. "Ian B." → "Ian B_").
+            // state.stats and state.playerRatings both use player names as keys, so they arrive
+            // with sanitized keys after Object.assign. We need to remap them back to original names.
+            //
+            // The ONLY reliable source of original names is data stored as Firebase VALUES (not keys):
+            //   • queue[].name, court players[].name  — object field values, never sanitized
+            //   • gameLog[].teamA / teamB             — array values, never sanitized
+            (function remapSanitizedKeys() {
                 const sk = k => k.replace(/[.#$\/\[\]]/g, '_');
-                // Gather all known original names from queue players and stats
-                const originalNames = [
-                    ...state.queue.map(p => p && p.name).filter(Boolean),
-                    ...Object.keys(state.stats || {})
-                ];
-                const remapped = {};
-                originalNames.forEach(name => {
-                    const sanitized = sk(name);
-                    if (state.playerRatings[sanitized] !== undefined) {
-                        remapped[name] = state.playerRatings[sanitized];
-                    } else if (state.playerRatings[name] !== undefined) {
-                        remapped[name] = state.playerRatings[name];
-                    }
+
+                // Build a set of original player names from value-stored sources
+                const origNames = new Set();
+
+                state.queue.forEach(p => { if (p && p.name) origNames.add(p.name); });
+
+                state.courts.forEach(c => {
+                    if (!c || !c.players) return;
+                    const slots = Array.isArray(c.players) ? c.players : Object.values(c.players);
+                    slots.forEach(p => { if (p && p.name) origNames.add(p.name); });
                 });
-                // Preserve any entries whose key has no special chars and wasn't matched above
-                Object.keys(state.playerRatings).forEach(k => {
-                    if (!originalNames.some(n => sk(n) === k || n === k)) {
-                        remapped[k] = state.playerRatings[k];
-                    }
+
+                // gameLog may arrive as a keyed object from Firebase — normalise to array
+                const rawLog = fbData.gameLog
+                    ? (Array.isArray(fbData.gameLog) ? fbData.gameLog : Object.values(fbData.gameLog))
+                    : [];
+                rawLog.forEach(g => {
+                    if (!g) return;
+                    const tA = g.teamA ? (Array.isArray(g.teamA) ? g.teamA : Object.values(g.teamA)) : [];
+                    const tB = g.teamB ? (Array.isArray(g.teamB) ? g.teamB : Object.values(g.teamB)) : [];
+                    [...tA, ...tB].forEach(name => { if (name) origNames.add(name); });
                 });
-                state.playerRatings = remapped;
-            }
+
+                // Generic remap helper: for each known original name, look up by its sanitized
+                // form in the incoming keyed object and store under the original name.
+                function remapObj(obj) {
+                    if (!obj || typeof obj !== 'object') return obj;
+                    const out = {};
+                    origNames.forEach(name => {
+                        const sanitized = sk(name);
+                        if (obj[sanitized] !== undefined)      out[name] = obj[sanitized];
+                        else if (obj[name] !== undefined)      out[name] = obj[name];
+                    });
+                    // Preserve keys that have no special chars and weren't matched above
+                    Object.keys(obj).forEach(k => {
+                        if (!Array.from(origNames).some(n => sk(n) === k || n === k)) {
+                            out[k] = obj[k];
+                        }
+                    });
+                    return out;
+                }
+
+                state.stats         = remapObj(state.stats);
+                state.playerRatings = remapObj(state.playerRatings);
+            })();
 
             localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
             if (typeof updateDisplay === 'function') updateDisplay();
