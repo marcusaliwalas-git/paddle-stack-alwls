@@ -858,14 +858,6 @@
             border: none; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer;
         }
         .endop-close-btn:hover { background: rgba(255,255,255,0.12); }
-        .endop-new-btn {
-            width: 100%; margin-top: 8px; padding: 11px;
-            background: rgba(183,28,28,0.2); color: #ef9a9a;
-            border: 1px solid rgba(183,28,28,0.4); border-radius: 10px;
-            font-size: 13px; font-weight: bold; cursor: pointer;
-        }
-        .endop-new-btn:hover { background: rgba(183,28,28,0.35); }
-
         /* "In" status toggle on paddle cards */
         .paddle { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
         .paddle-in-btn {
@@ -1441,7 +1433,8 @@
 
         <button class="btn-export" onclick="openReport()">📊 View & Export Results</button>
         <button class="btn-export" onclick="window.location.hash='#history'" style="background:rgba(255,255,255,0.07);color:#ccc;margin-top:6px;">📚 Session History</button>
-        <button class="btn-end-op" onclick="openEndOP()">🏁 End OP</button>
+        <button class="btn-end-op" onclick="openEndOP()">🏆 View Leaderboard</button>
+        <button class="btn-end-op" onclick="endAndReset()" style="background:linear-gradient(135deg,#b71c1c,#c62828);margin-top:6px;">🏁 End OP</button>
         <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
     </div>
 
@@ -1503,7 +1496,6 @@
             <button class="endop-download-btn" onclick="exportStats()">⬇️ Download Results CSV</button>
             <button class="endop-close-btn" onclick="closeEndOP()">Close</button>
         </div>
-        <button class="endop-new-btn" onclick="endAndReset()">🔄 End &amp; Start New Session</button>
     </div>
 </div>
 
@@ -1517,7 +1509,7 @@
             <table class="report-table" id="reportTable">
                 <thead>
                     <tr>
-                        <th>Session</th><th>Court</th><th>Team A P1</th><th>Team A P2</th>
+                        <th>#</th><th>Session</th><th>Court</th><th>Team A P1</th><th>Team A P2</th>
                         <th>Team B P1</th><th>Team B P2</th>
                         <th>A Score</th><th>B Score</th>
                         <th>Winner</th><th>Duration</th><th>Date & Time</th>
@@ -1941,9 +1933,10 @@
         if (log.length === 0) { showToast('No games recorded yet!', true); return; }
         document.getElementById('reportSub').textContent = log.length + ' game' + (log.length !== 1 ? 's' : '') + ' recorded this session';
         const tbody = document.getElementById('reportTableBody');
-        tbody.innerHTML = log.map(g => {
+        tbody.innerHTML = log.map((g, gi) => {
             const isA = g.winner === 'Team A';
             return '<tr>'
+                + '<td style="color:#78909c;font-weight:bold;">' + (gi + 1) + '</td>'
                 + '<td>' + (g.sessionName || state.sessionName || '—') + '</td>'
                 + '<td>' + g.court + '</td>'
                 + '<td class="' + (isA ? 'winner-a' : '') + '">' + (g.teamA[0]||'') + '</td>'
