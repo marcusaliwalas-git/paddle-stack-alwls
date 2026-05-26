@@ -986,7 +986,7 @@
         .bulk-tag-out { background: rgba(255,255,255,0.07); color: #90a4ae; border: 1px solid rgba(255,255,255,0.15); }
         .bulk-tag-out:hover { background: rgba(255,255,255,0.15); }
 
-        /* Powered by footer */
+        /* Powered by footer — base styles kept for initial render, overridden when inside .clubs-footer */
         .powered-by {
             position: fixed; bottom: 14px; right: 16px; z-index: 100;
             display: flex; align-items: center; gap: 7px;
@@ -997,6 +997,18 @@
         }
         .powered-by span { font-size: 9px; color: #546e7a; text-transform: uppercase; letter-spacing: 0.8px; }
         .powered-by img { height: 42px; width: auto; object-fit: contain; border-radius: 3px; }
+
+        /* Override when powered-by lives inside the clubs footer */
+        .clubs-footer .powered-by {
+            position: static !important; z-index: auto !important;
+            background: transparent !important; backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border: none !important; border-radius: 0 !important;
+            padding: 0 0 0 20px !important; box-shadow: none !important;
+            margin-left: auto; flex-shrink: 0;
+        }
+        .clubs-footer .powered-by span { color: rgba(255,255,255,0.28); }
+        .clubs-footer .powered-by img  { height: 30px; }
 
         .btn-pause {
             background: rgba(255,193,7,0.2); color: #ffd54f;
@@ -1148,7 +1160,7 @@
             box-shadow: 0 -4px 24px rgba(0,0,0,0.45);
         }
         .clubs-footer-inner {
-            display: flex; align-items: center; justify-content: center;
+            display: flex; align-items: center; justify-content: space-between;
             gap: 0; max-width: 960px; width: 100%;
         }
         .clubs-footer-label {
@@ -1825,10 +1837,14 @@
 </div><!-- /mainApp -->
 
 <!-- ── Partner Clubs Footer (visible to all, global) ─────────────────── -->
-<div class="clubs-footer" id="clubsFooter" style="display:none">
+<div class="clubs-footer" id="clubsFooter">
     <div class="clubs-footer-inner">
-        <span class="clubs-footer-label">Partner Clubs</span>
-        <div class="clubs-logos-row" id="clubsLogosRow"></div>
+        <!-- Clubs section — shown only when clubs exist -->
+        <div id="clubsLeft" style="display:none;align-items:center;gap:0;flex-wrap:wrap">
+            <span class="clubs-footer-label">Partner Clubs</span>
+            <div class="clubs-logos-row" id="clubsLogosRow"></div>
+        </div>
+        <!-- .powered-by will be moved here by JS (margin-left:auto pushes it right) -->
     </div>
 </div>
 
@@ -4826,21 +4842,29 @@
         _refreshClubsList(); // no-op if modal is closed
     });
 
+    // One-time: move .powered-by into the clubs footer so it always appears there
+    (function movePoweredByToFooter() {
+        const pb       = document.querySelector('.powered-by');
+        const inner    = document.querySelector('#clubsFooter .clubs-footer-inner');
+        if (pb && inner) inner.appendChild(pb); // CSS overrides handle styling
+    })();
+
+    // Always add bottom padding so content doesn't hide behind the footer
+    const _mainApp = document.getElementById('mainApp');
+    if (_mainApp) _mainApp.style.paddingBottom = '66px';
+
     function _renderClubsFooter() {
-        const logos  = window._clubLogos || [];
-        const footer = document.getElementById('clubsFooter');
-        const row    = document.getElementById('clubsLogosRow');
-        if (!footer || !row) return;
+        const logos    = window._clubLogos || [];
+        const row      = document.getElementById('clubsLogosRow');
+        const clubsLeft = document.getElementById('clubsLeft');
+        if (!row || !clubsLeft) return;
 
         if (logos.length === 0) {
-            footer.style.display = 'none';
-            // Return powered-by to original position
-            const pb = document.querySelector('.powered-by');
-            if (pb) pb.style.bottom = '';
+            clubsLeft.style.display = 'none';
             return;
         }
 
-        footer.style.display = 'flex';
+        clubsLeft.style.display = 'flex';
         row.innerHTML = logos.map(c => `
             <div class="club-logo-item" title="${_clEsc(c.name)}">
                 <img src="${_clEsc(c.logoUrl)}"
@@ -4848,14 +4872,6 @@
                      onerror="this.closest('.club-logo-item').style.display='none'">
                 ${c.name ? `<span class="club-logo-name">${_clEsc(c.name)}</span>` : ''}
             </div>`).join('');
-
-        // Lift the powered-by badge above the footer so they don't overlap
-        const pb = document.querySelector('.powered-by');
-        if (pb) pb.style.bottom = '66px';
-
-        // Give the main app body room so content isn't hidden behind the footer
-        const mainApp = document.getElementById('mainApp');
-        if (mainApp) mainApp.style.paddingBottom = '66px';
     }
 
     function _refreshClubsList() {
