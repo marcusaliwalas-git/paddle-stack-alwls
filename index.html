@@ -55,7 +55,7 @@
         [data-design="optic"] .court-card.overtime-active { border-color: #ff6d00 !important; }
         [data-design="optic"] .slot { background: #1a1a1a !important; color: #c6f135 !important; border: 1px solid rgba(198,241,53,0.2) !important; }
         [data-design="optic"] .paddle { background: linear-gradient(135deg, #c6f135, #a8d400) !important; color: #000 !important; }
-        [data-design="optic"] .theme-toggle, [data-design="optic"] .btn-add, [data-design="optic"] .btn-rotate { background: #c6f135 !important; color: #000 !important; }
+        [data-design="optic"] .theme-toggle, [data-design="optic"] .btn-add, [data-design="optic"] .btn-rotate, [data-design="optic"] .btn-export { background: #c6f135 !important; color: #000 !important; }
         [data-design="optic"] .btn-win-a { background: #ff6d00 !important; }
         [data-design="optic"] .btn-win-b { background: #ff3d00 !important; }
         [data-design="optic"] .team-a-label { color: #c6f135 !important; }
@@ -84,7 +84,7 @@
         [data-design="sleek"] .court-card { background: linear-gradient(135deg, #0d1f3c, #0a1830) !important; border: 1px solid rgba(0,229,255,0.12) !important; }
         [data-design="sleek"] .slot { background: rgba(0,229,255,0.05) !important; border: 1px solid rgba(0,229,255,0.15) !important; color: #e8f4f8 !important; border-radius: 8px !important; }
         [data-design="sleek"] .paddle { background: linear-gradient(135deg, #00b8d4, #0097a7) !important; }
-        [data-design="sleek"] .theme-toggle, [data-design="sleek"] .btn-add, [data-design="sleek"] .btn-rotate { background: linear-gradient(135deg, #00e5ff, #00b8d4) !important; color: #000 !important; }
+        [data-design="sleek"] .theme-toggle, [data-design="sleek"] .btn-add, [data-design="sleek"] .btn-rotate, [data-design="sleek"] .btn-export { background: linear-gradient(135deg, #00e5ff, #00b8d4) !important; color: #000 !important; }
         [data-design="sleek"] .btn-win-a { background: linear-gradient(135deg, #00e5ff, #00acc1) !important; color: #000 !important; }
         [data-design="sleek"] .btn-win-b { background: linear-gradient(135deg, #7c4dff, #651fff) !important; }
         [data-design="sleek"] .next-match-panel { border: 1px solid rgba(0,229,255,0.2) !important; background: rgba(0,229,255,0.03) !important; box-shadow: 0 0 20px rgba(0,229,255,0.05) !important; }
@@ -112,7 +112,7 @@
         [data-design="professional"] .court-card { background: #fff !important; border: 1px solid #dce3ec !important; box-shadow: 0 2px 6px rgba(0,0,0,0.06) !important; color: #1a2332 !important; }
         [data-design="professional"] .slot { background: #f8f9fb !important; border: 1px solid #dce3ec !important; color: #1a2332 !important; border-radius: 4px !important; }
         [data-design="professional"] .paddle { background: #1976d2 !important; border-radius: 4px !important; }
-        [data-design="professional"] .theme-toggle, [data-design="professional"] .btn-add, [data-design="professional"] .btn-rotate { background: #1976d2 !important; border-radius: 4px !important; }
+        [data-design="professional"] .theme-toggle, [data-design="professional"] .btn-add, [data-design="professional"] .btn-rotate, [data-design="professional"] .btn-export { background: #1976d2 !important; border-radius: 4px !important; color: white !important; }
         [data-design="professional"] .btn-win-a { background: #1976d2 !important; border-radius: 4px !important; }
         [data-design="professional"] .btn-win-b { background: #c62828 !important; border-radius: 4px !important; }
         [data-design="professional"] .team-a-label { background: rgba(25,118,210,0.1) !important; color: #1565c0 !important; border-color: rgba(25,118,210,0.3) !important; }
@@ -120,6 +120,86 @@
         [data-design="professional"] .next-match-panel { background: #f0f4ff !important; border: 1px solid #bbcfef !important; }
         [data-design="professional"] .paddle-rack { border-color: #dce3ec !important; background: #f8f9fb !important; }
         [data-design="professional"] body { font-family: 'Segoe UI', Arial, sans-serif; }
+
+        /* ══════════════════════════════════════════════════════════════════
+           THEME VISIBILITY FIXES
+           Overrides hardcoded dark-theme colours that become unreadable on
+           light (Light / Professional) or coloured (Optic) backgrounds.
+           ══════════════════════════════════════════════════════════════════ */
+
+        /* ── Shared helper: light-background themes ── */
+        [data-theme="light"],
+        [data-design="professional"] {
+            /* Queue player meta badge (was semi-transparent white → invisible) */
+            & .queue-meta { color: rgba(0,0,0,0.45) !important; }
+
+            /* Report table cells (was #cfd8dc pale grey → invisible on white) */
+            & .report-table td { color: var(--text-main) !important; }
+            & .report-table th { border-bottom-color: rgba(0,0,0,0.1) !important; }
+
+            /* Next-match panel — all text was light-green / near-white */
+            & .nmp-title    { color: #388e3c !important; }
+            & .nmp-court-label { color: #2e7d32 !important; }
+            & .nmp-waiting  { color: #388e3c !important; }
+            & .nmp-player   { background: rgba(0,0,0,0.05) !important; color: var(--text-main) !important; }
+
+            /* Bulk-tag OUT button (was white-transparent bg + grey text → invisible) */
+            & .bulk-tag-out { background: rgba(0,0,0,0.06) !important; color: #546e7a !important; border-color: rgba(0,0,0,0.15) !important; }
+            & .bulk-tag-out:hover { background: rgba(0,0,0,0.12) !important; }
+
+            /* Player count bar — "IN / Total" number (was white → invisible) */
+            & .player-count-bar .pc-nums { color: var(--text-side) !important; }
+            & .player-count-bar .pc-label { color: #546e7a !important; }
+
+            /* History page — rank items, table borders, section titles */
+            & .hist-rank-item   { background: rgba(0,0,0,0.05) !important; }
+            & .hist-rank-stat   { color: #546e7a !important; }
+            & .hist-section-title { color: var(--primary-dark, #e65100) !important; }
+            & .hist-table th,
+            & .hist-stats-table th { border-bottom-color: rgba(0,0,0,0.1) !important; }
+            & .hist-table td,
+            & .hist-stats-table td { border-bottom-color: rgba(0,0,0,0.06) !important; }
+            & .hist-rank-tab        { background: rgba(0,0,0,0.05) !important; border-color: rgba(0,0,0,0.12) !important; color: #546e7a !important; }
+            & .hist-rank-tab.active { background: rgba(230,81,0,0.1)  !important; border-color: rgba(230,81,0,0.3)  !important; color: #e65100 !important; }
+            & .hist-chip { background: rgba(230,81,0,0.08) !important; color: #e65100 !important; border-color: rgba(230,81,0,0.2) !important; }
+
+            /* Session history overlay chips / buttons */
+            & .sh-view-btn { color: #546e7a !important; border: 1px solid rgba(0,0,0,0.12) !important; }
+        }
+
+        /* Professional overrides — accent colour is blue, not orange */
+        [data-design="professional"] {
+            & .hist-section-title   { color: #1565c0 !important; }
+            & .hist-rank-tab.active { background: rgba(25,118,210,0.1) !important; border-color: rgba(25,118,210,0.3) !important; color: #1565c0 !important; }
+            & .hist-chip { background: rgba(25,118,210,0.08) !important; color: #1565c0 !important; border-color: rgba(25,118,210,0.2) !important; }
+            & .nmp-title       { color: #1565c0 !important; }
+            & .nmp-court-label { color: #1565c0 !important; }
+            & .nmp-waiting     { color: #1565c0 !important; }
+            & .matching-mode-bar { color: #1565c0 !important; background: rgba(25,118,210,0.08) !important; border-color: rgba(25,118,210,0.25) !important; }
+        }
+
+        /* ── Optic (yellow/green primary, dark background) ── */
+        [data-design="optic"] {
+            /* queue-meta sits on the yellow paddle — keep text dark */
+            & .queue-meta     { color: rgba(0,0,0,0.55) !important; }
+            & .paddle-in-btn  { color: rgba(0,0,0,0.65) !important; border-color: rgba(0,0,0,0.18) !important; }
+            & .paddle-edit-btn { color: rgba(0,0,0,0.65) !important; background: rgba(0,0,0,0.08) !important; }
+            & .bulk-tag-out   { background: rgba(198,241,53,0.08) !important; color: #c6f135 !important; border-color: rgba(198,241,53,0.25) !important; }
+            & .hist-section-title  { color: #c6f135 !important; }
+            & .hist-rank-tab       { border-color: rgba(198,241,53,0.2) !important; color: #a0a0a0 !important; }
+            & .hist-rank-tab.active { background: rgba(198,241,53,0.15) !important; border-color: rgba(198,241,53,0.45) !important; color: #c6f135 !important; }
+            & .hist-chip { background: rgba(198,241,53,0.08) !important; color: #c6f135 !important; border-color: rgba(198,241,53,0.25) !important; }
+            & .report-table td { color: #e0e0e0 !important; }
+        }
+
+        /* ── Sleek (deep-navy, cyan primary) ── */
+        [data-design="sleek"] {
+            & .queue-meta     { color: rgba(0,229,255,0.5) !important; }
+            & .hist-section-title  { color: #00e5ff !important; }
+            & .hist-rank-tab.active { background: rgba(0,229,255,0.12) !important; border-color: rgba(0,229,255,0.4) !important; color: #00e5ff !important; }
+            & .hist-chip { background: rgba(0,229,255,0.08) !important; color: #00e5ff !important; border-color: rgba(0,229,255,0.25) !important; }
+            & .matching-mode-bar { color: #00e5ff !important; background: rgba(0,229,255,0.06) !important; border-color: rgba(0,229,255,0.2) !important; }
+        }
 
         /* ── Theme Picker Modal ── */
         .theme-picker-overlay {
@@ -259,7 +339,7 @@
         .btn-call { background: var(--success); color: white; width: 100%; margin-bottom: 15px; padding: 10px; }
         .btn-rotate { background: var(--primary); color: white; flex: 2; padding: 10px; }
         .btn-clear { background: #78909c; color: white; flex: 1; font-size: 11px; }
-        .btn-export { background: #546e7a; color: white; width: 100%; margin-top: 15px; padding: 10px; font-size: 12px; }
+        .btn-export { background: var(--primary); color: white; width: 100%; margin-top: 15px; padding: 10px; font-size: 12px; }
         .btn-import { background: #1565c0; color: white; width: 100%; margin-bottom: 8px; padding: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .btn-import:hover { background: #0d47a1; }
         #importFileInput { display: none; }
@@ -503,6 +583,16 @@
             flex-shrink: 0;
         }
         .paddle-edit-btn:hover { background: rgba(255,109,0,0.5); }
+        /* Queue drag-to-reorder handle */
+        .paddle-drag-handle {
+            color: rgba(255,255,255,0.3); font-size: 14px; cursor: grab; flex-shrink: 0;
+            padding: 0 2px; line-height: 1; user-select: none;
+            transition: color 0.15s;
+        }
+        .paddle-drag-handle:hover { color: rgba(255,255,255,0.7); }
+        .paddle-drag-handle:active { cursor: grabbing; }
+        .paddle.reorder-above { border-top: 2px solid var(--primary) !important; }
+        .paddle.reorder-below { border-bottom: 2px solid var(--primary) !important; }
 
         /* Edit icon on court slots */
         .slot-edit-btn {
@@ -858,14 +948,6 @@
             border: none; border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer;
         }
         .endop-close-btn:hover { background: rgba(255,255,255,0.12); }
-        .endop-new-btn {
-            width: 100%; margin-top: 8px; padding: 11px;
-            background: rgba(183,28,28,0.2); color: #ef9a9a;
-            border: 1px solid rgba(183,28,28,0.4); border-radius: 10px;
-            font-size: 13px; font-weight: bold; cursor: pointer;
-        }
-        .endop-new-btn:hover { background: rgba(183,28,28,0.35); }
-
         /* "In" status toggle on paddle cards */
         .paddle { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
         .paddle-in-btn {
@@ -1164,6 +1246,89 @@
         .sh-empty { color:#546e7a; font-style:italic; font-size:13px; text-align:center; padding:20px 0; }
         .sh-close-btn { width:100%; padding:11px; background:rgba(255,255,255,0.07); color:#ccc; border:none; border-radius:10px; font-size:14px; cursor:pointer; }
         .sh-detail-back { background:none; border:none; color:#ff6d00; font-size:13px; cursor:pointer; margin-bottom:10px; padding:0; font-weight:bold; }
+
+        /* ── History Page ──────────────────────────────────────────────────── */
+        #historyPage { display:none; min-height:100vh; background:var(--bg); }
+        #historyPage.active { display:block; }
+        .hist-header { background:var(--header-bg,#263238); border-bottom:2px solid var(--primary); padding:12px 20px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:10; }
+        .hist-back-btn { background:none; border:1px solid rgba(255,255,255,0.25); color:var(--text-main); padding:7px 14px; border-radius:8px; cursor:pointer; font-size:13px; white-space:nowrap; }
+        .hist-back-btn:hover { background:rgba(255,255,255,0.08); }
+        .hist-page-title { color:var(--text-main); font-size:1.05rem; font-weight:bold; flex:1; }
+        .hist-body { max-width:900px; margin:0 auto; padding:20px 16px; }
+        .hist-filters { background:var(--card); border-radius:12px; padding:16px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+        .hist-filter-label { font-size:11px; color:#78909c; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+        .hist-filter-group { display:flex; flex-direction:column; flex:1; min-width:150px; }
+        .hist-filter-input,.hist-filter-date { padding:9px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:var(--input-bg); color:var(--text-main); font-size:13px; width:100%; box-sizing:border-box; }
+        .hist-filter-input::placeholder { color:#546e7a; }
+        .hist-filter-actions { display:flex; gap:8px; align-items:flex-end; }
+        .hist-clear-btn { padding:9px 16px; background:rgba(255,255,255,0.08); color:#ccc; border:none; border-radius:8px; font-size:13px; cursor:pointer; white-space:nowrap; }
+        .hist-clear-btn:hover { background:rgba(255,255,255,0.14); }
+        .hist-top-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+        .hist-summary-text { color:#78909c; font-size:13px; }
+        .hist-dl-all-btn { padding:8px 16px; background:#1565c0; color:white; border:none; border-radius:8px; font-size:12px; cursor:pointer; font-weight:bold; }
+        .hist-dl-all-btn:hover { background:#0d47a1; }
+        .hist-session-card { background:var(--card); border-radius:12px; border:1px solid rgba(255,255,255,0.07); margin-bottom:12px; overflow:hidden; }
+        .hist-card-top { padding:14px 16px; cursor:pointer; display:flex; align-items:flex-start; gap:12px; user-select:none; }
+        .hist-card-top:hover { background:rgba(255,255,255,0.04); }
+        .hist-card-info { flex:1; min-width:0; }
+        .hist-card-name { font-size:15px; font-weight:bold; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .hist-card-date { font-size:11px; color:#78909c; margin-top:3px; }
+        .hist-card-chips { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+        .hist-chip { font-size:11px; background:rgba(255,109,0,0.12); color:#ff8a65; padding:3px 8px; border-radius:8px; border:1px solid rgba(255,109,0,0.2); }
+        .hist-card-chevron { color:#78909c; font-size:14px; padding-top:3px; flex-shrink:0; transition:transform 0.2s; }
+        .hist-card-chevron.open { transform:rotate(180deg); }
+        .hist-card-detail { display:none; border-top:1px solid rgba(255,255,255,0.07); padding:16px; }
+        .hist-card-detail.open { display:block; }
+        .hist-detail-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+        .hist-btn-dl { padding:8px 16px; background:#1565c0; color:white; border:none; border-radius:8px; font-size:12px; cursor:pointer; font-weight:bold; }
+        .hist-btn-dl:hover { background:#0d47a1; }
+        .hist-btn-dl-player { padding:8px 16px; background:#2e7d32; color:white; border:none; border-radius:8px; font-size:12px; cursor:pointer; font-weight:bold; }
+        .hist-btn-dl-player:hover { background:#1b5e20; }
+        .hist-player-select { padding:7px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:var(--input-bg); color:var(--text-main); font-size:12px; max-width:200px; }
+        .hist-section-title { font-size:11px; font-weight:bold; color:#ff6d00; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
+        .hist-rankings { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+        .hist-rank-item { background:rgba(255,255,255,0.05); border-radius:8px; padding:8px 12px; display:flex; align-items:center; gap:8px; min-width:130px; }
+        .hist-rank-num { font-size:11px; color:#ff6d00; font-weight:bold; width:18px; text-align:center; }
+        .hist-rank-name { font-size:13px; color:var(--text-main); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .hist-rank-stat { font-size:11px; color:#78909c; white-space:nowrap; }
+        .hist-table-wrap { overflow-x:auto; }
+        .hist-table { width:100%; border-collapse:collapse; font-size:12px; min-width:460px; }
+        .hist-table th { padding:8px 10px; text-align:left; color:#ff8a65; font-size:11px; font-weight:bold; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.1); white-space:nowrap; }
+        .hist-table td { padding:8px 10px; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--text-main); }
+        .hist-table tr:last-child td { border-bottom:none; }
+        .hist-table .ht-winner { font-weight:bold; color:#90caf9; }
+
+        /* Queue player meta (games played + wait time) */
+        .queue-player-name { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .queue-meta { display:block; font-size:10px; font-weight:normal; color:rgba(255,255,255,0.55); margin-top:1px; letter-spacing:0.2px; }
+
+        /* History ranking tabs */
+        .hist-rank-tabs { display:flex; gap:4px; margin-bottom:10px; flex-wrap:wrap; }
+        .hist-rank-tab { padding:4px 11px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#78909c; border-radius:6px; font-size:11px; cursor:pointer; transition:all 0.15s; }
+        .hist-rank-tab:hover { background:rgba(255,255,255,0.1); color:#ccc; }
+        .hist-rank-tab.active { background:rgba(255,109,0,0.18); border-color:rgba(255,109,0,0.4); color:#ff8a65; font-weight:bold; }
+
+        /* ── Session History — Fancy Top-3 Podium ── */
+        .sh-podium { display:flex; align-items:flex-end; justify-content:center; gap:6px; margin-bottom:14px; min-height:110px; }
+        .sh-pod { flex:1; max-width:110px; border-radius:10px 10px 0 0; display:flex; flex-direction:column; align-items:center; padding:10px 6px 8px; position:relative; }
+        .sh-pod.sp1 { background:linear-gradient(160deg,#7b5e00,#f9a825); min-height:100px; order:2; box-shadow:0 4px 18px rgba(249,168,37,0.35); }
+        .sh-pod.sp2 { background:linear-gradient(160deg,#3a3a3a,#8e8e8e); min-height:76px; order:1; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+        .sh-pod.sp3 { background:linear-gradient(160deg,#4e2d00,#9c5a27); min-height:58px; order:3; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+        .sh-pod-medal { font-size:18px; margin-bottom:3px; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+        .sh-pod-name  { font-size:11px; font-weight:700; color:#fff; text-align:center; word-break:break-word; margin-bottom:2px; line-height:1.2; }
+        .sh-pod-stat  { font-size:10px; color:rgba(255,255,255,0.8); text-align:center; }
+        .sh-top3-wrap { margin-bottom:12px; }
+        .sh-top3-actions { display:flex; justify-content:flex-end; margin-bottom:8px; }
+        .sh-share-btn { display:flex; align-items:center; gap:5px; background:linear-gradient(135deg,#ff6d00,#ff8f00); color:#fff; border:none; border-radius:8px; padding:5px 12px; font-size:11px; font-weight:bold; cursor:pointer; transition:opacity 0.15s; }
+        .sh-share-btn:hover { opacity:0.88; }
+        .sh-rest-list { display:flex; flex-direction:column; gap:4px; }
+
+        /* History player-stats full table */
+        .hist-stats-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+        .hist-stats-table th { padding:6px 10px; text-align:left; color:#ff8a65; font-size:11px; font-weight:bold; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.1); white-space:nowrap; }
+        .hist-stats-table td { padding:6px 10px; border-bottom:1px solid rgba(255,255,255,0.05); color:var(--text-main); }
+        .hist-stats-table tr:last-child td { border-bottom:none; }
+        .hist-empty,.hist-loading { color:#546e7a; font-size:13px; text-align:center; padding:40px 0; font-style:italic; }
     </style>
 </head>
 <body>
@@ -1361,21 +1526,6 @@
         <!-- Queue -->
         <div id="paddleRack" class="paddle-rack" ondrop="dropToRack(event)" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)"></div>
 
-        <!-- Leaderboard -->
-        <div style="margin-top:20px;">
-            <strong style="font-size: 13px; display: block; margin-bottom: 5px;">🏆 Top Players</strong>
-            <table class="leader-table">
-                <thead><tr><th>Name</th><th>W</th><th>P</th></tr></thead>
-                <tbody id="leaderboardBody"></tbody>
-            </table>
-        </div>
-
-        <!-- History -->
-        <div style="margin-top:15px;">
-            <strong style="font-size: 13px;">📜 History</strong>
-            <div id="historyLog" style="margin-top:5px;"></div>
-        </div>
-
         <!-- Add Players — moved to bottom -->
         <div class="add-players-section">
             <h3>Add Players Manually</h3>
@@ -1387,7 +1537,9 @@
         </div>
 
         <button class="btn-export" onclick="openReport()">📊 View & Export Results</button>
-        <button class="btn-end-op" onclick="openEndOP()">🏁 End OP</button>
+        <button class="btn-export" onclick="window.location.hash='#history'" style="margin-top:6px;opacity:0.82;">📚 Session History</button>
+        <button class="btn-end-op" onclick="openEndOP()">🏆 View Leaderboard</button>
+        <button class="btn-end-op" onclick="endAndReset()" style="background:linear-gradient(135deg,#b71c1c,#c62828);margin-top:6px;">🏁 End OP</button>
         <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
     </div>
 
@@ -1406,8 +1558,8 @@
         <p class="subtitle">Select how players will be assigned to courts each round</p>
 
         <div class="matching-card" id="mcard-manual" onclick="selectMatchingMode('manual')">
-            <h3>🎲 Manual / Paddle Stack <span class="badge">Classic</span></h3>
-            <p>Players join the queue in order. First 4 in queue fill each court. No algorithm — pure first-come, first-served.</p>
+            <h3>🏘️ Larong Kalye <span class="badge">Community</span></h3>
+            <p>Larong Kalye is our custom-built, auto-balancing open-play mode designed for players who want to smash balls, make friends, and enjoy the ultimate barkada experience on the court — ensuring that everyone gets to mingle, nobody gets cliqued out, and the community grows tighter naturally.</p>
         </div>
 
         <div class="matching-card" id="mcard-roundrobin" onclick="selectMatchingMode('roundrobin')">
@@ -1423,6 +1575,13 @@
         <button class="matching-start-btn" id="matchingStartBtn" onclick="confirmMatchingMode()" disabled>
             Start Session
         </button>
+
+        <div style="margin-top:14px;text-align:center;border-top:1px solid rgba(255,255,255,0.08);padding-top:12px;">
+            <button onclick="document.getElementById('matchingOverlay').classList.remove('open'); window.location.hash='#history';"
+                    style="background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;opacity:0.8;text-decoration:underline;padding:4px 8px;">
+                📚 View Session History
+            </button>
+        </div>
     </div>
 </div>
 
@@ -1449,7 +1608,6 @@
             <button class="endop-download-btn" onclick="exportStats()">⬇️ Download Results CSV</button>
             <button class="endop-close-btn" onclick="closeEndOP()">Close</button>
         </div>
-        <button class="endop-new-btn" onclick="endAndReset()">🔄 End &amp; Start New Session</button>
     </div>
 </div>
 
@@ -1463,7 +1621,7 @@
             <table class="report-table" id="reportTable">
                 <thead>
                     <tr>
-                        <th>Session</th><th>Court</th><th>Team A P1</th><th>Team A P2</th>
+                        <th>#</th><th>Session</th><th>Court</th><th>Team A P1</th><th>Team A P2</th>
                         <th>Team B P1</th><th>Team B P2</th>
                         <th>A Score</th><th>B Score</th>
                         <th>Winner</th><th>Duration</th><th>Date & Time</th>
@@ -1554,6 +1712,38 @@
 </div>
 </div><!-- /mainApp -->
 
+<!-- ── History Page (requires auth, hash = #history) ─────────────────── -->
+<div id="historyPage">
+    <header class="hist-header">
+        <button class="hist-back-btn" onclick="window.location.hash=''">← Back to App</button>
+        <span class="hist-page-title">📚 Session History</span>
+    </header>
+    <div class="hist-body">
+        <div class="hist-filters">
+            <div class="hist-filter-group">
+                <div class="hist-filter-label">Search</div>
+                <input class="hist-filter-input" id="histSearch" type="text" placeholder="Session name or player…" oninput="applyHistFilters()">
+            </div>
+            <div class="hist-filter-group" style="max-width:160px;">
+                <div class="hist-filter-label">From</div>
+                <input class="hist-filter-date" id="histFrom" type="date" onchange="applyHistFilters()">
+            </div>
+            <div class="hist-filter-group" style="max-width:160px;">
+                <div class="hist-filter-label">To</div>
+                <input class="hist-filter-date" id="histTo" type="date" onchange="applyHistFilters()">
+            </div>
+            <div class="hist-filter-actions">
+                <button class="hist-clear-btn" onclick="clearHistFilters()">Clear</button>
+            </div>
+        </div>
+        <div class="hist-top-bar">
+            <div class="hist-summary-text" id="histSummary">Loading…</div>
+            <button class="hist-dl-all-btn" onclick="histDownloadAllFiltered()">⬇ Download All (CSV)</button>
+        </div>
+        <div id="histList"><div class="hist-loading">Loading sessions…</div></div>
+    </div>
+</div>
+
 <div class="import-toast" id="importToast"></div>
 
 <script>
@@ -1586,23 +1776,32 @@
 
 
     function exportPlayersAsTxt() {
-        if (state.queue.length === 0) { showToast('No players in queue to export.', true); return; }
-        const date = new Date();
+        // Collect players on courts first (playing), then waiting in queue
+        const onCourt = state.courts.flatMap(c =>
+            c.players.filter(p => p !== null).map(p => ({ name: p.name, status: 'Playing' }))
+        );
+        const inQueue = state.queue.map(p => ({ name: p.name, status: p.in ? 'In Queue' : 'Out' }));
+        const allPlayers = [...onCourt, ...inQueue];
+
+        if (allPlayers.length === 0) { showToast('No players to export.', true); return; }
+
+        const date    = new Date();
         const dateStr = date.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
         const timeStr = date.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
-        const total = state.queue.length;
+        const total   = allPlayers.length;
+
         let txt = 'DinkDrop Live Session\n';
         txt += dateStr + ' @' + timeStr + '\n';
         txt += 'Exported from DinkDrop Live\n';
         txt += '\n';
         txt += ' (2) \n 1. Organizer\n2. DinkDrop\n\n';
         txt += 'Participants (' + total + ') \n ';
-        txt += state.queue.map((p, i) => (i + 1) + '. ' + p.name).join('\n');
+        txt += allPlayers.map((p, i) => (i + 1) + '. ' + p.name).join('\n');
         txt += '\n';
 
         const blob = new Blob([txt], { type: 'text/plain;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
         a.href = url;
         a.download = 'players_' + new Date().toLocaleDateString().replace(/\//g, '-') + '.txt';
         document.body.appendChild(a);
@@ -1817,8 +2016,9 @@
             timestamp: new Date().toISOString()
         });
 
-        // Return all players to queue, keep their IN status
-        c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true }); });
+        // Return all players to queue, keep their IN status; stamp last-game time for wait display
+        const _recTs = Date.now();
+        c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true, lastGameTime: _recTs }); });
         c.players = [null, null, null, null];
         c.startTime = null;
         c.alerted = false;
@@ -1854,9 +2054,10 @@
         if (log.length === 0) { showToast('No games recorded yet!', true); return; }
         document.getElementById('reportSub').textContent = log.length + ' game' + (log.length !== 1 ? 's' : '') + ' recorded this session';
         const tbody = document.getElementById('reportTableBody');
-        tbody.innerHTML = log.map(g => {
+        tbody.innerHTML = log.map((g, gi) => {
             const isA = g.winner === 'Team A';
             return '<tr>'
+                + '<td style="color:#78909c;font-weight:bold;">' + (gi + 1) + '</td>'
                 + '<td>' + (g.sessionName || state.sessionName || '—') + '</td>'
                 + '<td>' + g.court + '</td>'
                 + '<td class="' + (isA ? 'winner-a' : '') + '">' + (g.teamA[0]||'') + '</td>'
@@ -1875,6 +2076,18 @@
 
     function closeReport() {
         document.getElementById('reportOverlay').classList.remove('open');
+    }
+
+    // Wipe report table content and clear the session name field —
+    // called by both End OP and Full Reset so the UI is pristine for the next session.
+    function clearSessionUI() {
+        const tbody = document.getElementById('reportTableBody');
+        if (tbody) tbody.innerHTML = '';
+        const sub = document.getElementById('reportSub');
+        if (sub) sub.textContent = '';
+        closeReport();
+        const snInput = document.getElementById('sessionNameInput');
+        if (snInput) snInput.value = '';
     }
 
     function exportStats() {
@@ -2008,18 +2221,19 @@
             });
         }
 
-        // Return all players to queue — keep their IN status
-        c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true }); });
+        // Return all players to queue — keep their IN status; stamp last-game time for wait display
+        const _rotTs = Date.now();
+        c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true, lastGameTime: _rotTs }); });
         c.players = [null, null, null, null];
 
-        if (state.queue.length >= 4) {
+        if (state.queue.filter(p => p.in).length >= 4) {
             if (state.matchingMode === 'roundrobin') {
                 fillRoundRobin([c]);
             } else if (state.matchingMode === 'snake') {
                 fillSnakeDraft([c]);
             } else {
-                c.players = state.queue.splice(0, 4);
-                c.startTime = Date.now(); c.alerted = false;
+                // Larong Kalye: FIFO + anti-staleness algorithm
+                fillLarongKalye([c]);
             }
         } else {
             // Not enough for a full court — leave empty
@@ -2048,13 +2262,22 @@
                 }
             }
         });
+
+        // Live-update queue waiting times without re-rendering the whole rack
+        const now = Date.now();
+        state.queue.forEach((p, i) => {
+            const el = document.getElementById('qmeta-' + i);
+            if (!el) return;
+            const since = parseInt(el.dataset.since) || 0;
+            const games = (state.stats && state.stats[p.name]) ? (state.stats[p.name].games || 0) : 0;
+            const wait  = since
+                ? (now - since < 60000 ? '< 1m wait' : Math.floor((now - since) / 60000) + 'm wait')
+                : (games > 0 ? 'in queue' : 'waiting');
+            el.textContent = games + ' game' + (games !== 1 ? 's' : '') + ' · ⏱ ' + wait;
+        });
     }
 
     function updateDisplay() {
-        const sorted = Object.keys(state.stats).sort((a,b) => state.stats[b].wins - state.stats[a].wins);
-        document.getElementById('leaderboardBody').innerHTML = sorted.slice(0, 5).map(n => `
-            <tr><td>${n}</td><td>${state.stats[n].wins}</td><td>${state.stats[n].games}</td></tr>
-        `).join('') || '<tr><td colspan="3">...</td></tr>';
 
         // Sync session name input
         const snInput = document.getElementById('sessionNameInput');
@@ -2071,10 +2294,11 @@
             }
         }
 
-        // Player count
-        const inCount = state.queue.filter(p => p.in).length;
-        const totalCount = state.queue.length;
-        const countInEl = document.getElementById('countIn');
+        // Player count — queue + players currently on courts
+        const courtPlayerCount = state.courts.reduce((n, c) => n + c.players.filter(p => p !== null).length, 0);
+        const inCount    = state.queue.filter(p => p.in).length + courtPlayerCount;
+        const totalCount = state.queue.length + courtPlayerCount;
+        const countInEl  = document.getElementById('countIn');
         const countTotalEl = document.getElementById('countTotal');
         if (countInEl) countInEl.textContent = inCount;
         if (countTotalEl) countTotalEl.textContent = totalCount;
@@ -2086,15 +2310,34 @@
             const ratingBadge = state.matchingMode === 'snake'
                 ? `<span class="rating-badge" onclick="event.stopPropagation();const r=prompt('Rating for ${p.name} (e.g. 3.5):','${rating||3.0}');if(r)setPlayerRating('${p.name}',r)" title="Set rating">★${rating||'?'}</span>`
                 : '';
-            return `<div class="paddle ${isIn ? 'is-in' : 'is-out'}" draggable="true" ondragstart="dragStart(event,'rack',${i})">
+            const gamesPlayed = (state.stats && state.stats[p.name]) ? (state.stats[p.name].games || 0) : 0;
+            const waitMins    = p.lastGameTime ? Math.floor((Date.now() - p.lastGameTime) / 60000) : null;
+            const waitStr     = waitMins !== null
+                ? (waitMins < 1 ? '< 1m wait' : waitMins + 'm wait')
+                : (gamesPlayed > 0 ? 'in queue' : 'waiting');
+            const metaStr     = gamesPlayed + ' game' + (gamesPlayed !== 1 ? 's' : '') + ' · ⏱ ' + waitStr;
+            const safeName    = p.name.replace(/`/g, '\\`');
+            return `<div class="paddle ${isIn ? 'is-in' : 'is-out'}" id="paddle-${i}"
+                ${isIn ? `draggable="true" ondragstart="dragStart(event,'rack',${i})"` : 'draggable="false"'}
+                ondragover="queueReorderOver(event,${i})"
+                ondrop="queueReorderDrop(event,${i})"
+                ondragleave="queueReorderLeave(event)"
+                ondragend="queueReorderEnd()">
+                <div class="paddle-drag-handle" draggable="true"
+                     ondragstart="event.stopPropagation();queueReorderStart(event,${i})"
+                     ondragend="queueReorderEnd()"
+                     title="Drag to reorder">⠿</div>
                 <button class="paddle-in-btn ${isIn ? 'active' : ''}" onclick="event.stopPropagation();togglePlayerIn(${i})" title="${isIn ? 'Mark as Out' : 'Mark as In'}">${isIn ? 'IN' : 'OUT'}</button>
-                <span style="flex:1">${p.name}</span>
+                <span style="flex:1;min-width:0;">
+                    <span class="queue-player-name">${p.name}</span>
+                    <span class="queue-meta" id="qmeta-${i}" data-since="${p.lastGameTime || ''}">${metaStr}</span>
+                </span>
                 ${ratingBadge}
                 <button class="paddle-edit-btn" onclick="event.stopPropagation();openQueueEdit(${i})" title="Edit">✎</button>
             </div>`;
         }).join('') || '<small style="opacity:0.5">Queue is empty</small>';
 
-        document.getElementById('historyLog').innerHTML = state.history.map(h => `<div class="history-item">${h}</div>`).join('') || '<small>...</small>';
+        // historyLog sidebar removed — results visible in View & Export / Session History
 
         // ── Next Match Panel ───────────────────────────────────────────
         const nmpEl = document.getElementById('nextMatchPanel');
@@ -2132,18 +2375,29 @@
                 + (inCount2 >= 4 && emptyCourtsArr.length > 0 ? '<button onclick="fillAllCourts()" style="background:#ff6d00;color:white;border:none;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:bold;cursor:pointer;">&#9654; Fill Courts</button>' : '')
                 + '<button onclick="openNextMatchEdit()" style="background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">&#9998; Edit</button>'
                 + '</div></div>';
+            const isAlgo = !!state.matchingMode; // all modes (incl. Larong Kalye) use algorithm-based preview
+
             if (emptyCourtsArr.length > 0) {
                 emptyCourtsArr.forEach((ec, ei) => {
-                    const upcoming = inQueue.slice(ei * 4, ei * 4 + 4);
+                    // First empty court: use the real algorithm preview so it matches fillRoundRobin/fillSnakeDraft.
+                    // Subsequent courts: fall back to slicing remaining IN queue (multi-court preview is approximate).
+                    let upcoming;
+                    if (ei === 0 && isAlgo) {
+                        upcoming = previewNextFoursome();
+                    } else {
+                        upcoming = inQueue.slice(ei * 4, ei * 4 + 4);
+                    }
                     if (ei > 0) nmpHtml += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:8px 0">';
                     nmpHtml += '<div class="nmb-court-label">Court ' + ec.id + '</div>';
                     nmpHtml += buildTeamGrid(upcoming);
                     if (upcoming.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4 - upcoming.length) + ' more IN needed</div>';
                 });
             } else {
+                // All courts busy — show "On Deck" using the algorithm preview so it matches what will actually fill
+                const onDeck = isAlgo ? previewNextFoursome() : inQueue.slice(0, 4);
                 nmpHtml += '<div class="nmb-court-label">On Deck</div>';
-                nmpHtml += buildTeamGrid(inQueue.slice(0, 4));
-                if (inQueue.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4 - inQueue.length) + ' more IN needed</div>';
+                nmpHtml += buildTeamGrid(onDeck);
+                if (onDeck.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4 - onDeck.length) + ' more IN needed</div>';
             }
             nmpEl.innerHTML = nmpHtml;
         }
@@ -2206,7 +2460,86 @@
 
     }
 
-    function dragStart(ev, type, index, courtIdx = null) { ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx })); }
+    function dragStart(ev, type, index, courtIdx = null) {
+        if (type === 'rack') {
+            const p = state.queue[index];
+            if (p && p.in === false) { ev.preventDefault(); return; }
+        }
+        ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx }));
+    }
+
+    // ── Queue drag-to-reorder ────────────────────────────────────────────
+    let _reorderDragIdx = null;
+
+    function queueReorderStart(ev, idx) {
+        _reorderDragIdx = idx;
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.dataTransfer.setData('text/plain', JSON.stringify({ type: 'reorder', index: idx }));
+        // Slight delay so the browser snapshot doesn't look ghosted
+        setTimeout(() => {
+            const el = document.getElementById('paddle-' + idx);
+            if (el) el.style.opacity = '0.5';
+        }, 0);
+    }
+
+    function queueReorderOver(ev, targetIdx) {
+        if (_reorderDragIdx === null) return; // not a reorder drag — ignore
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.dataTransfer.dropEffect = 'move';
+        // Clear previous indicators
+        document.querySelectorAll('.paddle.reorder-above, .paddle.reorder-below').forEach(el => {
+            el.classList.remove('reorder-above', 'reorder-below');
+        });
+        const target = document.getElementById('paddle-' + targetIdx);
+        if (!target || targetIdx === _reorderDragIdx) return;
+        // Show indicator above or below depending on cursor position
+        const rect = target.getBoundingClientRect();
+        const mid  = rect.top + rect.height / 2;
+        target.classList.add(ev.clientY < mid ? 'reorder-above' : 'reorder-below');
+    }
+
+    function queueReorderLeave(ev) {
+        // Only clear if leaving the element itself (not entering a child)
+        if (!ev.currentTarget.contains(ev.relatedTarget)) {
+            ev.currentTarget.classList.remove('reorder-above', 'reorder-below');
+        }
+    }
+
+    function queueReorderDrop(ev, targetIdx) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        document.querySelectorAll('.paddle.reorder-above, .paddle.reorder-below').forEach(el => {
+            el.classList.remove('reorder-above', 'reorder-below');
+        });
+        if (_reorderDragIdx === null) return;
+        const fromIdx = _reorderDragIdx;
+        _reorderDragIdx = null;
+
+        if (fromIdx === targetIdx) return;
+
+        // Determine insert position (above/below target)
+        const target = document.getElementById('paddle-' + targetIdx);
+        let insertAt = targetIdx;
+        if (target) {
+            const rect = target.getBoundingClientRect();
+            if (ev.clientY >= rect.top + rect.height / 2) insertAt = targetIdx + 1;
+        }
+        // Adjust for the removal of fromIdx shifting indices
+        if (fromIdx < insertAt) insertAt--;
+
+        const [moved] = state.queue.splice(fromIdx, 1);
+        state.queue.splice(insertAt, 0, moved);
+        sync();
+    }
+
+    function queueReorderEnd() {
+        _reorderDragIdx = null;
+        document.querySelectorAll('.paddle').forEach(el => {
+            el.style.opacity = '';
+            el.classList.remove('reorder-above', 'reorder-below');
+        });
+    }
 
     function nmpSlotDragOver(ev) { ev.preventDefault(); ev.currentTarget.style.outline = '2px solid #ff6d00'; }
     function nmpSlotDragLeave(ev) { ev.currentTarget.style.outline = ''; }
@@ -2224,7 +2557,7 @@
         if (data.type !== 'rack') return;
 
         const incoming = state.queue[data.index];
-        if (!incoming) return;
+        if (!incoming || incoming.in === false) return;
 
         // Get the current IN queue preview (same logic as previewNextFoursome)
         const inQueue = state.queue.filter(p => p.in);
@@ -2253,6 +2586,8 @@
         ev.currentTarget.classList.remove('drag-over');
         const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
         if (data.type !== 'rack') return;
+        const _dmPlayer = state.queue[data.index];
+        if (!_dmPlayer || _dmPlayer.in === false) return;
         const player = state.queue.splice(data.index, 1)[0];
         const firstInIdx = state.queue.findIndex(p => p.in);
         if (firstInIdx !== -1) state.queue.splice(firstInIdx, 0, player);
@@ -2280,7 +2615,9 @@
         const displaced = state.courts[courtIdx].players[slotIdx]; // player currently in target slot
 
         if (data.type === 'rack') {
-            // Dragging from queue → court: send displaced player back to queue
+            // Dragging from queue → court: block OUT players
+            const _rackPlayer = state.queue[data.index];
+            if (!_rackPlayer || _rackPlayer.in === false) return;
             const incoming = state.queue.splice(data.index, 1)[0];
             if (displaced) state.queue.splice(data.index, 0, displaced); // put displaced back at same queue position
             state.courts[courtIdx].players[slotIdx] = incoming;
@@ -2497,16 +2834,23 @@
             saveSessionToHistory();
         }
 
-        state.courts.forEach(c => {
-            c.players = [null, null, null, null];
-            c.startTime = null; c.alerted = false;
-        });
-        state.queue = [];
-        state.history = [];
-        state.stats = {};
-        state.gameLog = [];
-        state.matchingMode = null;
-        state.partnerHistory = {};
+        // Full reset — same as resetAll() but preserves the current theme + design
+        const currentTheme  = state.theme       || 'dark';
+        const currentDesign = state.designTheme || null;
+        state = {
+            theme:          currentTheme,
+            designTheme:    currentDesign,
+            queue:          [],
+            history:        [],
+            stats:          {},
+            courts:         [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }],
+            matchingMode:   null,
+            partnerHistory: {},
+            playerRatings:  {},
+            gameLog:        [],
+            sessionName:    ''
+        };
+        clearSessionUI();   // wipe report table + session name input
         sync();
         showMatchingModal();
     }
@@ -2528,14 +2872,8 @@
         history.unshift(sessionRecord); // newest first
         if (history.length > 50) history = history.slice(0, 50); // keep last 50
         localStorage.setItem('pb_session_history', JSON.stringify(history));
-        // Also save to Firebase
-        if (window.fbWrite && window._sessionUid) {
-            import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js').then(({ getDatabase, ref, set }) => {
-                const db2 = getDatabase();
-                set(ref(db2, 'sessionHistories/' + window._sessionUid + '/' + sessionRecord.id), sessionRecord)
-                    .catch(e => console.warn('History save error:', e));
-            });
-        }
+        // Also save to Firebase (fbSaveHistory sanitizes keys and uses the existing db connection)
+        if (window.fbSaveHistory) window.fbSaveHistory(sessionRecord);
     }
 
     function updateEndopSubtitle() {
@@ -2567,7 +2905,7 @@
         }).filter(p => p.games > 0)
           .sort((a, b) => {
               if (mode === 'wins')   return b.wins - a.wins || b.games - a.games;
-              if (mode === 'winpct') return b.winPct - a.winPct || b.games - a.games;
+              if (mode === 'winpct') return b.winPct - a.winPct || b.points - a.points || b.games - a.games;
               if (mode === 'points') return b.points - a.points;
               return 0;
           });
@@ -2630,13 +2968,602 @@
 
     function openSessionHistory() {
         _shDetailSession = null;
-        renderSessionHistoryList();
         document.getElementById('shOverlay').classList.add('open');
+        document.getElementById('shSub').textContent = 'Loading sessions…';
+        document.getElementById('shList').innerHTML = '<div class="sh-empty">Loading…</div>';
+
+        const finish = () => renderSessionHistoryList();
+
+        if (window.fbFetchHistory) {
+            window.fbFetchHistory().then(fbSessions => {
+                // Merge Firebase records with localStorage; Firebase is authoritative on conflicts
+                const localHistory = getSessionHistory();
+                const byId = {};
+                localHistory.forEach(s => { if (s && s.id) byId[s.id] = s; });
+                fbSessions.forEach(s => { if (s && s.id) byId[s.id] = s; });
+                const merged = Object.values(byId).sort((a, b) => new Date(b.date) - new Date(a.date));
+                try { localStorage.setItem('pb_session_history', JSON.stringify(merged.slice(0, 50))); } catch(e) {}
+                finish();
+            }).catch(finish);
+        } else {
+            finish();
+        }
     }
 
     function closeSessionHistory() {
         document.getElementById('shOverlay').classList.remove('open');
         _shDetailSession = null;
+    }
+
+    // ── History Page ──────────────────────────────────────────────────────
+    let _histSessions = [];
+    let _histFiltered = [];
+
+    window.loadHistoryPage = function() {
+        const listEl = document.getElementById('histList');
+        const sumEl  = document.getElementById('histSummary');
+        if (listEl) listEl.innerHTML = '<div class="hist-loading">Loading…</div>';
+        if (sumEl)  sumEl.textContent = 'Loading sessions…';
+
+        const finish = (sessions) => {
+            _histSessions = sessions;
+            applyHistFilters();
+        };
+
+        if (window.fbFetchHistory) {
+            window.fbFetchHistory().then(fbSessions => {
+                const local = getSessionHistory();
+
+                // Build merged map — Firebase wins on conflicts
+                const byId = {};
+                local.forEach(s => { if (s && s.id) byId[s.id] = s; });
+                fbSessions.forEach(s => { if (s && s.id) byId[s.id] = s; });
+
+                // Backfill: upload any local session that Firebase doesn't have.
+                // This recovers sessions saved before Firebase writes were working,
+                // and propagates this device's history to all other devices.
+                if (window.fbSaveHistory) {
+                    const fbIds = new Set(fbSessions.map(s => s && s.id).filter(Boolean));
+                    local.forEach(s => {
+                        if (s && s.id && !fbIds.has(s.id)) {
+                            window.fbSaveHistory(s);
+                        }
+                    });
+                }
+
+                const merged = Object.values(byId).sort((a, b) => new Date(b.date) - new Date(a.date));
+                try { localStorage.setItem('pb_session_history', JSON.stringify(merged.slice(0, 50))); } catch(e) {}
+                finish(merged);
+            }).catch(() => finish(getSessionHistory()));
+        } else {
+            finish(getSessionHistory());
+        }
+    };
+
+    function applyHistFilters() {
+        const search   = (document.getElementById('histSearch') || {}).value || '';
+        const fromVal  = (document.getElementById('histFrom')   || {}).value || '';
+        const toVal    = (document.getElementById('histTo')     || {}).value || '';
+        const q        = search.trim().toLowerCase();
+        const fromDate = fromVal ? new Date(fromVal) : null;
+        const toDate   = toVal   ? new Date(toVal + 'T23:59:59') : null;
+
+        _histFiltered = _histSessions.filter(s => {
+            if (!s) return false;
+            const d = new Date(s.date);
+            if (fromDate && d < fromDate) return false;
+            if (toDate   && d > toDate)   return false;
+            if (q) {
+                const nameHit   = (s.sessionName || '').toLowerCase().includes(q);
+                const playerHit = Object.keys(s.stats || {}).some(k => k.toLowerCase().includes(q));
+                if (!nameHit && !playerHit) return false;
+            }
+            return true;
+        });
+
+        renderHistList();
+    }
+
+    function clearHistFilters() {
+        ['histSearch','histFrom','histTo'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        applyHistFilters();
+    }
+
+    function renderHistList() {
+        const listEl = document.getElementById('histList');
+        const sumEl  = document.getElementById('histSummary');
+        if (!listEl) return;
+
+        const total   = _histSessions.length;
+        const showing = _histFiltered.length;
+        if (sumEl) sumEl.textContent = total === 0
+            ? 'No sessions saved yet.'
+            : showing === total
+                ? total + ' session' + (total !== 1 ? 's' : '')
+                : showing + ' of ' + total + ' sessions match filters';
+
+        if (showing === 0) {
+            listEl.innerHTML = total === 0
+                ? '<div class="hist-empty">No sessions yet. End a session to save it here.</div>'
+                : '<div class="hist-empty">No sessions match the current filters.</div>';
+            return;
+        }
+
+        listEl.innerHTML = _histFiltered.map((s, i) => {
+            const d        = new Date(s.date);
+            const dateStr  = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+            const timeStr  = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
+            const modeLbl  = { manual:'Larong Kalye', roundrobin:'Round Robin', snake:'Snake Draft' }[s.matchingMode] || (s.matchingMode || 'Larong Kalye');
+            const players  = Object.keys(s.stats || {});
+            const playerOpts = players.map(p => '<option value="' + p.replace(/"/g,'&quot;') + '">' + p + '</option>').join('');
+
+            return '<div class="hist-session-card" id="hcard-' + i + '">'
+                + '<div class="hist-card-top" onclick="toggleHistCard(' + i + ')">'
+                +   '<div class="hist-card-info">'
+                +     '<div class="hist-card-name">' + (s.sessionName || 'Unnamed Session') + '</div>'
+                +     '<div class="hist-card-date">' + dateStr + ' · ' + timeStr + '</div>'
+                +     '<div class="hist-card-chips">'
+                +       '<span class="hist-chip">' + (s.totalGames || 0) + ' games</span>'
+                +       '<span class="hist-chip">' + (s.totalPlayers || players.length) + ' players</span>'
+                +       '<span class="hist-chip">' + modeLbl + '</span>'
+                +     '</div>'
+                +   '</div>'
+                +   '<span class="hist-card-chevron" id="hchev-' + i + '">▼</span>'
+                + '</div>'
+                + '<div class="hist-card-detail" id="hdetail-' + i + '">'
+                +   buildHistCardDetail(s, i, playerOpts)
+                + '</div>'
+                + '</div>';
+        }).join('');
+    }
+
+    function computeHistRankings(s, mode) {
+        const stats = s.stats || {};
+        const log   = s.gameLog || [];
+        const pointsMap = {};
+        log.forEach(g => {
+            const sA = parseInt(g.scoreA) || 0, sB = parseInt(g.scoreB) || 0;
+            (g.teamA || []).forEach(n => { pointsMap[n] = (pointsMap[n] || 0) + sA; });
+            (g.teamB || []).forEach(n => { pointsMap[n] = (pointsMap[n] || 0) + sB; });
+        });
+        return Object.keys(stats).map(name => {
+            const st = stats[name] || {};
+            const wins = st.wins || 0, games = st.games || 0;
+            const losses = games - wins;
+            const winPct = games > 0 ? ((wins / games) * 100).toFixed(1) : '0.0';
+            return { name, wins, games, losses, winPct: parseFloat(winPct), points: pointsMap[name] || 0 };
+        }).filter(p => p.games > 0).sort((a, b) => {
+            if (mode === 'winpct')  return b.winPct - a.winPct  || b.points - a.points || b.games - a.games;
+            if (mode === 'points')  return b.points - a.points;
+            return b.wins - a.wins || b.games - a.games; // default: wins
+        });
+    }
+
+    window.switchHistRank = function(cardIdx, mode) {
+        ['wins','winpct','points'].forEach(m => {
+            const t = document.getElementById('hrk-' + cardIdx + '-' + m);
+            if (t) t.classList.toggle('active', m === mode);
+        });
+        const el = document.getElementById('hrankings-' + cardIdx);
+        if (!el) return;
+        const s = _histFiltered[cardIdx];
+        if (!s) return;
+        const ranked = computeHistRankings(s, mode);
+        el.innerHTML = buildHistPodium(ranked, cardIdx, mode);
+    };
+
+    // ── Build podium HTML for top-3 players in a history card ───────────
+    function buildHistPodium(ranked, cardIdx, mode) {
+        const medals = ['🥇','🥈','🥉'];
+        const podClasses = ['sp1','sp2','sp3'];
+        const top3 = ranked.slice(0, 3);
+
+        function statStr(p) {
+            if (mode === 'winpct')  return p.winPct + '% · ' + p.points + 'pts';
+            if (mode === 'points')  return p.points + ' pts';
+            return p.wins + 'W · ' + p.losses + 'L';
+        }
+
+        // Visual order: 2nd, 1st, 3rd
+        const visualOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
+        const visualClasses = top3.length >= 2 ? ['sp2','sp1','sp3'] : ['sp1'];
+
+        let html = '<div class="sh-top3-wrap">'
+            + '<div class="sh-top3-actions">'
+            + '<button class="sh-share-btn" onclick="shareHistTop3(' + cardIdx + ',\'' + mode + '\')">📸 Share Top 3</button>'
+            + '</div>'
+            + '<div class="sh-podium">'
+            + visualOrder.map((p, vi) =>
+                '<div class="sh-pod ' + visualClasses[vi] + '">'
+                + '<div class="sh-pod-medal">' + medals[top3.indexOf(p)] + '</div>'
+                + '<div class="sh-pod-name">' + p.name + '</div>'
+                + '<div class="sh-pod-stat">' + statStr(p) + '</div>'
+                + '</div>'
+            ).join('')
+            + '</div>';
+
+        // Rank 4+ as compact list
+        const rest = ranked.slice(3, 8);
+        if (rest.length > 0) {
+            html += '<div class="sh-rest-list">'
+                + rest.map((p, ri) =>
+                    '<div class="hist-rank-item">'
+                    + '<span class="hist-rank-num">' + (ri + 4) + '</span>'
+                    + '<span class="hist-rank-name">' + p.name + '</span>'
+                    + '<span class="hist-rank-stat">' + statStr(p) + '</span>'
+                    + '</div>'
+                ).join('')
+                + '</div>';
+        }
+        html += '</div>';
+        return html;
+    }
+
+    // ── Share top-3 as downloadable PNG via Canvas ───────────────────────
+    window.shareHistTop3 = function(cardIdx, mode) {
+        const s = _histFiltered[cardIdx];
+        if (!s) return;
+        const ranked = computeHistRankings(s, mode);
+        const top3   = ranked.slice(0, 3);
+        if (top3.length === 0) { showToast('No players to share.', true); return; }
+
+        const modeLabels = { wins: 'Most Wins', winpct: 'Win %', points: 'Most Points' };
+        const medals = ['🥇','🥈','🥉'];
+
+        function statStr(p) {
+            if (mode === 'winpct')  return p.winPct + '% Win Rate · ' + p.points + ' pts';
+            if (mode === 'points')  return p.points + ' Points';
+            return p.wins + ' Wins · ' + p.losses + ' Losses';
+        }
+
+        const W = 600, H = 430;
+        const canvas = document.createElement('canvas');
+        canvas.width = W * 2; canvas.height = H * 2; // @2x for sharpness
+        const ctx = canvas.getContext('2d');
+        ctx.scale(2, 2);
+
+        // Text-wrap helper — must be called AFTER setting ctx.font
+        function wrapLines(text, maxWidth) {
+            const words = text.split(' ');
+            const lines = [];
+            let cur = '';
+            for (const w of words) {
+                const test = cur ? cur + ' ' + w : w;
+                if (ctx.measureText(test).width > maxWidth && cur) { lines.push(cur); cur = w; }
+                else { cur = test; }
+            }
+            if (cur) lines.push(cur);
+            return lines;
+        }
+
+        // Background gradient
+        const bg = ctx.createLinearGradient(0, 0, W, H);
+        bg.addColorStop(0, '#0d1b2a');
+        bg.addColorStop(1, '#1a2e44');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+
+        // Subtle grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+        ctx.lineWidth = 1;
+        for (let gx = 0; gx < W; gx += 30) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+        for (let gy = 0; gy < H; gy += 30) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
+
+        // Header band
+        const hdr = ctx.createLinearGradient(0, 0, W, 0);
+        hdr.addColorStop(0, '#e65100'); hdr.addColorStop(1, '#ff8f00');
+        ctx.fillStyle = hdr;
+        ctx.fillRect(0, 0, W, 52);
+
+        // Logo text
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.fillText('🏓 DinkDrop Live', 20, 34);
+
+        // Mode label (right)
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        const mLabel = modeLabels[mode] || mode;
+        ctx.fillText(mLabel, W - ctx.measureText(mLabel).width - 20, 34);
+
+        // Session name
+        const sessName = (s.sessionName || 'Session').slice(0, 42);
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(sessName, W/2 - ctx.measureText(sessName).width/2, 82);
+
+        // Date
+        const dStr = new Date(s.date).toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+        ctx.font = '11px sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fillText(dStr, W/2 - ctx.measureText(dStr).width/2, 98);
+
+        // "Top 3 Players" label
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        const topLabel = '— TOP 3 PLAYERS —';
+        ctx.fillText(topLabel, W/2 - ctx.measureText(topLabel).width/2, 122);
+
+        // Podium layout — perfectly centered
+        const podW = 160, podGap = 10;
+        const totalPodW = 3 * podW + 2 * podGap;          // 500
+        const podStartX = Math.round((W - totalPodW) / 2); // 50
+        const podY = H - 20;                               // 410
+
+        // Visual order: 2nd (left), 1st (center), 3rd (right)
+        const podiumDefs = [
+            { p: top3[1], rank: 1, x: podStartX,                    barH: 110, col1: '#424242', col2: '#9e9e9e' },
+            { p: top3[0], rank: 0, x: podStartX + podW + podGap,     barH: 155, col1: '#7b5e00', col2: '#f9a825' },
+            { p: top3[2], rank: 2, x: podStartX + 2*(podW + podGap), barH: 82,  col1: '#4e2d00', col2: '#a1632a' },
+        ].filter(d => d.p);
+
+        podiumDefs.forEach(d => {
+            const { p, rank, x, barH, col1, col2 } = d;
+            const cx     = x + podW / 2;
+            const barTop = podY - barH;
+
+            // Pillar gradient
+            const grad = ctx.createLinearGradient(x, barTop, x + podW, podY);
+            grad.addColorStop(0, col1); grad.addColorStop(1, col2);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(x, barTop, podW, barH, [8,8,0,0]);
+            else ctx.rect(x, barTop, podW, barH);
+            ctx.fill();
+
+            // Glow for 1st place
+            if (rank === 0) {
+                ctx.save();
+                ctx.shadowColor = 'rgba(249,168,37,0.55)';
+                ctx.shadowBlur = 22;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Medal emoji (above bar)
+            ctx.font = '26px sans-serif';
+            const medal = medals[rank];
+            ctx.fillText(medal, cx - ctx.measureText(medal).width / 2, barTop - 8);
+
+            // Name — word-wrapped, up to 2 lines
+            ctx.font = 'bold 13px sans-serif';
+            const nameLines = wrapLines(p.name, podW - 16).slice(0, 2);
+            ctx.fillStyle = '#fff';
+            nameLines.forEach((line, i) => {
+                ctx.fillText(line, cx - ctx.measureText(line).width / 2, barTop + 22 + i * 16);
+            });
+
+            // Stat — word-wrapped, up to 2 lines
+            const stat = statStr(p);
+            ctx.font = '10px sans-serif';
+            const statLines = wrapLines(stat, podW - 16).slice(0, 2);
+            const statStartY = barTop + 22 + nameLines.length * 16 + 8;
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            statLines.forEach((line, i) => {
+                ctx.fillText(line, cx - ctx.measureText(line).width / 2, statStartY + i * 14);
+            });
+        });
+
+        // Footer
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.font = '10px sans-serif';
+        const footer = 'Generated by DinkDrop Live';
+        ctx.fillText(footer, W/2 - ctx.measureText(footer).width/2, H - 6);
+
+        // Share via Web Share API (AirDrop / Messages / etc.) with download fallback
+        canvas.toBlob(async blob => {
+            const filename = 'top3_' + (s.sessionName || 'session').replace(/[^a-z0-9]/gi,'_').toLowerCase() + '_' + mode + '.png';
+
+            const fallbackDownload = () => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('📸 Top 3 image saved!');
+            };
+
+            const file = new File([blob], filename, { type: 'image/png' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Top 3 Players — ' + (s.sessionName || 'DinkDrop Live'),
+                        text: '🏓 Check out the top players from our open play session!'
+                    });
+                } catch (err) {
+                    // AbortError = user cancelled share sheet — do nothing
+                    if (err.name !== 'AbortError') fallbackDownload();
+                }
+            } else {
+                fallbackDownload();
+            }
+        }, 'image/png');
+    };
+
+    function buildHistCardDetail(s, i, playerOpts) {
+        const log    = s.gameLog || [];
+        const ranked = computeHistRankings(s, 'wins');
+        const allPlayers = computeHistRankings(s, 'wins'); // sorted by wins for stats table
+
+        // ── Action buttons ──
+        let html = '<div class="hist-detail-actions">'
+            + '<button class="hist-btn-dl" onclick="histDownloadSessionCSV(' + i + ')">⬇ Games (CSV)</button>'
+            + '<button class="hist-btn-dl" style="background:#5c6bc0;" onclick="histDownloadStatsCSV(' + i + ')">⬇ Player Stats (CSV)</button>';
+        if (playerOpts) {
+            html += '<select class="hist-player-select" id="hpsel-' + i + '">'
+                + '<option value="">Filter by player…</option>' + playerOpts
+                + '</select>'
+                + '<button class="hist-btn-dl-player" onclick="histDownloadPlayerCSV(' + i + ')">⬇ Player CSV</button>';
+        }
+        html += '</div>';
+
+        // ── Top Players (tabbed views) ──
+        if (ranked.length > 0) {
+            html += '<div class="hist-section-title">🏆 Top Players</div>'
+                + '<div class="hist-rank-tabs">'
+                + '<button class="hist-rank-tab active" id="hrk-' + i + '-wins"   onclick="switchHistRank(' + i + ',\'wins\')">Most Wins</button>'
+                + '<button class="hist-rank-tab"        id="hrk-' + i + '-winpct" onclick="switchHistRank(' + i + ',\'winpct\')">Win %</button>'
+                + '<button class="hist-rank-tab"        id="hrk-' + i + '-points" onclick="switchHistRank(' + i + ',\'points\')">Most Points</button>'
+                + '</div>'
+                + '<div id="hrankings-' + i + '">'
+                + buildHistPodium(ranked, i, 'wins')
+                + '</div>';
+        }
+
+        // ── All Players Stats table ──
+        if (allPlayers.length > 0) {
+            html += '<div class="hist-section-title">👥 All Player Stats</div>'
+                + '<div class="hist-table-wrap"><table class="hist-stats-table">'
+                + '<thead><tr><th>#</th><th>Player</th><th>Games</th><th>Wins</th><th>Losses</th><th>Win %</th><th>Points</th></tr></thead>'
+                + '<tbody>'
+                + allPlayers.map((p, ri) =>
+                    '<tr>'
+                    + '<td>' + (ri+1) + '</td>'
+                    + '<td>' + p.name + '</td>'
+                    + '<td>' + p.games + '</td>'
+                    + '<td>' + p.wins + '</td>'
+                    + '<td>' + p.losses + '</td>'
+                    + '<td>' + p.winPct + '%</td>'
+                    + '<td>' + p.points + '</td>'
+                    + '</tr>'
+                ).join('')
+                + '</tbody></table></div>';
+        }
+
+        // ── Game Log (numbered) ──
+        html += '<div class="hist-section-title" style="margin-top:14px;">📋 Game Log</div>';
+        if (log.length === 0) {
+            html += '<div style="color:#546e7a;font-style:italic;font-size:13px;">No games recorded.</div>';
+        } else {
+            html += '<div class="hist-table-wrap"><table class="hist-table">'
+                + '<thead><tr><th>#</th><th>Court</th><th>Team A</th><th>Team B</th><th>Score</th><th>Winner</th><th>Duration</th></tr></thead>'
+                + '<tbody>'
+                + log.map((g, gi) => {
+                    const isA = g.winner === 'Team A';
+                    return '<tr>'
+                        + '<td style="color:#78909c;">' + (gi+1) + '</td>'
+                        + '<td>' + (g.court||'') + '</td>'
+                        + '<td' + (isA  ? ' class="ht-winner"' : '') + '>' + (g.teamA||[]).join(' &amp; ') + '</td>'
+                        + '<td' + (!isA ? ' class="ht-winner"' : '') + '>' + (g.teamB||[]).join(' &amp; ') + '</td>'
+                        + '<td>' + (g.scoreA != null && g.scoreA !== '' ? g.scoreA : '—') + ' – ' + (g.scoreB != null && g.scoreB !== '' ? g.scoreB : '—') + '</td>'
+                        + '<td style="font-weight:bold;color:' + (isA ? '#90caf9' : '#f48fb1') + '">' + (g.winner||'') + '</td>'
+                        + '<td>' + fmtDuration(g.durationSec) + '</td>'
+                        + '</tr>';
+                }).join('')
+                + '</tbody></table></div>';
+        }
+        return html;
+    }
+
+    function toggleHistCard(i) {
+        const detail = document.getElementById('hdetail-' + i);
+        const chev   = document.getElementById('hchev-'   + i);
+        if (!detail) return;
+        const open = detail.classList.toggle('open');
+        if (chev) chev.classList.toggle('open', open);
+    }
+
+    function _histExportCSV(s, log, playerFilter) {
+        const headers = ['#','Session','Court','Team A P1','Team A P2','Team B P1','Team B P2','Score A','Score B','Winner','Duration','Timestamp'];
+        const rows = log.map((g, gi) => [
+            gi + 1,
+            s.sessionName || '',
+            g.court,
+            (g.teamA||[])[0]||'', (g.teamA||[])[1]||'',
+            (g.teamB||[])[0]||'', (g.teamB||[])[1]||'',
+            g.scoreA != null && g.scoreA !== '' ? g.scoreA : '',
+            g.scoreB != null && g.scoreB !== '' ? g.scoreB : '',
+            g.winner||'',
+            fmtDuration(g.durationSec),
+            fmtTimestamp(g.timestamp)
+        ].map(csvEscape).join(','));
+        const csv  = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url;
+        const safeName   = (s.sessionName || 'session').replace(/[^a-z0-9]/gi,'_').toLowerCase();
+        const safeSuffix = playerFilter ? '_' + playerFilter.replace(/[^a-z0-9]/gi,'_').toLowerCase() : '';
+        a.download = safeName + safeSuffix + '_' + new Date(s.date).toLocaleDateString().replace(/\//g,'-') + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function histDownloadSessionCSV(i) {
+        const s = _histFiltered[i];
+        if (!s) return;
+        const log = s.gameLog || [];
+        if (log.length === 0) { showToast('No games in this session.', true); return; }
+        _histExportCSV(s, log);
+    }
+
+    function histDownloadPlayerCSV(i) {
+        const s   = _histFiltered[i];
+        if (!s) return;
+        const sel = document.getElementById('hpsel-' + i);
+        const player = sel ? sel.value : '';
+        if (!player) { showToast('Select a player first.', true); return; }
+        const log = (s.gameLog || []).filter(g =>
+            (g.teamA||[]).includes(player) || (g.teamB||[]).includes(player)
+        );
+        if (log.length === 0) { showToast('No games found for ' + player + '.', true); return; }
+        _histExportCSV(s, log, player);
+    }
+
+    function histDownloadStatsCSV(i) {
+        const s = _histFiltered[i];
+        if (!s) return;
+        const ranked = computeHistRankings(s, 'wins');
+        if (ranked.length === 0) { showToast('No player stats in this session.', true); return; }
+        const headers = ['#','Player','Games','Wins','Losses','Win %','Points'];
+        const rows = ranked.map((p, ri) => [ri+1, p.name, p.games, p.wins, p.losses, p.winPct + '%', p.points].map(csvEscape).join(','));
+        const csv  = [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url;
+        const safeName = (s.sessionName || 'session').replace(/[^a-z0-9]/gi,'_').toLowerCase();
+        a.download = safeName + '_player_stats_' + new Date(s.date).toLocaleDateString().replace(/\//g,'-') + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function histDownloadAllFiltered() {
+        if (_histFiltered.length === 0) { showToast('No sessions to download.', true); return; }
+        const allRows = [];
+        let gameNum = 0;
+        _histFiltered.forEach(s => {
+            (s.gameLog || []).forEach((g, gi) => {
+                gameNum++;
+                allRows.push([
+                    gameNum,
+                    s.sessionName || '',
+                    new Date(s.date).toLocaleDateString(),
+                    g.court,
+                    (g.teamA||[])[0]||'', (g.teamA||[])[1]||'',
+                    (g.teamB||[])[0]||'', (g.teamB||[])[1]||'',
+                    g.scoreA != null && g.scoreA !== '' ? g.scoreA : '',
+                    g.scoreB != null && g.scoreB !== '' ? g.scoreB : '',
+                    g.winner||'',
+                    fmtDuration(g.durationSec),
+                    fmtTimestamp(g.timestamp)
+                ].map(csvEscape).join(','));
+            });
+        });
+        if (allRows.length === 0) { showToast('No games in the filtered sessions.', true); return; }
+        const headers = ['#','Session','Date','Court','Team A P1','Team A P2','Team B P1','Team B P2','Score A','Score B','Winner','Duration','Timestamp'];
+        const csv  = [headers.join(','), ...allRows].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url;
+        a.download = 'pickleball_history_' + new Date().toLocaleDateString().replace(/\//g,'-') + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     function getSessionHistory() {
@@ -2658,7 +3585,7 @@
             const d = new Date(s.date);
             const dateStr = d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
             const timeStr = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12:true });
-            const modeLabel = { manual:'🎲 Manual', roundrobin:'🔄 Round Robin', snake:'🐍 Snake Draft' }[s.matchingMode] || s.matchingMode;
+            const modeLabel = { manual:'🏘️ Larong Kalye', roundrobin:'🔄 Round Robin', snake:'🐍 Snake Draft' }[s.matchingMode] || s.matchingMode;
             return '<div class="sh-card">'
                 + '<div class="sh-card-header">'
                 + '<div><div class="sh-card-title">' + (s.sessionName || 'Unnamed Session') + '</div>'
@@ -2802,6 +3729,19 @@
 
     function confirmMatchingMode() {
         if (!_selectedMode) return;
+
+        // Require a session name before courts can be filled
+        if (!state.sessionName || !state.sessionName.trim()) {
+            document.getElementById('matchingOverlay').classList.remove('open');
+            showToast('⚠️ Please enter a Session / OP Name before filling courts.', true);
+            const snInput = document.getElementById('sessionNameInput');
+            if (snInput) { snInput.focus(); snInput.style.outline = '2px solid var(--warning)'; setTimeout(() => { snInput.style.outline = ''; }, 2000); }
+            state.matchingMode = _selectedMode;
+            state.partnerHistory = {};
+            sync();
+            return;
+        }
+
         state.matchingMode = _selectedMode;
         state.partnerHistory = {};
         document.getElementById('matchingOverlay').classList.remove('open');
@@ -2863,22 +3803,15 @@
     }
 
     function getModeLabel(mode) {
-        return { manual: '🎲 Manual Stack', roundrobin: '🔄 Round Robin', snake: '🐍 Snake Draft' }[mode] || mode;
+        return { manual: '🏘️ Larong Kalye', roundrobin: '🔄 Round Robin', snake: '🐍 Snake Draft' }[mode] || mode;
     }
 
 
     // ── Preview next foursome without mutating state ─────────────────────
     function previewNextFoursome() {
-        if (!state.matchingMode || state.matchingMode === 'manual') {
-            // Manual: just first 4 IN players in queue order
-            return state.queue.filter(p => p.in).slice(0, 4);
-        }
-        if (state.matchingMode === 'roundrobin') {
-            return previewRoundRobin();
-        }
-        if (state.matchingMode === 'snake') {
-            return previewSnakeDraft();
-        }
+        if (state.matchingMode === 'roundrobin') return previewRoundRobin();
+        if (state.matchingMode === 'snake') return previewSnakeDraft();
+        if (state.matchingMode === 'manual') return previewLarongKalye();
         return state.queue.filter(p => p.in).slice(0, 4);
     }
 
@@ -2908,16 +3841,23 @@
     }
 
     function previewSnakeDraft() {
+        // Sort by rating DESC for team-balance assignment
         let pool = [...state.queue.filter(p => p.in)].sort((a, b) => {
             const ra = (state.playerRatings || {})[a.name] || 3.0;
             const rb = (state.playerRatings || {})[b.name] || 3.0;
             return rb - ra;
         });
+        // Sit out: prioritise shortest wait (played most recently), break ties by most games
         while (pool.length % 4 !== 0 && pool.length > 0) {
-            let maxG = -1, idx = pool.length - 1;
+            const now = Date.now();
+            let worstScore = -Infinity, idx = pool.length - 1;
             pool.forEach((p, i) => {
-                const g = (state.stats[p.name] || {}).games || 0;
-                if (g > maxG) { maxG = g; idx = i; }
+                const waitMs = p.lastGameTime ? (now - p.lastGameTime) : Infinity;
+                const games  = (state.stats[p.name] || {}).games || 0;
+                // Higher score = better candidate to sit out
+                // Never-played (Infinity wait) → score = -Infinity → never sits first
+                const score = waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
+                if (score > worstScore) { worstScore = score; idx = i; }
             });
             pool.splice(idx, 1);
         }
@@ -2933,6 +3873,13 @@
     }
 
     function fillAllCourts() {
+        // Require a session name before play begins
+        if (!state.sessionName || !state.sessionName.trim()) {
+            showToast('⚠️ Please enter a Session / OP Name before filling courts.', true);
+            const snInput = document.getElementById('sessionNameInput');
+            if (snInput) { snInput.focus(); snInput.style.outline = '2px solid var(--warning)'; setTimeout(() => { snInput.style.outline = ''; }, 2000); }
+            return;
+        }
         const emptyCourts = state.courts.filter(c => c.players.every(p => p === null));
         const inPlayers = getInQueue();
         if (emptyCourts.length === 0 || inPlayers.length < 4) {
@@ -2946,21 +3893,129 @@
         } else if (state.matchingMode === 'snake') {
             fillSnakeDraft(emptyCourts);
         } else {
-            // Manual: take first 4 "in" players
-            emptyCourts.forEach(c => {
-                const inNow = state.queue.filter(p => p.in);
-                if (inNow.length >= 4) {
-                    const chosen = inNow.slice(0, 4);
-                    chosen.forEach(p => {
-                        const idx = state.queue.findIndex(q => q.name === p.name);
-                        if (idx !== -1) state.queue.splice(idx, 1);
-                    });
-                    c.players = chosen;
-                    c.startTime = Date.now(); c.alerted = false;
-                }
-            });
+            // Larong Kalye: FIFO + anti-staleness algorithm
+            fillLarongKalye(emptyCourts);
         }
         sync();
+    }
+
+    // ── Larong Kalye — FIFO + Anti-Staleness Matchmaking ────────────────
+    //
+    //  Core goal: First-In-First-Out wait efficiency + "anti-clique" social
+    //  randomization so the same 4 people don't keep playing each other.
+    //
+    //  Steps:
+    //   1. Pool: top POOL_SIZE IN players ranked by longest wait time.
+    //   2. Combinations: every possible 4-player subset of the pool.
+    //   3. Collision score per pair from recent game log:
+    //        played together last game  → +10
+    //        played together 2 games ago → +5
+    //        otherwise                  →  0
+    //   4. Decay: if a player has waited ≥ DECAY_MS, their pair penalties
+    //      drop to 0 — they are forced into the next available match.
+    //   5. Select the combination with the LOWEST total collision score.
+
+    function _lkPairScore(a, b, recentGames) {
+        const DECAY_MS   = 8 * 60 * 1000;
+        const SCORE_LAST = 10;
+        const SCORE_2AGO = 5;
+
+        // Forced players skip collision check entirely
+        if (a.waitMs >= DECAY_MS || b.waitMs >= DECAY_MS) return 0;
+
+        for (let i = 0; i < Math.min(2, recentGames.length); i++) {
+            const g = recentGames[i];
+            const four = [...(g.teamA || []), ...(g.teamB || [])];
+            if (four.includes(a.name) && four.includes(b.name)) {
+                return i === 0 ? SCORE_LAST : SCORE_2AGO;
+            }
+        }
+        return 0;
+    }
+
+    function larongKalyePickFour(candidatePool) {
+        const POOL_SIZE    = 8;
+        const LOOKBACK_MS  = 60 * 60 * 1000; // 60-minute collision window
+        const now          = Date.now();
+
+        // Enrich each player with a comparable waitMs
+        const enriched = candidatePool.map(p => ({
+            ...p,
+            waitMs: p.lastGameTime ? (now - p.lastGameTime) : Infinity
+        }));
+
+        // Sort: longest wait first; Infinity (never played) sorts to the front
+        enriched.sort((a, b) => {
+            if (a.waitMs === b.waitMs) return 0;
+            if (a.waitMs === Infinity) return -1;
+            if (b.waitMs === Infinity) return 1;
+            return b.waitMs - a.waitMs;
+        });
+
+        const pool = enriched.slice(0, Math.min(POOL_SIZE, enriched.length));
+        if (pool.length < 4) return null;
+
+        // Recent match history — most recent first
+        const cutoff     = now - LOOKBACK_MS;
+        const recentGames = [...(state.gameLog || [])]
+            .filter(g => g.timestamp && new Date(g.timestamp).getTime() > cutoff)
+            .reverse();
+
+        // Generate all C(pool, 4) combinations and pick lowest collision score
+        let bestCombo = null;
+        let bestScore = Infinity;
+
+        for (let a = 0; a < pool.length - 3; a++) {
+            for (let b = a + 1; b < pool.length - 2; b++) {
+                for (let c = b + 1; c < pool.length - 1; c++) {
+                    for (let d = c + 1; d < pool.length; d++) {
+                        const combo = [pool[a], pool[b], pool[c], pool[d]];
+                        let score = 0;
+                        // Sum collision scores for all 6 pairs in the combo
+                        for (let x = 0; x < 3; x++) {
+                            for (let y = x + 1; y < 4; y++) {
+                                score += _lkPairScore(combo[x], combo[y], recentGames);
+                            }
+                        }
+                        if (score < bestScore) {
+                            bestScore = score;
+                            bestCombo = combo;
+                            if (score === 0) break; // perfect — can't improve
+                        }
+                    }
+                    if (bestScore === 0) break;
+                }
+                if (bestScore === 0) break;
+            }
+            if (bestScore === 0) break;
+        }
+
+        return bestCombo || pool.slice(0, 4);
+    }
+
+    function fillLarongKalye(emptyCourts) {
+        emptyCourts.forEach(c => {
+            const available = state.queue.filter(p => p.in);
+            if (available.length < 4) return;
+
+            const chosen = larongKalyePickFour(available);
+            if (!chosen) return;
+
+            chosen.forEach(p => {
+                const idx = state.queue.findIndex(q => q.name === p.name);
+                if (idx !== -1) state.queue.splice(idx, 1);
+            });
+
+            c.players = chosen;
+            c.startTime = Date.now();
+            c.alerted   = false;
+        });
+    }
+
+    function previewLarongKalye() {
+        const available = state.queue.filter(p => p.in);
+        if (available.length < 4) return available.slice(0, 4);
+        return larongKalyePickFour(available) || available.slice(0, 4);
     }
 
     // ── Round Robin Randomized ───────────────────────────────────────────
@@ -3047,12 +4102,16 @@
             return rb - ra;
         });
 
-        // Sit out players with most games if not divisible by 4
+        // Sit-out priority: player with shortest wait time (played most recently) sits first.
+        // Break ties with most games played. Players who have never played (Infinity wait) never sit first.
         while (pool.length % 4 !== 0 && pool.length > 0) {
-            let maxG = -1, sitIdx = pool.length - 1;
+            const now = Date.now();
+            let worstScore = -Infinity, sitIdx = pool.length - 1;
             pool.forEach((p, i) => {
-                const g = (state.stats[p.name] || {}).games || 0;
-                if (g > maxG) { maxG = g; sitIdx = i; }
+                const waitMs = p.lastGameTime ? (now - p.lastGameTime) : Infinity;
+                const games  = (state.stats[p.name] || {}).games || 0;
+                const score  = waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
+                if (score > worstScore) { worstScore = score; sitIdx = i; }
             });
             pool.splice(sitIdx, 1);
         }
@@ -3077,7 +4136,12 @@
         sync();
     }
 
-    function resetAll() { if(confirm("Reset everything?")) { state = {theme:'dark', queue:[], history:[], stats:{}, courts:[{id:"1", players:[null,null,null,null], startTime:null, alerted:false}], matchingMode:null, partnerHistory:{}, playerRatings:{}, gameLog:[], sessionName:''}; sync(); } }
+    function resetAll() {
+        if (!confirm("Reset everything?")) return;
+        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '' };
+        clearSessionUI(); // wipe report table + session name input
+        sync();
+    }
 </script>
 <!-- Firebase Realtime DB + Auth + QR + Live View -->
 <script type="module">
@@ -3201,6 +4265,43 @@
         }
     };
 
+    // Returns a promise that resolves to an array of session records from Firebase,
+    // sorted newest-first. Resolves to [] if not logged in or on error.
+    window.fbFetchHistory = () => {
+        const uid = (auth.currentUser && auth.currentUser.uid) || window._sessionUid;
+        if (!uid) return Promise.resolve([]);
+        return get(ref(db, 'sessionHistories/' + uid))
+            .then(snapshot => {
+                const data = snapshot.val();
+                if (!data) return [];
+                return Object.values(data).map(s => {
+                    if (!s) return null;
+                    // Firebase stores arrays as objects {0:…,1:…} — restore to real arrays
+                    s.gameLog = s.gameLog
+                        ? (Array.isArray(s.gameLog) ? s.gameLog : Object.values(s.gameLog))
+                        : [];
+                    return s;
+                }).filter(Boolean).sort((a, b) => new Date(b.date) - new Date(a.date));
+            })
+            .catch(() => []);
+    };
+
+    // Writes a session history record to Firebase with sanitized keys.
+    // Called from saveSessionToHistory() in the non-module script.
+    window.fbSaveHistory = (sessionRecord) => {
+        const uid = (auth.currentUser && auth.currentUser.uid) || window._sessionUid;
+        if (!uid) return;
+        const clean    = JSON.parse(JSON.stringify(sessionRecord));
+        const safeKey  = k => k.replace(/[.#$\/\[\]]/g, '_');
+        if (clean.stats) {
+            const safe = {};
+            Object.keys(clean.stats).forEach(n => { safe[safeKey(n)] = clean.stats[n]; });
+            clean.stats = safe;
+        }
+        set(ref(db, 'sessionHistories/' + uid + '/' + clean.id), clean)
+            .catch(e => console.warn('History save error:', e));
+    };
+
     window.doLogin = async function() {
         const email = document.getElementById('loginEmail').value.trim();
         const pass  = document.getElementById('loginPassword').value;
@@ -3283,6 +4384,105 @@
     }
 
     // ── Auth state listener ──────────────────────────────────────────────
+    // Tracks the real-time Firebase listener so it can be torn down on logout
+    let _fbSessionUnsubscribe = null;
+
+    // Normalizes a Firebase session snapshot into local state and persists it.
+    // Does NOT call fbWrite — avoids echo-writing data we just received.
+    function applyFirebaseState(fbData) {
+        if (!fbData || typeof state === 'undefined') return false;
+        try {
+            Object.assign(state, fbData);
+
+            // Scalar fields that Firebase drops when null/empty — Object.assign skips absent
+            // keys, so stale localStorage values survive. Force-apply them from fbData.
+            state.matchingMode   = fbData.matchingMode   !== undefined ? fbData.matchingMode   : null;
+            state.sessionName    = fbData.sessionName    !== undefined ? fbData.sessionName    : '';
+            state.partnerHistory = fbData.partnerHistory !== undefined ? fbData.partnerHistory : {};
+
+            // Firebase drops empty arrays as null — always normalise queue explicitly
+            state.queue = fbData.queue
+                ? (Array.isArray(fbData.queue) ? fbData.queue : Object.values(fbData.queue))
+                : [];
+            if (!Array.isArray(state.courts)) state.courts = Object.values(state.courts || {});
+            state.courts = state.courts.map(c => {
+                if (!c) return c;
+                if (c.players && !Array.isArray(c.players)) {
+                    const arr = [null, null, null, null];
+                    Object.keys(c.players).forEach(k => { arr[parseInt(k)] = c.players[k]; });
+                    c.players = arr;
+                } else if (!c.players) {
+                    c.players = [null, null, null, null];
+                }
+                return c;
+            });
+
+            // Firebase sanitizes dots/special chars in object KEYS (e.g. "Ian B." → "Ian B_").
+            // state.stats and state.playerRatings both use player names as keys, so they arrive
+            // with sanitized keys after Object.assign. We remap them back using original names.
+            //
+            // CRITICAL: we source from fbData.stats / fbData.playerRatings directly (defaulting
+            // to {}) rather than from state.* after Object.assign.  If Firebase omitted a key
+            // (e.g. playerRatings was cleared to null after a reset), Object.assign silently
+            // skips overwriting state.* — leaving stale values from localStorage intact.
+            // Sourcing from fbData guarantees a clean slate when Firebase has no data for a key.
+            (function remapSanitizedKeys() {
+                const sk = k => k.replace(/[.#$\/\[\]]/g, '_');
+
+                // Build original player names exclusively from Firebase VALUE-stored sources
+                // (object field values / array elements are never key-sanitized by Firebase).
+                const origNames = new Set();
+
+                state.queue.forEach(p => { if (p && p.name) origNames.add(p.name); });
+
+                state.courts.forEach(c => {
+                    if (!c || !c.players) return;
+                    const slots = Array.isArray(c.players) ? c.players : Object.values(c.players);
+                    slots.forEach(p => { if (p && p.name) origNames.add(p.name); });
+                });
+
+                // gameLog may arrive as a keyed object from Firebase — normalise to array
+                const rawLog = fbData.gameLog
+                    ? (Array.isArray(fbData.gameLog) ? fbData.gameLog : Object.values(fbData.gameLog))
+                    : [];
+                rawLog.forEach(g => {
+                    if (!g) return;
+                    const tA = g.teamA ? (Array.isArray(g.teamA) ? g.teamA : Object.values(g.teamA)) : [];
+                    const tB = g.teamB ? (Array.isArray(g.teamB) ? g.teamB : Object.values(g.teamB)) : [];
+                    [...tA, ...tB].forEach(name => { if (name) origNames.add(name); });
+                });
+
+                // Remap a sanitized-key object back to original player name keys.
+                // Always returns a plain object (never undefined) so state is fully replaced.
+                function remapObj(obj) {
+                    if (!obj || typeof obj !== 'object') return {};
+                    const out = {};
+                    origNames.forEach(name => {
+                        const sanitized = sk(name);
+                        if (obj[sanitized] !== undefined)  out[name] = obj[sanitized];
+                        else if (obj[name] !== undefined)  out[name] = obj[name];
+                    });
+                    // Preserve entries whose key has no special chars and wasn't matched above
+                    Object.keys(obj).forEach(k => {
+                        if (!Array.from(origNames).some(n => sk(n) === k || n === k)) {
+                            out[k] = obj[k];
+                        }
+                    });
+                    return out;
+                }
+
+                // Source directly from fbData so a missing/null Firebase node → empty object,
+                // never inheriting leftover values that Object.assign failed to clear.
+                state.stats         = remapObj(fbData.stats         || {});
+                state.playerRatings = remapObj(fbData.playerRatings || {});
+            })();
+
+            localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
+            if (typeof updateDisplay === 'function') updateDisplay();
+            return true;
+        } catch(e) { console.warn('Session merge error:', e); return false; }
+    }
+
     onAuthStateChanged(auth, (user) => {
         const authPage = document.getElementById('authPage');
         const mainApp  = document.getElementById('mainApp');
@@ -3312,7 +4512,6 @@
                 }
 
                 authPage.classList.remove('active');
-                mainApp.style.display = '';
 
                 // Populate user pill
                 pill.style.display = 'flex';
@@ -3334,54 +4533,46 @@
                 const btn = document.getElementById('manageAccessBtn');
                 if (btn) btn.style.display = user.uid === OWNER_UID ? '' : 'none';
 
-            // On login: pull active session from Firebase first.
-            // If Firebase has data, use it (handles new device / another tab).
-            // If Firebase is empty, push local state up.
-            setTimeout(() => {
-                get(ref(db, 'sessions/' + user.uid)).then(snapshot => {
-                    const fbData = snapshot.val();
-                    if (fbData && fbData.courts) {
-                        // Firebase has an active session — load it into local state
-                        try {
-                            if (typeof state !== 'undefined') {
-                                Object.assign(state, fbData);
-                                // Ensure arrays are normalized
-                                if (!Array.isArray(state.courts)) state.courts = Object.values(state.courts);
-                                if (!Array.isArray(state.queue)) state.queue = state.queue ? Object.values(state.queue) : [];
-                                state.courts = state.courts.map(c => {
-                                    if (!c) return c;
-                                    if (c.players && !Array.isArray(c.players)) {
-                                        const arr = [null,null,null,null];
-                                        Object.keys(c.players).forEach(k => { arr[parseInt(k)] = c.players[k]; });
-                                        c.players = arr;
-                                    } else if (!c.players) {
-                                        c.players = [null,null,null,null];
-                                    }
-                                    return c;
-                                });
-                                localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
-                                if (typeof updateDisplay === 'function') updateDisplay();
-                            }
-                        } catch(e) { console.warn('Session merge error:', e); }
-                    } else {
-                        // Nothing in Firebase — push local state up
-                        const liveState = (typeof state !== 'undefined' && state.courts) ? state : null;
-                        if (liveState) {
-                            window.fbWrite(liveState);
-                        } else {
-                            const saved = localStorage.getItem('pb_stacker_v12');
-                            if (saved) { try { window.fbWrite(JSON.parse(saved)); } catch(e) {} }
-                        }
-                    }
+                // Route to the correct page based on the current hash.
+                // Handles the case where the user refreshes directly on #history.
+                routePage();
 
-                    // Show mode selection if not yet chosen
-                    if (typeof state !== 'undefined' && !state.matchingMode) {
-                        showMatchingModal();
-                    }
-                }).catch(e => console.warn('Session pull error:', e));
-            }, 300);
+                // Tear down any previous listener (e.g. from a prior login)
+                if (_fbSessionUnsubscribe) { _fbSessionUnsubscribe(); _fbSessionUnsubscribe = null; }
+
+                // Real-time listener: fires immediately with current value, then on every change.
+                // This ensures resets / updates from another device are reflected here instantly.
+                let _isFirstFirebaseFire = true;
+                setTimeout(() => {
+                    _fbSessionUnsubscribe = onValue(ref(db, 'sessions/' + user.uid), (snapshot) => {
+                        const fbData = snapshot.val();
+                        const isFirst = _isFirstFirebaseFire;
+                        _isFirstFirebaseFire = false;
+
+                        if (fbData && fbData.courts) {
+                            // Firebase has session data — always treat it as source of truth
+                            applyFirebaseState(fbData);
+                        } else if (isFirst) {
+                            // First load and nothing in Firebase — push local state up
+                            const liveState = (typeof state !== 'undefined' && state.courts) ? state : null;
+                            if (liveState) {
+                                window.fbWrite(liveState);
+                            } else {
+                                const saved = localStorage.getItem('pb_stacker_v12');
+                                if (saved) { try { window.fbWrite(JSON.parse(saved)); } catch(e) {} }
+                            }
+                        }
+
+                        // Show mode selection on first load only if not yet chosen
+                        if (isFirst && typeof state !== 'undefined' && !state.matchingMode) {
+                            showMatchingModal();
+                        }
+                    }, e => console.warn('Session listener error:', e));
+                }, 300);
             }); // end checkAllowlist.then
         } else {
+            // Logged out — tear down the real-time listener
+            if (_fbSessionUnsubscribe) { _fbSessionUnsubscribe(); _fbSessionUnsubscribe = null; }
             authPage.classList.add('active');
             mainApp.style.display = 'none';
             pill.style.display = 'none';
@@ -3471,25 +4662,28 @@
 
     // ── Routing ──────────────────────────────────────────────────────────
     function getHashParams() {
-        // hash format: #live/{uid}
         const hash = window.location.hash;
-        if (hash.startsWith('#live/')) {
-            return { isLive: true, uid: hash.slice(6) };
-        }
-        if (hash === '#live') {
-            return { isLive: true, uid: null };
-        }
-        return { isLive: false, uid: null };
+        if (hash.startsWith('#live/')) return { isLive: true, isHistory: false, uid: hash.slice(6) };
+        if (hash === '#live')          return { isLive: true, isHistory: false, uid: null };
+        if (hash === '#history')       return { isLive: false, isHistory: true, uid: null };
+        return { isLive: false, isHistory: false, uid: null };
     }
 
     function routePage() {
-        const { isLive, uid } = getHashParams();
+        const { isLive, isHistory, uid } = getHashParams();
         const liveEl = document.getElementById('liveView');
+        const histEl = document.getElementById('historyPage');
         const mainEl = document.getElementById('mainApp');
         if (!liveEl) return;
+
         liveEl.classList.toggle('active', isLive);
-        if (mainEl && !isLive && auth.currentUser) mainEl.style.display = '';
-        if (mainEl && isLive) mainEl.style.display = 'none';
+
+        if (histEl) histEl.classList.toggle('active', isHistory && !!auth.currentUser);
+        if (mainEl) mainEl.style.display = (!isLive && !isHistory && auth.currentUser) ? '' : 'none';
+
+        if (isHistory && auth.currentUser) {
+            if (typeof window.loadHistoryPage === 'function') window.loadHistoryPage();
+        }
 
         if (isLive) {
             document.getElementById('authPage').classList.remove('active');
