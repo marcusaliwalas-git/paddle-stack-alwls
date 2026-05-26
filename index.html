@@ -399,6 +399,24 @@
         .live-empty { color: #546e7a; font-size: 13px; font-style: italic; padding: 10px 0; }
         .live-last-updated { text-align: center; font-size: 11px; color: #546e7a; margin-top: 24px; padding-bottom: 24px; }
 
+        /* ── Spectator Check-In ───────────────────────────────────────── */
+        .live-checkin-list { display: flex; flex-direction: column; gap: 6px; }
+        .live-checkin-item {
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(255,255,255,0.04); border-radius: 9px;
+            padding: 9px 12px; border: 1px solid rgba(255,255,255,0.07);
+            transition: background 0.15s;
+        }
+        .live-checkin-name { font-size: 14px; color: #cfd8dc; font-weight: 500; }
+        .live-checkin-btn {
+            background: rgba(76,175,80,0.18); color: #81c784;
+            border: 1px solid rgba(76,175,80,0.38); border-radius: 7px;
+            padding: 5px 13px; font-size: 12px; font-weight: bold;
+            cursor: pointer; transition: background 0.15s; white-space: nowrap;
+        }
+        .live-checkin-btn:hover:not(:disabled) { background: rgba(76,175,80,0.34); }
+        .live-checkin-btn:disabled { opacity: 0.55; cursor: default; }
+
         /* ── Login / Auth Page ─────────────────────────────────────────── */
         #authPage {
             display: none;
@@ -1522,6 +1540,8 @@
         <div class="live-courts" id="liveCourts"></div>
         <div class="live-section-title">⏳ Queue / Next Up</div>
         <div class="live-queue" id="liveQueue"></div>
+        <div class="live-section-title" id="liveCheckinTitle" style="display:none">✋ Not Playing Yet — Tap to Check In</div>
+        <div id="liveCheckin" class="live-checkin-list"></div>
         <div class="live-section-title">🏆 Rankings</div>
         <div class="live-ranking-tabs">
             <button class="live-rank-tab active" id="lrt-wins" onclick="switchLiveRank('wins')">🏆 Wins</button>
@@ -4730,6 +4750,29 @@
                 // Tear down any previous listener (e.g. from a prior login)
                 if (_fbSessionUnsubscribe) { _fbSessionUnsubscribe(); _fbSessionUnsubscribe = null; }
 
+                // ── Spectator check-in listener ─────────────────────────
+                // Spectators write to spectatorCheckins/{uid} (public write).
+                // Organizer picks it up here and marks the player IN, then clears it.
+                onValue(ref(db, 'spectatorCheckins/' + user.uid), (snap) => {
+                    const requests = snap.val();
+                    if (!requests || typeof state === 'undefined') return;
+                    let changed = false;
+                    Object.values(requests).forEach(req => {
+                        if (!req || !req.name) return;
+                        const idx = state.queue.findIndex(p => p.name === req.name);
+                        if (idx !== -1 && state.queue[idx].in === false) {
+                            state.queue[idx].in = true;
+                            changed = true;
+                        }
+                    });
+                    // Always clear processed requests
+                    set(ref(db, 'spectatorCheckins/' + user.uid), null).catch(() => {});
+                    if (changed) {
+                        sync();
+                        showToast('✋ Player(s) checked in via spectator request!');
+                    }
+                });
+
                 // Real-time listener: fires immediately with current value, then on every change.
                 // This ensures resets / updates from another device are reflected here instantly.
                 let _isFirstFirebaseFire = true;
@@ -4998,6 +5041,7 @@
         if (isLive) {
             document.getElementById('authPage').classList.remove('active');
             document.getElementById('liveUpdated').textContent = 'Connecting...';
+            window._liveSessionUid = uid; // used by spectatorCheckIn
 
             const sessionPath = uid ? 'sessions/' + uid : null;
             if (!sessionPath) {
@@ -5268,9 +5312,54 @@
         }
 
         queueEl.innerHTML = html;
+
+        // ── OUT players — spectator check-in section ──────────────────
+        const outPlayers = allQueue.filter(p => p && p.name && !(p['in'] === true || p['in'] === 'true'));
+        const checkinEl    = document.getElementById('liveCheckin');
+        const checkinTitle = document.getElementById('liveCheckinTitle');
+        if (checkinEl && checkinTitle) {
+            if (outPlayers.length === 0) {
+                checkinTitle.style.display = 'none';
+                checkinEl.innerHTML = '';
+            } else {
+                checkinTitle.style.display = '';
+                const _skLive = n => n.replace(/[.#$\/\[\]]/g, '_');
+                const _escLive = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                checkinEl.innerHTML = outPlayers.map(p =>
+                    '<div class="live-checkin-item">'
+                    + '<span class="live-checkin-name">' + _escLive(p.name) + '</span>'
+                    + '<button class="live-checkin-btn" id="chkbtn-' + _skLive(p.name) + '" '
+                    + 'onclick="spectatorCheckIn(\'' + _escLive(_skLive(p.name)) + '\',\'' + _escLive(p.name) + '\',this)">'
+                    + '✋ Check In'
+                    + '</button>'
+                    + '</div>'
+                ).join('');
+            }
+        }
+
         renderLiveRankings(liveState, _liveRankMode);
         document.getElementById('liveUpdated').textContent = '&#9889; Live — updated ' + new Date().toLocaleTimeString();
     }
+
+    // Spectator check-in: writes a request to spectatorCheckins/{uid} in Firebase.
+    // The organizer's listener picks it up and marks the player IN automatically.
+    window.spectatorCheckIn = async function(safeKey, playerName, btn) {
+        const uid = window._liveSessionUid;
+        if (!uid) { alert('Session not found. Try refreshing.'); return; }
+        btn.disabled = true;
+        btn.textContent = '⏳ Sending…';
+        try {
+            await set(ref(db, 'spectatorCheckins/' + uid + '/' + safeKey), {
+                name: playerName,
+                requestedAt: Date.now()
+            });
+            btn.textContent = '✅ Requested!';
+        } catch(e) {
+            btn.textContent = '❌ Failed';
+            btn.disabled = false;
+            console.warn('Check-in error:', e);
+        }
+    };
 
     function tickLiveTimers() {
         document.querySelectorAll('.live-court-card[data-start]').forEach((el, ci) => {
