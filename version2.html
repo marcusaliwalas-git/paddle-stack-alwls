@@ -3219,11 +3219,25 @@
             return p.wins + ' Wins · ' + p.losses + ' Losses';
         }
 
-        const W = 600, H = 380;
+        const W = 600, H = 430;
         const canvas = document.createElement('canvas');
         canvas.width = W * 2; canvas.height = H * 2; // @2x for sharpness
         const ctx = canvas.getContext('2d');
         ctx.scale(2, 2);
+
+        // Text-wrap helper — must be called AFTER setting ctx.font
+        function wrapLines(text, maxWidth) {
+            const words = text.split(' ');
+            const lines = [];
+            let cur = '';
+            for (const w of words) {
+                const test = cur ? cur + ' ' + w : w;
+                if (ctx.measureText(test).width > maxWidth && cur) { lines.push(cur); cur = w; }
+                else { cur = test; }
+            }
+            if (cur) lines.push(cur);
+            return lines;
+        }
 
         // Background gradient
         const bg = ctx.createLinearGradient(0, 0, W, H);
@@ -3235,8 +3249,8 @@
         // Subtle grid lines
         ctx.strokeStyle = 'rgba(255,255,255,0.04)';
         ctx.lineWidth = 1;
-        for (let x = 0; x < W; x += 30) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
-        for (let y = 0; y < H; y += 30) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+        for (let gx = 0; gx < W; gx += 30) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,H); ctx.stroke(); }
+        for (let gy = 0; gy < H; gy += 30) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(W,gy); ctx.stroke(); }
 
         // Header band
         const hdr = ctx.createLinearGradient(0, 0, W, 0);
@@ -3256,7 +3270,7 @@
         ctx.fillText(mLabel, W - ctx.measureText(mLabel).width - 20, 34);
 
         // Session name
-        const sessName = (s.sessionName || 'Session').slice(0, 38);
+        const sessName = (s.sessionName || 'Session').slice(0, 42);
         ctx.font = 'bold 15px sans-serif';
         ctx.fillStyle = '#fff';
         ctx.fillText(sessName, W/2 - ctx.measureText(sessName).width/2, 82);
@@ -3267,61 +3281,77 @@
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.fillText(dStr, W/2 - ctx.measureText(dStr).width/2, 98);
 
-        // Podium blocks — visual order: 2nd, 1st, 3rd
+        // "Top 3 Players" label
+        ctx.font = 'bold 13px sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        const topLabel = '— TOP 3 PLAYERS —';
+        ctx.fillText(topLabel, W/2 - ctx.measureText(topLabel).width/2, 122);
+
+        // Podium layout — perfectly centered
+        const podW = 160, podGap = 10;
+        const totalPodW = 3 * podW + 2 * podGap;          // 500
+        const podStartX = Math.round((W - totalPodW) / 2); // 50
+        const podY = H - 20;                               // 410
+
+        // Visual order: 2nd (left), 1st (center), 3rd (right)
         const podiumDefs = [
-            { p: top3[1], cls: 1, x: 60,  barH: 90,  col1: '#424242', col2: '#9e9e9e' },
-            { p: top3[0], cls: 0, x: 210, barH: 120, col1: '#7b5e00', col2: '#f9a825' },
-            { p: top3[2], cls: 2, x: 360, barH: 68,  col1: '#4e2d00', col2: '#a1632a' },
+            { p: top3[1], rank: 1, x: podStartX,                    barH: 110, col1: '#424242', col2: '#9e9e9e' },
+            { p: top3[0], rank: 0, x: podStartX + podW + podGap,     barH: 155, col1: '#7b5e00', col2: '#f9a825' },
+            { p: top3[2], rank: 2, x: podStartX + 2*(podW + podGap), barH: 82,  col1: '#4e2d00', col2: '#a1632a' },
         ].filter(d => d.p);
 
-        const podW = 130, podY = H - 30;
-
         podiumDefs.forEach(d => {
-            const { p, cls, x, barH, col1, col2 } = d;
-            // Pillar
-            const grad = ctx.createLinearGradient(x, podY - barH, x + podW, podY);
+            const { p, rank, x, barH, col1, col2 } = d;
+            const cx     = x + podW / 2;
+            const barTop = podY - barH;
+
+            // Pillar gradient
+            const grad = ctx.createLinearGradient(x, barTop, x + podW, podY);
             grad.addColorStop(0, col1); grad.addColorStop(1, col2);
             ctx.fillStyle = grad;
             ctx.beginPath();
-            ctx.roundRect ? ctx.roundRect(x, podY - barH, podW, barH, [8,8,0,0]) : ctx.rect(x, podY - barH, podW, barH);
+            if (ctx.roundRect) ctx.roundRect(x, barTop, podW, barH, [8,8,0,0]);
+            else ctx.rect(x, barTop, podW, barH);
             ctx.fill();
 
             // Glow for 1st place
-            if (cls === 0) {
-                ctx.shadowColor = 'rgba(249,168,37,0.6)';
-                ctx.shadowBlur = 18;
+            if (rank === 0) {
+                ctx.save();
+                ctx.shadowColor = 'rgba(249,168,37,0.55)';
+                ctx.shadowBlur = 22;
                 ctx.fill();
-                ctx.shadowBlur = 0;
+                ctx.restore();
             }
 
-            // Medal emoji
-            ctx.font = '24px sans-serif';
-            const medal = medals[cls];
-            const mW = ctx.measureText(medal).width;
-            ctx.fillText(medal, x + podW/2 - mW/2, podY - barH - 10);
+            // Medal emoji (above bar)
+            ctx.font = '26px sans-serif';
+            const medal = medals[rank];
+            ctx.fillText(medal, cx - ctx.measureText(medal).width / 2, barTop - 8);
 
-            // Name
+            // Name — word-wrapped, up to 2 lines
             ctx.font = 'bold 13px sans-serif';
+            const nameLines = wrapLines(p.name, podW - 16).slice(0, 2);
             ctx.fillStyle = '#fff';
-            const name = p.name.length > 14 ? p.name.slice(0,13) + '…' : p.name;
-            const nW = ctx.measureText(name).width;
-            ctx.fillText(name, x + podW/2 - nW/2, podY - barH + 24);
+            nameLines.forEach((line, i) => {
+                ctx.fillText(line, cx - ctx.measureText(line).width / 2, barTop + 22 + i * 16);
+            });
 
-            // Stat
+            // Stat — word-wrapped, up to 2 lines
             const stat = statStr(p);
             ctx.font = '10px sans-serif';
+            const statLines = wrapLines(stat, podW - 16).slice(0, 2);
+            const statStartY = barTop + 22 + nameLines.length * 16 + 8;
             ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            // Word wrap stat at ~podW chars
-            const statShort = stat.length > 18 ? stat.slice(0,17) + '…' : stat;
-            const sW = ctx.measureText(statShort).width;
-            ctx.fillText(statShort, x + podW/2 - sW/2, podY - barH + 42);
+            statLines.forEach((line, i) => {
+                ctx.fillText(line, cx - ctx.measureText(line).width / 2, statStartY + i * 14);
+            });
         });
 
         // Footer
         ctx.fillStyle = 'rgba(255,255,255,0.25)';
         ctx.font = '10px sans-serif';
         const footer = 'Generated by DinkDrop Live';
-        ctx.fillText(footer, W/2 - ctx.measureText(footer).width/2, H - 8);
+        ctx.fillText(footer, W/2 - ctx.measureText(footer).width/2, H - 6);
 
         // Share via Web Share API (AirDrop / Messages / etc.) with download fallback
         canvas.toBlob(async blob => {
