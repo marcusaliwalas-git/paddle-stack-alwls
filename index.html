@@ -2076,6 +2076,11 @@
 
     function openScoreModal(courtIdx, winningTeam) {
         const c = state.courts[courtIdx];
+        // Guard: all 4 slots must be filled
+        if (!c.players.every(p => p !== null)) {
+            showToast('⚠️ All 4 player slots must be filled before recording a result.', true);
+            return;
+        }
         _scoreCtx = { courtIdx, winningTeam };
         document.getElementById('scoreCourtLabel').textContent = 'Court ' + c.id;
         const teamA = [c.players[0], c.players[1]].filter(Boolean).map(p => p.name).join(' & ') || '—';
@@ -2590,11 +2595,13 @@
 
             // Action buttons
             const inCount = state.queue.filter(p => p.in).length;
+            const isFull  = c.players.every(p => p !== null); // all 4 slots occupied
+            const winDisabled = !isFull ? 'disabled title="All 4 player slots must be filled to record a result"' : '';
             const actionBtns = isEmpty
                 ? `<button class="btn-start" onclick="rotateCourt(${i})" ${inCount < 4 ? 'disabled title="Need 4+ IN players"' : ''}>&#9654; Fill Court</button>
                    <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">Clear</button>`
-                : `<button class="btn-win-a" onclick="openScoreModal(${i},'A')">&#127942; Team A Won</button>
-                   <button class="btn-win-b" onclick="openScoreModal(${i},'B')">&#127942; Team B Won</button>
+                : `<button class="btn-win-a" ${winDisabled} onclick="openScoreModal(${i},'A')">&#127942; Team A Won</button>
+                   <button class="btn-win-b" ${winDisabled} onclick="openScoreModal(${i},'B')">&#127942; Team B Won</button>
                    <button class="btn-clear" onclick="state.courts[${i}].players.forEach(p=>{if(p)state.queue.push(p)}); state.courts[${i}].players=[null,null,null,null]; state.courts[${i}].startTime=null; state.courts[${i}].alerted=false; sync();">Clear</button>`;
 
             return `
@@ -2711,6 +2718,13 @@
     function dropToNextMatchSlot(ev, slotIndex) {
         ev.preventDefault(); ev.stopPropagation();
         ev.currentTarget.classList.remove('drag-over');
+
+        // Gate: at least one court must be active (started via Fill Court)
+        if (!state.courts.some(c => c.startTime)) {
+            showToast('⚠️ Click "Fill Court" to start a game before adjusting the next match.', true);
+            return;
+        }
+
         const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
         if (data.type !== 'rack') return;
 
@@ -2742,6 +2756,13 @@
         // Panel-level drop fallback — move dragged player to front of IN queue
         ev.preventDefault();
         ev.currentTarget.classList.remove('drag-over');
+
+        // Gate: at least one court must be active (started via Fill Court)
+        if (!state.courts.some(c => c.startTime)) {
+            showToast('⚠️ Click "Fill Court" to start a game before adjusting the next match.', true);
+            return;
+        }
+
         const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
         if (data.type !== 'rack') return;
         const _dmPlayer = state.queue[data.index];
@@ -2769,6 +2790,14 @@
     }
     function dropToSlot(ev, courtIdx, slotIdx) {
         ev.preventDefault(); leaveDrop(ev);
+
+        // Gate: court must have been officially started via "Fill Court" first.
+        // Dragging players directly bypasses the timer — block it on unstarted courts.
+        if (!state.courts[courtIdx].startTime) {
+            showToast('⚠️ Click "Fill Court" to start this court before moving players manually.', true);
+            return;
+        }
+
         const data = JSON.parse(ev.dataTransfer.getData("text"));
         const displaced = state.courts[courtIdx].players[slotIdx]; // player currently in target slot
 
