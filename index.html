@@ -5261,7 +5261,10 @@
 
         if (inQueue.length === 0) {
             queueEl.innerHTML = '<div class="live-empty">No players tagged IN yet.</div>';
-            document.getElementById('liveUpdated').textContent = '⚡ Live — updated ' + new Date().toLocaleTimeString();
+            // Still render check-in section even when nobody is IN
+            _renderLiveCheckin(allQueue);
+            renderLiveRankings(liveState, _liveRankMode);
+            document.getElementById('liveUpdated').textContent = '&#9889; Live — updated ' + new Date().toLocaleTimeString();
             return;
         }
 
@@ -5314,31 +5317,38 @@
         queueEl.innerHTML = html;
 
         // ── OUT players — spectator check-in section ──────────────────
-        const outPlayers = allQueue.filter(p => p && p.name && !(p['in'] === true || p['in'] === 'true'));
-        const checkinEl    = document.getElementById('liveCheckin');
-        const checkinTitle = document.getElementById('liveCheckinTitle');
-        if (checkinEl && checkinTitle) {
-            if (outPlayers.length === 0) {
-                checkinTitle.style.display = 'none';
-                checkinEl.innerHTML = '';
-            } else {
-                checkinTitle.style.display = '';
-                const _skLive = n => n.replace(/[.#$\/\[\]]/g, '_');
-                const _escLive = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-                checkinEl.innerHTML = outPlayers.map(p =>
-                    '<div class="live-checkin-item">'
-                    + '<span class="live-checkin-name">' + _escLive(p.name) + '</span>'
-                    + '<button class="live-checkin-btn" id="chkbtn-' + _skLive(p.name) + '" '
-                    + 'onclick="spectatorCheckIn(\'' + _escLive(_skLive(p.name)) + '\',\'' + _escLive(p.name) + '\',this)">'
-                    + '✋ Check In'
-                    + '</button>'
-                    + '</div>'
-                ).join('');
-            }
-        }
+        _renderLiveCheckin(allQueue);
 
         renderLiveRankings(liveState, _liveRankMode);
         document.getElementById('liveUpdated').textContent = '&#9889; Live — updated ' + new Date().toLocaleTimeString();
+    }
+
+    // Renders the OUT-player check-in list in the spectator view.
+    // Called from both the normal path and the early-return (all-out) path.
+    function _renderLiveCheckin(allQueue) {
+        const checkinEl    = document.getElementById('liveCheckin');
+        const checkinTitle = document.getElementById('liveCheckinTitle');
+        if (!checkinEl || !checkinTitle) return;
+
+        const outPlayers = allQueue.filter(p => p && p.name && !(p['in'] === true || p['in'] === 'true'));
+        if (outPlayers.length === 0) {
+            checkinTitle.style.display = 'none';
+            checkinEl.innerHTML = '';
+            return;
+        }
+
+        const _sk  = n => n.replace(/[.#$\/\[\]]/g, '_');
+        const _esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        checkinTitle.style.display = '';
+        checkinEl.innerHTML = outPlayers.map(p =>
+            '<div class="live-checkin-item">'
+            + '<span class="live-checkin-name">' + _esc(p.name) + '</span>'
+            + '<button class="live-checkin-btn" id="chkbtn-' + _sk(p.name) + '" '
+            + 'onclick="spectatorCheckIn(\'' + _esc(_sk(p.name)) + '\',\'' + _esc(p.name) + '\',this)">'
+            + '✋ Check In'
+            + '</button>'
+            + '</div>'
+        ).join('');
     }
 
     // Spectator check-in: writes a request to spectatorCheckins/{uid} in Firebase.
