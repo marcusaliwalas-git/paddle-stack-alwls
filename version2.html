@@ -583,6 +583,16 @@
             flex-shrink: 0;
         }
         .paddle-edit-btn:hover { background: rgba(255,109,0,0.5); }
+        /* Queue drag-to-reorder handle */
+        .paddle-drag-handle {
+            color: rgba(255,255,255,0.3); font-size: 14px; cursor: grab; flex-shrink: 0;
+            padding: 0 2px; line-height: 1; user-select: none;
+            transition: color 0.15s;
+        }
+        .paddle-drag-handle:hover { color: rgba(255,255,255,0.7); }
+        .paddle-drag-handle:active { cursor: grabbing; }
+        .paddle.reorder-above { border-top: 2px solid var(--primary) !important; }
+        .paddle.reorder-below { border-bottom: 2px solid var(--primary) !important; }
 
         /* Edit icon on court slots */
         .slot-edit-btn {
@@ -2307,7 +2317,16 @@
                 : (gamesPlayed > 0 ? 'in queue' : 'waiting');
             const metaStr     = gamesPlayed + ' game' + (gamesPlayed !== 1 ? 's' : '') + ' · ⏱ ' + waitStr;
             const safeName    = p.name.replace(/`/g, '\\`');
-            return `<div class="paddle ${isIn ? 'is-in' : 'is-out'}" ${isIn ? `draggable="true" ondragstart="dragStart(event,'rack',${i})"` : 'draggable="false"'}>
+            return `<div class="paddle ${isIn ? 'is-in' : 'is-out'}" id="paddle-${i}"
+                ${isIn ? `draggable="true" ondragstart="dragStart(event,'rack',${i})"` : 'draggable="false"'}
+                ondragover="queueReorderOver(event,${i})"
+                ondrop="queueReorderDrop(event,${i})"
+                ondragleave="queueReorderLeave(event)"
+                ondragend="queueReorderEnd()">
+                <div class="paddle-drag-handle" draggable="true"
+                     ondragstart="event.stopPropagation();queueReorderStart(event,${i})"
+                     ondragend="queueReorderEnd()"
+                     title="Drag to reorder">⠿</div>
                 <button class="paddle-in-btn ${isIn ? 'active' : ''}" onclick="event.stopPropagation();togglePlayerIn(${i})" title="${isIn ? 'Mark as Out' : 'Mark as In'}">${isIn ? 'IN' : 'OUT'}</button>
                 <span style="flex:1;min-width:0;">
                     <span class="queue-player-name">${p.name}</span>
@@ -2447,6 +2466,79 @@
             if (p && p.in === false) { ev.preventDefault(); return; }
         }
         ev.dataTransfer.setData("text", JSON.stringify({ type, index, courtIdx }));
+    }
+
+    // ── Queue drag-to-reorder ────────────────────────────────────────────
+    let _reorderDragIdx = null;
+
+    function queueReorderStart(ev, idx) {
+        _reorderDragIdx = idx;
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.dataTransfer.setData('text/plain', JSON.stringify({ type: 'reorder', index: idx }));
+        // Slight delay so the browser snapshot doesn't look ghosted
+        setTimeout(() => {
+            const el = document.getElementById('paddle-' + idx);
+            if (el) el.style.opacity = '0.5';
+        }, 0);
+    }
+
+    function queueReorderOver(ev, targetIdx) {
+        if (_reorderDragIdx === null) return; // not a reorder drag — ignore
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.dataTransfer.dropEffect = 'move';
+        // Clear previous indicators
+        document.querySelectorAll('.paddle.reorder-above, .paddle.reorder-below').forEach(el => {
+            el.classList.remove('reorder-above', 'reorder-below');
+        });
+        const target = document.getElementById('paddle-' + targetIdx);
+        if (!target || targetIdx === _reorderDragIdx) return;
+        // Show indicator above or below depending on cursor position
+        const rect = target.getBoundingClientRect();
+        const mid  = rect.top + rect.height / 2;
+        target.classList.add(ev.clientY < mid ? 'reorder-above' : 'reorder-below');
+    }
+
+    function queueReorderLeave(ev) {
+        // Only clear if leaving the element itself (not entering a child)
+        if (!ev.currentTarget.contains(ev.relatedTarget)) {
+            ev.currentTarget.classList.remove('reorder-above', 'reorder-below');
+        }
+    }
+
+    function queueReorderDrop(ev, targetIdx) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        document.querySelectorAll('.paddle.reorder-above, .paddle.reorder-below').forEach(el => {
+            el.classList.remove('reorder-above', 'reorder-below');
+        });
+        if (_reorderDragIdx === null) return;
+        const fromIdx = _reorderDragIdx;
+        _reorderDragIdx = null;
+
+        if (fromIdx === targetIdx) return;
+
+        // Determine insert position (above/below target)
+        const target = document.getElementById('paddle-' + targetIdx);
+        let insertAt = targetIdx;
+        if (target) {
+            const rect = target.getBoundingClientRect();
+            if (ev.clientY >= rect.top + rect.height / 2) insertAt = targetIdx + 1;
+        }
+        // Adjust for the removal of fromIdx shifting indices
+        if (fromIdx < insertAt) insertAt--;
+
+        const [moved] = state.queue.splice(fromIdx, 1);
+        state.queue.splice(insertAt, 0, moved);
+        sync();
+    }
+
+    function queueReorderEnd() {
+        _reorderDragIdx = null;
+        document.querySelectorAll('.paddle').forEach(el => {
+            el.style.opacity = '';
+            el.classList.remove('reorder-above', 'reorder-below');
+        });
     }
 
     function nmpSlotDragOver(ev) { ev.preventDefault(); ev.currentTarget.style.outline = '2px solid #ff6d00'; }
@@ -3231,15 +3323,34 @@
         const footer = 'Generated by DinkDrop Live';
         ctx.fillText(footer, W/2 - ctx.measureText(footer).width/2, H - 8);
 
-        // Download
-        canvas.toBlob(blob => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'top3_' + (s.sessionName || 'session').replace(/[^a-z0-9]/gi,'_').toLowerCase() + '_' + mode + '.png';
-            document.body.appendChild(a); a.click(); document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToast('📸 Top 3 image downloaded!');
+        // Share via Web Share API (AirDrop / Messages / etc.) with download fallback
+        canvas.toBlob(async blob => {
+            const filename = 'top3_' + (s.sessionName || 'session').replace(/[^a-z0-9]/gi,'_').toLowerCase() + '_' + mode + '.png';
+
+            const fallbackDownload = () => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('📸 Top 3 image saved!');
+            };
+
+            const file = new File([blob], filename, { type: 'image/png' });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Top 3 Players — ' + (s.sessionName || 'DinkDrop Live'),
+                        text: '🏓 Check out the top players from our open play session!'
+                    });
+                } catch (err) {
+                    // AbortError = user cancelled share sheet — do nothing
+                    if (err.name !== 'AbortError') fallbackDownload();
+                }
+            } else {
+                fallbackDownload();
+            }
         }, 'image/png');
     };
 
