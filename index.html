@@ -766,7 +766,8 @@
         .matching-overlay.open { display: flex; }
         .matching-modal {
             background: #16213e; border-radius: 20px;
-            padding: 30px 28px; width: 92%; max-width: 480px;
+            padding: 28px 24px; width: 92%; max-width: 480px;
+            max-height: 90vh; overflow-y: auto;
             box-shadow: 0 24px 60px rgba(0,0,0,0.6);
             border: 1px solid rgba(255,109,0,0.25);
         }
@@ -1655,26 +1656,13 @@
 
 <div class="app-container">
     <div class="sidebar">
-        <!-- Session Name / OP Name — top of sidebar -->
-        <div class="session-name-block">
-            <h3>Session Name / OP Name</h3>
-            <input type="text" id="sessionNameInput" class="session-name-input"
-                placeholder="e.g. Saturday Open Play"
-                oninput="state.sessionName=this.value;sync()" value="">
-        </div>
-
-        <!-- Matching mode bar -->
+        <!-- Matching mode bar (session name now inside matching popup) -->
         <div class="matching-mode-bar" id="matchingModeBar" style="display:none">
-            <span>Mode: <strong id="modeBarLabel"></strong></span>
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:11px;color:#78909c;font-weight:500;">Mode: <strong id="modeBarLabel"></strong></div>
+                <div id="modeBarSessionName" style="font-size:12px;color:#ff8a65;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;"></div>
+            </div>
             <button class="change-mode-btn" onclick="showMatchingModal()">Change</button>
-        </div>
-        <!-- Track Scores toggle -->
-        <div class="track-scores-row">
-            <span class="track-scores-label">📊 Track Scores</span>
-            <label class="tst-switch" title="When off: wins instantly clear court with no score recorded">
-                <input type="checkbox" id="trackScoresToggle" checked onchange="state.trackScores=this.checked;sync();updateDisplay()">
-                <span class="tst-slider"></span>
-            </label>
         </div>
         <button class="btn-call" onclick="callNextUp()">📢 Call Next Up</button>
 
@@ -1728,8 +1716,29 @@
 <!-- Matching Algorithm Modal -->
 <div class="matching-overlay" id="matchingOverlay">
     <div class="matching-modal">
-        <h2>🏓 Choose Matching Mode</h2>
-        <p class="subtitle">Select how players will be assigned to courts each round</p>
+        <h2>🏓 Setup Session</h2>
+        <p class="subtitle">Name your session and choose how players are assigned to courts</p>
+
+        <!-- Session Name inside popup -->
+        <div style="margin-bottom:14px;">
+            <label style="font-size:12px;color:#90caf9;font-weight:600;letter-spacing:0.5px;display:block;margin-bottom:6px;">📋 Session / OP Name</label>
+            <input type="text" id="sessionNameInput" class="session-name-input"
+                placeholder="e.g. Saturday Open Play"
+                oninput="state.sessionName=this.value;sync()"
+                style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-size:15px;font-weight:600;"
+                value="">
+        </div>
+
+        <!-- Track Scores toggle inside popup -->
+        <div class="track-scores-row" style="margin-bottom:18px;">
+            <span class="track-scores-label" style="color:#eceff1;">📊 Track Scores</span>
+            <label class="tst-switch" title="When off: wins instantly clear court with no score recorded">
+                <input type="checkbox" id="trackScoresToggle" checked onchange="state.trackScores=this.checked;sync();updateDisplay()">
+                <span class="tst-slider"></span>
+            </label>
+        </div>
+
+        <div style="font-size:12px;font-weight:600;color:#90caf9;letter-spacing:0.5px;margin-bottom:10px;">🏓 Choose Matching Mode</div>
 
         <div class="matching-card" id="mcard-manual" onclick="selectMatchingMode('manual')">
             <h3>🏘️ Larong Kalye <span class="badge">Community</span></h3>
@@ -2379,12 +2388,15 @@
     }
 
     function callNextUp() {
-        if (state.queue.length === 0) {
-            announce("The queue is currently empty.");
+        const inQueue = state.queue.filter(p => p.in !== false && p.in !== 'false');
+        if (inQueue.length === 0) {
+            showToast('📢 No players are tagged IN yet!', true);
+            announce('No players are tagged in yet.');
             return;
         }
-        const nextNames = state.queue.slice(0, 4).map(p => p.name).join(', ');
-        announce(`Next up: ${nextNames}.`);
+        const nextNames = inQueue.slice(0, 4).map(p => p.name).join(', ');
+        showToast('📢 Next up: ' + nextNames);
+        announce('Next up: ' + nextNames + '.');
     }
 
     function announce(msg) {
@@ -2567,10 +2579,6 @@
 
     function updateDisplay() {
 
-        // Sync session name input
-        const snInput = document.getElementById('sessionNameInput');
-        if (snInput && document.activeElement !== snInput) snInput.value = state.sessionName || '';
-
         // Sync track-scores toggle
         const tsToggle = document.getElementById('trackScoresToggle');
         if (tsToggle) tsToggle.checked = state.trackScores !== false;
@@ -2581,10 +2589,15 @@
             if (state.matchingMode) {
                 modeBarEl.style.display = 'flex';
                 document.getElementById('modeBarLabel').textContent = getModeLabel(state.matchingMode);
+                const snLabel = document.getElementById('modeBarSessionName');
+                if (snLabel) snLabel.textContent = state.sessionName ? '📋 ' + state.sessionName : '';
             } else {
                 modeBarEl.style.display = 'none';
             }
         }
+        // Always keep popup input in sync with state (in case popup is open)
+        const snInput = document.getElementById('sessionNameInput');
+        if (snInput && document.activeElement !== snInput) snInput.value = state.sessionName || '';
 
         // Player count — queue + players currently on courts
         const courtPlayerCount = state.courts.reduce((n, c) => n + c.players.filter(p => p !== null).length, 0);
@@ -4087,7 +4100,14 @@
         } else {
             document.getElementById('matchingStartBtn').textContent = 'Start Session';
         }
+        // Populate session name + track scores from current state
+        const snInput = document.getElementById('sessionNameInput');
+        if (snInput) snInput.value = state.sessionName || '';
+        const tsToggle = document.getElementById('trackScoresToggle');
+        if (tsToggle) tsToggle.checked = state.trackScores !== false;
         document.getElementById('matchingOverlay').classList.add('open');
+        // Auto-focus session name if empty
+        if (snInput && !snInput.value) setTimeout(() => snInput.focus(), 120);
     }
 
     function selectMatchingMode(mode) {
@@ -4100,15 +4120,14 @@
     function confirmMatchingMode() {
         if (!_selectedMode) return;
 
+        // Read session name from popup input
+        const snInput = document.getElementById('sessionNameInput');
+        if (snInput) state.sessionName = snInput.value.trim();
+
         // Require a session name before courts can be filled
         if (!state.sessionName || !state.sessionName.trim()) {
-            document.getElementById('matchingOverlay').classList.remove('open');
-            showToast('⚠️ Please enter a Session / OP Name before filling courts.', true);
-            const snInput = document.getElementById('sessionNameInput');
+            showToast('⚠️ Please enter a Session / OP Name first.', true);
             if (snInput) { snInput.focus(); snInput.style.outline = '2px solid var(--warning)'; setTimeout(() => { snInput.style.outline = ''; }, 2000); }
-            state.matchingMode = _selectedMode;
-            state.partnerHistory = {};
-            sync();
             return;
         }
 
