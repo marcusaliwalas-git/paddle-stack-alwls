@@ -1399,8 +1399,10 @@
         .hist-filters { background:var(--card); border-radius:12px; padding:16px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
         .hist-filter-label { font-size:11px; color:#78909c; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
         .hist-filter-group { display:flex; flex-direction:column; flex:1; min-width:150px; }
-        .hist-filter-input,.hist-filter-date { padding:9px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:var(--input-bg); color:var(--text-main); font-size:13px; width:100%; box-sizing:border-box; }
-        .hist-filter-input::placeholder { color:#546e7a; }
+        .hist-filter-input,.hist-filter-date { padding:9px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.07); color:#eceff1; font-size:13px; width:100%; box-sizing:border-box; }
+        .hist-filter-input::placeholder { color:#78909c; }
+        [data-theme="light"] .hist-filter-input,[data-theme="light"] .hist-filter-date { background:#f0f4f8; color:#1a2332; border-color:rgba(0,0,0,0.15); }
+        [data-design="professional"] .hist-filter-input,[data-design="professional"] .hist-filter-date { background:#f0f4f8; color:#1a2332; border-color:rgba(0,0,0,0.15); }
         .hist-filter-actions { display:flex; gap:8px; align-items:flex-end; }
         .hist-clear-btn { padding:9px 16px; background:rgba(255,255,255,0.08); color:#ccc; border:none; border-radius:8px; font-size:13px; cursor:pointer; white-space:nowrap; }
         .hist-clear-btn:hover { background:rgba(255,255,255,0.14); }
@@ -1425,7 +1427,9 @@
         .hist-btn-dl:hover { background:#0d47a1; }
         .hist-btn-dl-player { padding:8px 16px; background:#2e7d32; color:white; border:none; border-radius:8px; font-size:12px; cursor:pointer; font-weight:bold; }
         .hist-btn-dl-player:hover { background:#1b5e20; }
-        .hist-player-select { padding:7px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.12); background:var(--input-bg); color:var(--text-main); font-size:12px; max-width:200px; }
+        .hist-player-select { padding:7px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.07); color:#eceff1; font-size:12px; max-width:200px; }
+        [data-theme="light"] .hist-player-select { background:#f0f4f8; color:#1a2332; border-color:rgba(0,0,0,0.15); }
+        [data-design="professional"] .hist-player-select { background:#f0f4f8; color:#1a2332; border-color:rgba(0,0,0,0.15); }
         .hist-section-title { font-size:11px; font-weight:bold; color:#ff6d00; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; }
         .hist-rankings { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
         .hist-rank-item { background:rgba(255,255,255,0.05); border-radius:8px; padding:8px 12px; display:flex; align-items:center; gap:8px; min-width:130px; }
@@ -1680,9 +1684,17 @@
             <button class="btn-import" onclick="document.getElementById('importFileInput').click()">📂 Import Players (Reclub)</button>
         </div>
 
-        <button class="btn-export" onclick="openReport()">📊 View & Export Results</button>
-        <button class="btn-export" onclick="window.location.hash='#history'" style="margin-top:6px;opacity:0.82;">📚 Session History</button>
-        <button class="btn-end-op" onclick="openEndOP()">🏆 View Leaderboard</button>
+        <!-- History / Results / Leaderboard popup -->
+        <div style="position:relative;margin-top:15px;" id="hrlWrapper">
+            <button class="btn-export" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="toggleHRLMenu()">
+                📋 History, Results &amp; Leaderboard <span id="hrlChevron" style="font-size:10px;transition:transform 0.2s;">▼</span>
+            </button>
+            <div id="hrlMenu" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--card);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:6px;z-index:9999;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+                <button onclick="openReport();closeHRLMenu()" style="width:100%;background:none;border:none;color:var(--text-main);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='none'">📊 View &amp; Export Results</button>
+                <button onclick="window.location.hash='#history';closeHRLMenu()" style="width:100%;background:none;border:none;color:var(--text-main);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='none'">📚 Session History</button>
+                <button onclick="openEndOP();closeHRLMenu()" style="width:100%;background:none;border:none;color:var(--text-main);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='none'">🏆 View Leaderboard</button>
+            </div>
+        </div>
         <button class="btn-end-op" onclick="endAndReset()" style="background:linear-gradient(135deg,#b71c1c,#c62828);margin-top:6px;">🏁 End OP</button>
         <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
     </div>
@@ -1990,10 +2002,21 @@
     }
 
     function togglePlayerIn(idx) {
-        if (state.queue[idx]) {
-            state.queue[idx].in = !state.queue[idx].in;
-            sync();
+        const p = state.queue[idx];
+        if (!p) return;
+        const wasIn = !!p.in;
+        p.in = !wasIn;
+        // Physically reorder: IN players first, OUT players at end
+        state.queue.splice(idx, 1);
+        if (!wasIn) {
+            // Was OUT → now IN: insert just before the first OUT player
+            const firstOut = state.queue.findIndex(q => !q.in);
+            state.queue.splice(firstOut === -1 ? state.queue.length : firstOut, 0, p);
+        } else {
+            // Was IN → now OUT: push to end
+            state.queue.push(p);
         }
+        sync();
     }
 
     function bulkTag(inStatus) {
@@ -2230,6 +2253,32 @@
     function csvEscape(val) {
         const s = String(val === undefined || val === null ? '' : val);
         return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+
+    function toggleHRLMenu() {
+        const menu = document.getElementById('hrlMenu');
+        const chevron = document.getElementById('hrlChevron');
+        const open = menu.style.display === 'none';
+        menu.style.display = open ? 'block' : 'none';
+        chevron.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+        if (open) {
+            // Close when clicking outside
+            setTimeout(() => {
+                document.addEventListener('click', function _hrlClose(e) {
+                    if (!document.getElementById('hrlWrapper').contains(e.target)) {
+                        closeHRLMenu();
+                        document.removeEventListener('click', _hrlClose);
+                    }
+                });
+            }, 0);
+        }
+    }
+
+    function closeHRLMenu() {
+        const menu = document.getElementById('hrlMenu');
+        const chevron = document.getElementById('hrlChevron');
+        if (menu) menu.style.display = 'none';
+        if (chevron) chevron.style.transform = 'rotate(0deg)';
     }
 
     function openReport() {
@@ -4696,6 +4745,12 @@
             state.queue = fbData.queue
                 ? (Array.isArray(fbData.queue) ? fbData.queue : Object.values(fbData.queue))
                 : [];
+            // Keep IN players first, OUT players at the end (stable sort preserves relative order)
+            state.queue.sort((a, b) => {
+                const aIn = a && (a.in === true || a.in === 'true') ? 0 : 1;
+                const bIn = b && (b.in === true || b.in === 'true') ? 0 : 1;
+                return aIn - bIn;
+            });
             if (!Array.isArray(state.courts)) state.courts = Object.values(state.courts || {});
             state.courts = state.courts.map(c => {
                 if (!c) return c;
