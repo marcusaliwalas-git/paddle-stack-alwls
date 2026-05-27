@@ -2758,7 +2758,7 @@
                     </div>
                     <div style="display:flex;gap:4px;align-items:center;">
                         <button onclick="openCourtEdit(${i})" style="background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;" title="Edit players">✎</button>
-                        <button onclick="if(confirm('Delete?')){state.courts.splice(${i},1); sync();}" style="background:none; color:var(--warning); font-size:1.2rem;">✕</button>
+                        <button onclick="if(confirm('Close this court? Players will be returned to the queue.')){const _c=state.courts[${i}]; if(_c){_c.players.forEach(p=>{if(p){p.in=p.in!==undefined?p.in:true; state.queue.push(p);}}); state.courts.splice(${i},1);} sync();}" style="background:none; color:var(--warning); font-size:1.2rem;" title="Close court & return players to queue">✕</button>
                     </div>
                 </div>
                 ${teamAHtml}
@@ -4530,6 +4530,8 @@
         state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true };
         clearSessionUI(); // wipe report table + session name input
         sync();
+        // Show setup popup so organizer can name the session and pick a mode
+        setTimeout(() => showMatchingModal(), 150);
     }
 </script>
 <!-- Firebase Realtime DB + Auth + QR + Live View -->
