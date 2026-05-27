@@ -388,23 +388,26 @@
             .live-layout { grid-template-columns: 140px 1fr 140px; }
         }
         @media (max-width: 820px) {
-            .live-layout { grid-template-columns: 1fr; }
+            .live-layout { grid-template-columns: 1fr !important; }
             .live-sponsor-sidebar {
-                flex-direction: row;
-                overflow-x: auto;
-                overflow-y: hidden;
-                padding: 8px 12px;
-                position: static;
-                max-height: none;
+                position: relative !important;
+                align-self: auto !important;
+                top: auto !important;
+                flex-direction: row !important;
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                padding: 8px 12px !important;
+                max-height: none !important;
+                height: auto !important;
                 gap: 10px;
                 -webkit-overflow-scrolling: touch;
                 scrollbar-width: none;
             }
-            .live-sponsor-sidebar:empty { display: none; padding: 0; }
+            .live-sponsor-sidebar:empty { display: none !important; padding: 0 !important; }
             .live-sponsor-sidebar .sponsor-banner-slot {
-                flex-shrink: 0;
-                width: 120px;
-                min-width: 120px;
+                flex-shrink: 0 !important;
+                width: 120px !important;
+                min-width: 120px !important;
             }
         }
 
@@ -5416,20 +5419,14 @@
         }
 
         function _renderFrame(startIdx) {
-            // Left sidebar gets sponsors at even virtual indices, right gets odd
+            // Distribute sponsors across left and right — each shown exactly once.
+            // Even indices → left sidebar, odd indices → right sidebar.
             const visible = [];
             for (let i = 0; i < all.length; i++) {
                 visible.push(all[(startIdx + i) % all.length]);
             }
             const leftSponsors  = visible.filter((_, i) => i % 2 === 0).slice(0, SLOTS);
             const rightSponsors = visible.filter((_, i) => i % 2 !== 0).slice(0, SLOTS);
-
-            // If only 1 sponsor, show it on both sides
-            if (all.length === 1) {
-                leftEl.innerHTML  = _slotHTML(all[0]);
-                rightEl.innerHTML = _slotHTML(all[0]);
-                return;
-            }
 
             leftEl.innerHTML  = leftSponsors.map(_slotHTML).join('');
             rightEl.innerHTML = rightSponsors.map(_slotHTML).join('');
