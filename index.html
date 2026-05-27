@@ -389,7 +389,23 @@
         }
         @media (max-width: 820px) {
             .live-layout { grid-template-columns: 1fr; }
-            .live-sponsor-sidebar { display: none !important; }
+            .live-sponsor-sidebar {
+                flex-direction: row;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding: 8px 12px;
+                position: static;
+                max-height: none;
+                gap: 10px;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+            }
+            .live-sponsor-sidebar:empty { display: none; padding: 0; }
+            .live-sponsor-sidebar .sponsor-banner-slot {
+                flex-shrink: 0;
+                width: 120px;
+                min-width: 120px;
+            }
         }
 
         /* ── Sponsor sidebars ── */
@@ -480,7 +496,9 @@
         @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         .live-body { padding: 16px; max-width: 900px; margin: 0 auto; }
         .live-section-title { font-size: 13px; font-weight: bold; color: #ff6d00; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 10px; }
-        .live-courts { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+        .live-courts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        @media (max-width: 820px) { .live-courts { grid-template-columns: 1fr; } }
+        @media (min-width: 821px) and (max-width: 1100px) { .live-courts { grid-template-columns: repeat(2, 1fr); } }
         .live-court-card { background: #0f3460; border-radius: 12px; padding: 14px; border: 2px solid transparent; }
         .live-court-card.ot { border-color: #ff6d00; animation: pulse 2s infinite; }
         .live-court-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
