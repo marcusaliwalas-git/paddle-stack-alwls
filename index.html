@@ -375,6 +375,103 @@
         /* Live View Page */
         #liveView { display: none; min-height: 100vh; width: 100%; background: #1a1a2e; color: #eee; }
         #liveView.active { display: block; }
+
+        /* ── Spectator view 3-column layout ── */
+        .live-layout {
+            display: grid;
+            grid-template-columns: 180px 1fr 180px;
+            min-height: calc(100vh - 60px);
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        @media (max-width: 1100px) {
+            .live-layout { grid-template-columns: 140px 1fr 140px; }
+        }
+        @media (max-width: 820px) {
+            .live-layout { grid-template-columns: 1fr; }
+            .live-sponsor-sidebar { display: none !important; }
+        }
+
+        /* ── Sponsor sidebars ── */
+        .live-sponsor-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            padding: 16px 10px;
+            position: sticky;
+            top: 60px;
+            align-self: start;
+            max-height: calc(100vh - 76px);
+            overflow: hidden;
+        }
+        .sponsor-banner-slot {
+            background: #0f3460;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(255,109,0,0.15);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        .sponsor-banner-slot:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+        .sponsor-banner-slot img {
+            width: 100%;
+            display: block;
+            object-fit: contain;
+            background: #fff;
+            min-height: 80px;
+        }
+        .sponsor-banner-slot .sponsor-label {
+            font-size: 9px;
+            color: rgba(255,255,255,0.35);
+            text-align: center;
+            padding: 4px 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        /* cycling fade animation */
+        @keyframes sponsorFadeIn { from { opacity:0; transform:scale(0.97); } to { opacity:1; transform:scale(1); } }
+        .sponsor-banner-slot.animate-in { animation: sponsorFadeIn 0.5s ease; }
+
+        /* ── Admin sponsor modal ── */
+        .sponsor-mgr-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75); z-index: 800;
+            align-items: center; justify-content: center;
+        }
+        .sponsor-mgr-overlay.open { display: flex; }
+        .sponsor-mgr-modal {
+            background: #1e2a3a; border-radius: 16px;
+            padding: 24px; width: 92%; max-width: 500px;
+            max-height: 88vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,109,0,0.2);
+        }
+        .sponsor-mgr-modal h3 { margin: 0 0 4px; color: white; font-size: 1rem; }
+        .sponsor-mgr-sub { font-size: 12px; color: #78909c; margin-bottom: 16px; }
+        .sponsor-add-row { display: flex; gap: 8px; flex-direction: column; margin-bottom: 16px; }
+        .sponsor-add-row input {
+            padding: 9px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.07); color: #eceff1; font-size: 13px; width: 100%; box-sizing: border-box;
+        }
+        .sponsor-add-row input::placeholder { color: #546e7a; }
+        .sponsor-add-btn {
+            padding: 9px 16px; background: #ff6d00; color: white; border: none;
+            border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; width: 100%;
+        }
+        .sponsor-add-btn:hover { background: #e65100; }
+        .sponsor-item {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(255,255,255,0.05); border-radius: 8px;
+            padding: 10px 12px; margin-bottom: 8px;
+        }
+        .sponsor-item img { width: 60px; height: 40px; object-fit: contain; background: #fff; border-radius: 4px; flex-shrink: 0; }
+        .sponsor-item-info { flex: 1; min-width: 0; }
+        .sponsor-item-name { font-size: 13px; color: #eceff1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sponsor-item-url  { font-size: 10px; color: #546e7a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sponsor-del-btn { background: rgba(183,28,28,0.7); border: none; color: white; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 12px; flex-shrink: 0; }
+        .sponsor-del-btn:hover { background: #b71c1c; }
+        .sponsor-mgr-close { width: 100%; margin-top: 14px; padding: 10px; background: rgba(255,255,255,0.08); border: none; color: #ccc; border-radius: 8px; cursor: pointer; font-size: 13px; }
         #mainApp { width: 100%; }
         .live-header { background: #16213e; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #ff6d00; position: sticky; top: 0; z-index: 50; }
         .live-header h1 { margin: 0; font-size: 1.1rem; color: white; }
@@ -1550,21 +1647,31 @@
         <img src="" data-dink="badge" alt="Dink and Gout Pickleball Club" style="height:36px;width:auto;object-fit:contain;border-radius:3px;">
         <span class="live-badge">● LIVE</span>
     </div>
-    <div class="live-body">
-        <div class="live-section-title">🏓 Courts</div>
-        <div class="live-courts" id="liveCourts"></div>
-        <div class="live-section-title">⏳ Queue / Next Up</div>
-        <div class="live-queue" id="liveQueue"></div>
-        <div class="live-section-title" id="liveCheckinTitle" style="display:none">✋ Not Playing Yet — Tap to Check In</div>
-        <div id="liveCheckin" class="live-checkin-list"></div>
-        <div class="live-section-title">🏆 Rankings</div>
-        <div class="live-ranking-tabs">
-            <button class="live-rank-tab active" id="lrt-wins" onclick="switchLiveRank('wins')">🏆 Wins</button>
-            <button class="live-rank-tab" id="lrt-winpct" onclick="switchLiveRank('winpct')">📊 Win %</button>
-            <button class="live-rank-tab" id="lrt-points" onclick="switchLiveRank('points')">🎯 Points</button>
+    <!-- 3-column grid: left sponsor sidebar | main content | right sponsor sidebar -->
+    <div class="live-layout">
+        <!-- Left sponsor sidebar -->
+        <div class="live-sponsor-sidebar" id="liveSponsorLeft"></div>
+
+        <!-- Main live content -->
+        <div class="live-body">
+            <div class="live-section-title">🏓 Courts</div>
+            <div class="live-courts" id="liveCourts"></div>
+            <div class="live-section-title">⏳ Queue / Next Up</div>
+            <div class="live-queue" id="liveQueue"></div>
+            <div class="live-section-title" id="liveCheckinTitle" style="display:none">✋ Not Playing Yet — Tap to Check In</div>
+            <div id="liveCheckin" class="live-checkin-list"></div>
+            <div class="live-section-title">🏆 Rankings</div>
+            <div class="live-ranking-tabs">
+                <button class="live-rank-tab active" id="lrt-wins" onclick="switchLiveRank('wins')">🏆 Wins</button>
+                <button class="live-rank-tab" id="lrt-winpct" onclick="switchLiveRank('winpct')">📊 Win %</button>
+                <button class="live-rank-tab" id="lrt-points" onclick="switchLiveRank('points')">🎯 Points</button>
+            </div>
+            <div id="liveRankings"></div>
+            <div class="live-last-updated" id="liveUpdated"></div>
         </div>
-        <div id="liveRankings"></div>
-        <div class="live-last-updated" id="liveUpdated"></div>
+
+        <!-- Right sponsor sidebar -->
+        <div class="live-sponsor-sidebar" id="liveSponsorRight"></div>
     </div>
 </div>
 
@@ -1650,6 +1757,7 @@
         <button class="theme-toggle" onclick="showQR()">📱 QR Live</button>
         <button class="btn-manage-access" id="manageAccessBtn" onclick="openAllowlist()" title="Manage who can sign in" style="display:none">🔒 Access</button>
         <button class="btn-manage-access" id="manageClubsBtn" onclick="openClubsManager()" title="Manage partner club logos in footer" style="display:none">🏢 Clubs</button>
+        <button class="btn-manage-access" id="manageSponsorsBtn" onclick="openSponsorsManager()" title="Manage sponsor banners in spectator view" style="display:none">🎯 Sponsors</button>
         <button class="theme-toggle" onclick="openThemePicker()">🎨 Theme</button>
     </div>
 </header>
@@ -1889,6 +1997,28 @@
     </div>
 </div>
 </div><!-- /mainApp -->
+
+<!-- ── Sponsor Manager Modal (admin only) ─────────────────────────────── -->
+<div class="sponsor-mgr-overlay" id="sponsorMgrOverlay" onclick="if(event.target===this)closeSponsorsManager()">
+    <div class="sponsor-mgr-modal">
+        <h3>🎯 Sponsor Banners</h3>
+        <div class="sponsor-mgr-sub">Banners appear in the left &amp; right sidebars of the spectator view. Add image URLs (or paste a direct link). Supports JPEG, PNG, WebP.</div>
+
+        <!-- Add new sponsor form -->
+        <div class="sponsor-add-row">
+            <input type="text" id="sponNameInput" placeholder="Sponsor name (e.g. SportsCo)">
+            <input type="text" id="sponUrlInput"  placeholder="Image URL (direct link to sponsor logo/banner)" oninput="previewSponsorImg(this.value)">
+            <input type="text" id="sponLinkInput" placeholder="Click-through URL (optional, e.g. https://sponsor.com)">
+            <img id="sponPreviewThumb" src="" alt="preview" style="display:none;max-height:80px;object-fit:contain;border-radius:6px;background:#fff;padding:4px;">
+            <button class="sponsor-add-btn" onclick="addSponsor()">➕ Add Sponsor</button>
+        </div>
+
+        <!-- Existing sponsors list -->
+        <div id="sponList"></div>
+
+        <button class="sponsor-mgr-close" onclick="closeSponsorsManager()">Done</button>
+    </div>
+</div>
 
 <!-- ── Partner Clubs Footer (visible to all, global) ─────────────────── -->
 <div class="clubs-footer" id="clubsFooter">
@@ -4938,6 +5068,8 @@
                 if (btn) btn.style.display = isOwner ? '' : 'none';
                 const clBtn = document.getElementById('manageClubsBtn');
                 if (clBtn) clBtn.style.display = isOwner ? '' : 'none';
+                const spBtn = document.getElementById('manageSponsorsBtn');
+                if (spBtn) spBtn.style.display = isOwner ? '' : 'none';
 
                 // Route to the correct page based on the current hash.
                 // Handles the case where the user refreshes directly on #history.
@@ -5201,6 +5333,173 @@
         try {
             await remove(ref(db, 'clubLogos/' + key));
             showToast('Club removed from footer.');
+        } catch(e) { showToast('Error: ' + e.message, true); }
+    };
+
+    // ══════════════════════════════════════════════════════════════════════
+    // ── Sponsor Banners (spectator sidebar) ───────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+
+    function _spEsc(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // Global sponsor list (populated by Firebase listener)
+    window._sponsors = [];
+
+    // Cycling interval handle
+    let _sponsorCycleTimer = null;
+    let _sponsorCycleIdx   = 0;
+
+    // Real-time listener — all viewers get sponsor updates instantly
+    onValue(ref(db, 'sponsorBanners'), (snap) => {
+        const data = snap.val() || {};
+        window._sponsors = Object.entries(data)
+            .map(([k, v]) => ({ ...v, key: k }))
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+        _renderSponsorSidebars();
+        _refreshSponsorList(); // no-op if modal closed
+    });
+
+    /* Renders up to 3 banners per sidebar.
+       If more than 6 total, cycles through them every 8 s. */
+    function _renderSponsorSidebars() {
+        const leftEl  = document.getElementById('liveSponsorLeft');
+        const rightEl = document.getElementById('liveSponsorRight');
+        if (!leftEl || !rightEl) return;
+
+        const all = window._sponsors || [];
+
+        // Stop any existing cycle
+        if (_sponsorCycleTimer) { clearInterval(_sponsorCycleTimer); _sponsorCycleTimer = null; }
+
+        if (all.length === 0) {
+            leftEl.innerHTML  = '';
+            rightEl.innerHTML = '';
+            return;
+        }
+
+        const SLOTS = 3; // banners shown per sidebar at once (3 left + 3 right = 6)
+
+        function _slotHTML(sponsor) {
+            if (!sponsor) return '';
+            const link    = sponsor.clickUrl ? `href="${_spEsc(sponsor.clickUrl)}" target="_blank" rel="noopener"` : '';
+            const wrapper = sponsor.clickUrl ? `a ${link}` : 'div';
+            const wClose  = sponsor.clickUrl ? 'a' : 'div';
+            return `<div class="sponsor-banner-slot animate-in">
+                <${wrapper} style="display:block;text-decoration:none;">
+                    <img src="${_spEsc(sponsor.imageUrl)}"
+                         alt="${_spEsc(sponsor.name || 'Sponsor')}"
+                         loading="lazy"
+                         onerror="this.closest('.sponsor-banner-slot').style.display='none'">
+                    ${sponsor.name ? `<div class="sponsor-label">${_spEsc(sponsor.name)}</div>` : ''}
+                </${wClose}>
+            </div>`;
+        }
+
+        function _renderFrame(startIdx) {
+            // Left sidebar gets sponsors at even virtual indices, right gets odd
+            const visible = [];
+            for (let i = 0; i < all.length; i++) {
+                visible.push(all[(startIdx + i) % all.length]);
+            }
+            const leftSponsors  = visible.filter((_, i) => i % 2 === 0).slice(0, SLOTS);
+            const rightSponsors = visible.filter((_, i) => i % 2 !== 0).slice(0, SLOTS);
+
+            // If only 1 sponsor, show it on both sides
+            if (all.length === 1) {
+                leftEl.innerHTML  = _slotHTML(all[0]);
+                rightEl.innerHTML = _slotHTML(all[0]);
+                return;
+            }
+
+            leftEl.innerHTML  = leftSponsors.map(_slotHTML).join('');
+            rightEl.innerHTML = rightSponsors.map(_slotHTML).join('');
+        }
+
+        _renderFrame(0);
+
+        // Start cycling if there are more sponsors than visible slots
+        if (all.length > SLOTS * 2) {
+            let offset = 0;
+            _sponsorCycleTimer = setInterval(() => {
+                offset = (offset + 1) % all.length;
+                _renderFrame(offset);
+            }, 8000);
+        }
+    }
+
+    function _refreshSponsorList() {
+        const listEl = document.getElementById('sponList');
+        if (!listEl || !document.getElementById('sponsorMgrOverlay').classList.contains('open')) return;
+        const sponsors = window._sponsors || [];
+        if (sponsors.length === 0) {
+            listEl.innerHTML = '<div style="color:#546e7a;font-size:13px;text-align:center;padding:20px 0;">No sponsors yet. Add one above.</div>';
+            return;
+        }
+        listEl.innerHTML = sponsors.map(s => `
+            <div class="sponsor-item">
+                <img src="${_spEsc(s.imageUrl)}" alt="${_spEsc(s.name)}" onerror="this.style.opacity='0.15'">
+                <div class="sponsor-item-info">
+                    <div class="sponsor-item-name">${_spEsc(s.name || '(unnamed)')}</div>
+                    <div class="sponsor-item-url">${_spEsc(s.imageUrl)}</div>
+                    ${s.clickUrl ? `<div class="sponsor-item-url" style="color:#64b5f6;">🔗 ${_spEsc(s.clickUrl)}</div>` : ''}
+                </div>
+                <button class="sponsor-del-btn" onclick="removeSponsor('${_spEsc(s.key)}')">✕ Remove</button>
+            </div>`).join('');
+    }
+
+    window.openSponsorsManager = function() {
+        document.getElementById('sponsorMgrOverlay').classList.add('open');
+        _refreshSponsorList();
+    };
+
+    window.closeSponsorsManager = function() {
+        document.getElementById('sponsorMgrOverlay').classList.remove('open');
+        ['sponNameInput','sponUrlInput','sponLinkInput'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        const pt = document.getElementById('sponPreviewThumb');
+        if (pt) { pt.src = ''; pt.style.display = 'none'; }
+    };
+
+    window.previewSponsorImg = function(url) {
+        const pt = document.getElementById('sponPreviewThumb');
+        if (!pt) return;
+        const trimmed = (url || '').trim();
+        if (trimmed) { pt.src = trimmed; pt.style.display = ''; }
+        else         { pt.src = ''; pt.style.display = 'none'; }
+    };
+
+    window.addSponsor = async function() {
+        const name     = (document.getElementById('sponNameInput').value  || '').trim();
+        const imageUrl = (document.getElementById('sponUrlInput').value   || '').trim();
+        const clickUrl = (document.getElementById('sponLinkInput').value  || '').trim();
+        if (!imageUrl) { showToast('Please enter a banner image URL.', true); return; }
+        const key = 'sp_' + Date.now();
+        try {
+            await set(ref(db, 'sponsorBanners/' + key), {
+                name,
+                imageUrl,
+                clickUrl: clickUrl || null,
+                order: Date.now()
+            });
+            ['sponNameInput','sponUrlInput','sponLinkInput'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            const pt = document.getElementById('sponPreviewThumb');
+            if (pt) { pt.src = ''; pt.style.display = 'none'; }
+            showToast('✅ Sponsor added to spectator view!');
+        } catch(e) { showToast('Error: ' + e.message, true); }
+    };
+
+    window.removeSponsor = async function(key) {
+        if (!confirm('Remove this sponsor banner?')) return;
+        try {
+            await remove(ref(db, 'sponsorBanners/' + key));
+            showToast('Sponsor removed.');
         } catch(e) { showToast('Error: ' + e.message, true); }
     };
 
