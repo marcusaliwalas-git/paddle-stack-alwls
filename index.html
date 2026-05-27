@@ -1664,7 +1664,8 @@
             </div>
             <button class="change-mode-btn" onclick="showMatchingModal()">Change</button>
         </div>
-        <button class="btn-call" onclick="callNextUp()">📢 Call Next Up</button>
+        <button id="btnStartSession" class="btn-export" style="width:100%;margin-bottom:8px;" onclick="showMatchingModal()">🏓 Start New Session</button>
+        <button id="btnCallNextUp" class="btn-call" onclick="callNextUp()" disabled>📢 Call Next Up</button>
 
         <!-- Active/Total + bulk tag -->
         <div class="player-count-bar">
@@ -1685,9 +1686,9 @@
             <h3>Add Players Manually</h3>
             <input type="text" id="nameInput" placeholder="Add Name">
             <textarea id="bulkInput" rows="2" placeholder="Bulk (One per line)"></textarea>
-            <button class="btn-add" onclick="addPlayers()">Add to Rack</button>
+            <button id="btnAddToRack" class="btn-add" onclick="addPlayers()" disabled>Add to Rack</button>
             <input type="file" id="importFileInput" accept=".txt" onchange="importFromTxt(event)">
-            <button class="btn-import" onclick="document.getElementById('importFileInput').click()">📂 Import Players (Reclub)</button>
+            <button id="btnImportPlayers" class="btn-import" onclick="document.getElementById('importFileInput').click()" disabled>📂 Import Players (Reclub)</button>
         </div>
 
         <!-- History / Results / Leaderboard popup -->
@@ -1872,12 +1873,6 @@
     </div>
 </div>
 
-<div class="powered-by">
-    <a href="https://www.facebook.com/profile.php?id=61563202928984" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:7px;text-decoration:none;">
-        <span>Powered by</span>
-        <img src="" data-dink="badge" alt="Dink and Gout Pickleball Club">
-    </a>
-</div>
 
 <!-- Allowlist Modal -->
 <div class="allowlist-overlay" id="allowlistOverlay" onclick="if(event.target===this)closeAllowlist()">
@@ -1903,7 +1898,7 @@
             <span class="clubs-footer-label">Partner Clubs</span>
             <div class="clubs-logos-row" id="clubsLogosRow"></div>
         </div>
-        <!-- .powered-by will be moved here by JS (margin-left:auto pushes it right) -->
+
     </div>
 </div>
 
@@ -2582,6 +2577,16 @@
         // Sync track-scores toggle
         const tsToggle = document.getElementById('trackScoresToggle');
         if (tsToggle) tsToggle.checked = state.trackScores !== false;
+
+        // Enable/disable session-gated buttons
+        const sessionStarted = !!state.matchingMode;
+        const _btnIds = ['btnCallNextUp', 'btnAddToRack', 'btnImportPlayers'];
+        _btnIds.forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !sessionStarted; });
+        const btnStart = document.getElementById('btnStartSession');
+        if (btnStart) {
+            btnStart.disabled = sessionStarted;
+            btnStart.style.opacity = sessionStarted ? '0.45' : '1';
+        }
 
         // Mode bar
         const modeBarEl = document.getElementById('matchingModeBar');
@@ -5105,12 +5110,7 @@
         _refreshClubsList(); // no-op if modal is closed
     });
 
-    // One-time: move .powered-by into the clubs footer so it always appears there
-    (function movePoweredByToFooter() {
-        const pb       = document.querySelector('.powered-by');
-        const inner    = document.querySelector('#clubsFooter .clubs-footer-inner');
-        if (pb && inner) inner.appendChild(pb); // CSS overrides handle styling
-    })();
+
 
     // Always add bottom padding so content doesn't hide behind the footer
     const _mainApp = document.getElementById('mainApp');
@@ -5227,6 +5227,13 @@
 
         if (isHistory && auth.currentUser) {
             if (typeof window.loadHistoryPage === 'function') window.loadHistoryPage();
+        }
+
+        // When returning to main app (from history or initial load), show setup popup if no session running
+        if (!isLive && !isHistory && auth.currentUser) {
+            if (!state.matchingMode) {
+                setTimeout(() => { if (typeof showMatchingModal === 'function') showMatchingModal(); }, 200);
+            }
         }
 
         if (isLive) {
