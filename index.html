@@ -2334,35 +2334,66 @@
 
     function addPlayers() {
         const single = document.getElementById('nameInput').value.trim();
-        const bulk = document.getElementById('bulkInput').value.trim();
-        const process = (name) => { 
-            if(name) {
-                state.queue.push({ name, in: false });
-                if (!state.stats[name]) state.stats[name] = { wins: 0, games: 0 };
-            }
+        const bulk   = document.getElementById('bulkInput').value.trim();
+
+        // Build a live set of all names already in roster (queue + courts), case-insensitive
+        const existing = new Set([
+            ...state.queue.map(p => p.name.toLowerCase()),
+            ...state.courts.flatMap(c => c.players.filter(Boolean).map(p => p.name.toLowerCase()))
+        ]);
+
+        let addedCount = 0;
+        const skipped  = [];
+
+        const process = (name) => {
+            if (!name) return;
+            if (existing.has(name.toLowerCase())) { skipped.push(name); return; }
+            existing.add(name.toLowerCase()); // prevent dupes within the same batch
+            state.queue.push({ name, in: false });
+            if (!state.stats[name]) state.stats[name] = { wins: 0, games: 0 };
+            addedCount++;
         };
+
         if (single) process(single);
         if (bulk) bulk.split('\n').forEach(n => process(n.trim()));
+
         document.getElementById('nameInput').value = '';
         document.getElementById('bulkInput').value = '';
-        sync();
-        promptMatchingModeIfNeeded();
+
+        if (addedCount > 0) { sync(); promptMatchingModeIfNeeded(); }
+
+        if (skipped.length > 0) {
+            const preview = skipped.slice(0, 3).join(', ') + (skipped.length > 3 ? '\u2026' : '');
+            showToast('\u26a0\ufe0f ' + skipped.length + ' duplicate' + (skipped.length > 1 ? 's' : '') + ' skipped: ' + preview, true);
+        }
+        if (addedCount > 0 && skipped.length === 0) {
+            showToast('\u2705 Added ' + addedCount + ' player' + (addedCount > 1 ? 's' : ''));
+        }
     }
 
     function rotateCourt(idx, winningTeam, scoreA, scoreB) {
         const c = state.courts[idx];
 
-        // Empty court — start it
+        // Empty court — start only THIS court (not all courts)
         if (c.players.every(p => p === null)) {
             if (state.queue.filter(p => p.in).length < 4) { alert('Need at least 4 players tagged IN to start a court!'); return; }
             if (!state.matchingMode) { showMatchingModal(); return; }
             if (state.matchingMode === 'snake') {
-                // Prompt if any IN player is missing a rating
                 const inPlayers = state.queue.filter(p => p.in);
                 const missingRatings = inPlayers.some(p => (state.playerRatings || {})[p.name] === undefined);
                 if (missingRatings) { openRatingInput(); return; }
             }
-            fillAllCourts();
+            if (!state.sessionName || !state.sessionName.trim()) {
+                showToast('⚠️ Please enter a Session / OP Name before filling courts.', true);
+                const snInput = document.getElementById('sessionNameInput');
+                if (snInput) { snInput.focus(); snInput.style.outline = '2px solid var(--warning)'; setTimeout(() => snInput.style.outline = '', 2000); }
+                return;
+            }
+            // Fill only this one court
+            if (state.matchingMode === 'roundrobin') fillRoundRobin([c]);
+            else if (state.matchingMode === 'snake')  fillSnakeDraft([c]);
+            else                                       fillLarongKalye([c]);
+            sync();
             return;
         }
 
@@ -2502,6 +2533,8 @@
             const safeName    = p.name.replace(/`/g, '\\`');
             return `<div class="paddle ${isIn ? 'is-in' : 'is-out'}" id="paddle-${i}"
                 ${isIn ? `draggable="true" ondragstart="dragStart(event,'rack',${i})"` : 'draggable="false"'}
+                ondblclick="event.stopPropagation();togglePlayerIn(${i})"
+                title="Double-click to toggle In / Out"
                 ondragover="queueReorderOver(event,${i})"
                 ondrop="queueReorderDrop(event,${i})"
                 ondragleave="queueReorderLeave(event)"
@@ -2860,7 +2893,13 @@
             }
 
             const lines = participantsMatch[1].split('\n');
-            let added = 0, skipped = 0;
+            let added = 0, dupes = 0, invalid = 0;
+
+            // Existing names — queue + courts, case-insensitive
+            const existing = new Set([
+                ...state.queue.map(p => p.name.toLowerCase()),
+                ...state.courts.flatMap(c => c.players.filter(Boolean).map(p => p.name.toLowerCase()))
+            ]);
 
             lines.forEach(line => {
                 // Match lines like "1. Name" or " 1. Name"
@@ -2868,22 +2907,27 @@
                 if (match) {
                     const name = match[1].trim();
                     if (name) {
+                        if (existing.has(name.toLowerCase())) { dupes++; return; }
+                        existing.add(name.toLowerCase());
                         state.queue.push({ name, in: false });
                         if (!state.stats[name]) state.stats[name] = { wins: 0, games: 0 };
                         added++;
                     }
                 } else if (line.trim()) {
-                    skipped++;
+                    invalid++;
                 }
             });
 
             event.target.value = '';
             if (added > 0) {
                 sync();
-                showToast(`✅ Imported ${added} player${added > 1 ? 's' : ''} from "${file.name}"`);
+                const dupMsg = dupes > 0 ? ' (' + dupes + ' duplicate' + (dupes > 1 ? 's' : '') + ' skipped)' : '';
+                showToast('\u2705 Imported ' + added + ' player' + (added > 1 ? 's' : '') + ' from "' + file.name + '"' + dupMsg);
                 promptMatchingModeIfNeeded();
+            } else if (dupes > 0) {
+                showToast('\u26a0\ufe0f All ' + dupes + ' already in roster \u2014 nothing added.', true);
             } else {
-                showToast('❌ No valid player names found.', true);
+                showToast('\u274c No valid player names found.', true);
             }
         };
         reader.readAsText(file);
@@ -2964,17 +3008,58 @@
     function openQueueEdit(queueIdx) {
         editContext = { type: 'queue', idx: queueIdx };
         const p = state.queue[queueIdx];
-        document.getElementById('editModalTitle').textContent = 'Queue #' + (queueIdx + 1) + ' — ' + p.name;
+        document.getElementById('editModalTitle').textContent = 'Edit Player — ' + p.name;
         document.getElementById('editModalBody').innerHTML = `
-            <p style="font-size:12px;color:#78909c;margin:0 0 12px">Remove this player from the queue.</p>
-            <div style="background:rgba(255,255,255,0.05);border-radius:10px;padding:14px;text-align:center;">
-                <div style="font-size:16px;font-weight:bold;color:white;margin-bottom:4px;">${p.name}</div>
-                <div style="font-size:12px;color:#78909c;">Position #${queueIdx + 1} in queue</div>
-            </div>
-            <button class="remove-btn" style="width:100%;margin-top:12px;padding:10px;border-radius:8px;font-size:13px;" onclick="removeFromQueue(${queueIdx});closeEditModal()">
-                Remove from Queue
+            <p style="font-size:12px;color:#78909c;margin:0 0 10px">Rename this player. Must be unique across queue and courts.</p>
+            <input id="renameInput" type="text" value="${p.name.replace(/"/g,'&quot;')}"
+                style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);
+                       background:rgba(255,255,255,0.07);color:white;font-size:14px;box-sizing:border-box;margin-bottom:4px;"
+                placeholder="Player name"
+                onkeydown="if(event.key==='Enter')saveQueueRename(${queueIdx})">
+            <div id="renameError" style="font-size:11px;color:#ef5350;min-height:16px;margin-bottom:8px;"></div>
+            <button onclick="saveQueueRename(${queueIdx})"
+                style="width:100%;padding:10px;border-radius:8px;font-size:13px;font-weight:bold;
+                       background:linear-gradient(135deg,#ff6d00,#ff8f00);color:white;border:none;cursor:pointer;margin-bottom:8px;">
+                ✅ Save Name
+            </button>
+            <button class="remove-btn" style="width:100%;padding:9px;border-radius:8px;font-size:13px;" onclick="removeFromQueue(${queueIdx});closeEditModal()">
+                🗑 Remove from Queue
             </button>`;
         document.getElementById('editModalOverlay').classList.add('open');
+        setTimeout(() => { const inp = document.getElementById('renameInput'); if (inp) { inp.focus(); inp.select(); } }, 80);
+    }
+
+    function saveQueueRename(queueIdx) {
+        const inp = document.getElementById('renameInput');
+        const errEl = document.getElementById('renameError');
+        if (!inp) return;
+        const newName = inp.value.trim();
+        if (!newName) { errEl.textContent = 'Name cannot be empty.'; return; }
+        const oldName = state.queue[queueIdx].name;
+        if (newName === oldName) { closeEditModal(); return; }
+
+        // Collect all existing names (queue + courts), excluding the player being renamed
+        const existing = new Set([
+            ...state.queue.filter((_, i) => i !== queueIdx).map(p => p.name.toLowerCase()),
+            ...state.courts.flatMap(c => c.players.filter(Boolean).map(p => p.name.toLowerCase()))
+        ]);
+        if (existing.has(newName.toLowerCase())) {
+            errEl.textContent = '\u26a0\ufe0f "' + newName + '" is already in the roster.';
+            inp.focus(); inp.select();
+            return;
+        }
+
+        // Apply rename everywhere in state
+        state.queue[queueIdx].name = newName;
+        if (state.stats[oldName] !== undefined) { state.stats[newName] = state.stats[oldName]; delete state.stats[oldName]; }
+        if ((state.playerRatings || {})[oldName] !== undefined) { state.playerRatings[newName] = state.playerRatings[oldName]; delete state.playerRatings[oldName]; }
+        if (state.gameLog) { state.gameLog.forEach(g => {
+            if (g.teamA) g.teamA = g.teamA.map(n => n === oldName ? newName : n);
+            if (g.teamB) g.teamB = g.teamB.map(n => n === oldName ? newName : n);
+        }); }
+        sync();
+        closeEditModal();
+        showToast('\u2705 Renamed "' + oldName + '" \u2192 "' + newName + '"');
     }
 
     function removeFromQueue(idx) {
