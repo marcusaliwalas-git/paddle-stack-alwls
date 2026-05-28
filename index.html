@@ -3053,20 +3053,22 @@
 
         if (!displaced || displaced.name === incoming.name) return;
 
-        // Build or update the override from the current preview
-        if (previewIdx === 0) {
-            const base = currentPreview
-                ? currentPreview.map(p => p ? p.name : '')
-                : state.queue.filter(p => p.in).slice(0, 4).map(p => p.name);
+        // Build or update the per-court override for this preview index
+        {
+            const base = (_nmo && _nmo[previewIdx])
+                ? _nmo[previewIdx].slice()
+                : (currentPreview ? currentPreview.map(p => p ? p.name : '') : []);
             while (base.length < 4) base.push('');
 
-            // If incoming already appears elsewhere in the override, swap positions
+            // If incoming already appears elsewhere in this court's override, swap positions
             const existingSlot = base.indexOf(incoming.name);
             if (existingSlot !== -1 && existingSlot !== slotIndex) {
                 base[existingSlot] = displaced.name;
             }
             base[slotIndex] = incoming.name;
-            _nmo = base.filter(Boolean);
+
+            if (!_nmo) _nmo = [];
+            _nmo[previewIdx] = base.filter(Boolean);
         }
 
         sync();
@@ -3089,21 +3091,21 @@
         const _dmPlayer = state.queue[data.index];
         if (!_dmPlayer || _dmPlayer.in === false) return;
 
-        // Put this player at slot 0 of the override so it shows immediately in the preview
-        const currentPreview = (window._nmpPreviews && window._nmpPreviews[0]) || [];
-        const base = _nmo
-            ? _nmo.slice()
-            : currentPreview.map(p => p ? p.name : '');
-        while (base.length < 4) {
-            const next = state.queue.find(p => p.in && !base.includes(p.name) && p.name !== _dmPlayer.name);
-            base.push(next ? next.name : '');
+        // Put this player at slot 0 of court 0's override
+        const currentPreview0 = (window._nmpPreviews && window._nmpPreviews[0]) || [];
+        const base0 = (_nmo && _nmo[0])
+            ? _nmo[0].slice()
+            : currentPreview0.map(p => p ? p.name : '');
+        while (base0.length < 4) {
+            const next = state.queue.find(p => p.in && !base0.includes(p.name) && p.name !== _dmPlayer.name);
+            base0.push(next ? next.name : '');
         }
-        // Remove incoming from wherever it sits, insert at front
-        const existingIdx = base.indexOf(_dmPlayer.name);
-        if (existingIdx !== -1) base.splice(existingIdx, 1);
-        else base.splice(3, 1); // drop last slot to keep length 4
-        base.unshift(_dmPlayer.name);
-        _nmo = base.filter(Boolean);
+        const existingIdx0 = base0.indexOf(_dmPlayer.name);
+        if (existingIdx0 !== -1) base0.splice(existingIdx0, 1);
+        else base0.splice(3, 1);
+        base0.unshift(_dmPlayer.name);
+        if (!_nmo) _nmo = [];
+        _nmo[0] = base0.filter(Boolean);
 
         sync();
         showToast(_dmPlayer.name + ' added to next match', false);
@@ -3228,39 +3230,46 @@
 
 
     function openNextMatchEdit() {
-        const inQueued = state.queue.filter(p => p.in !== false).map(p => p.name);
         const allQueued = state.queue.map(p => p.name);
         if (allQueued.length === 0) { showToast('Queue is empty.', true); return; }
         editContext = { type: 'nextmatch' };
-        document.getElementById('editModalTitle').textContent = 'Edit Next Match Players';
-        const teamLabels = ['Team A — Player 1','Team A — Player 2','Team B — Player 1','Team B — Player 2'];
+        document.getElementById('editModalTitle').textContent = 'Edit Next Match';
 
-        // Reflect what's currently shown in the Next Match panel:
-        // use the manual override if set, otherwise fall back to the cached algorithm preview
-        const cachedPreview = (window._nmpPreviews && window._nmpPreviews[0]) || [];
-        const currentNames = _nmo
-            ? _nmo.slice()
-            : cachedPreview.map(p => p ? p.name : '');
-        while (currentNames.length < 4) {
-            const next = inQueued.find(n => !currentNames.includes(n));
-            currentNames.push(next || '');
-        }
+        const previews   = window._nmpPreviews || [];
+        const numCourts  = previews.length;
+        const teamLabels = ['Team A · P1','Team A · P2','Team B · P1','Team B · P2'];
 
-        function buildNextMatchDrop(fieldId, currentName) {
-            let opts = allQueued.map(n =>
+        function buildDrop(fieldId, currentName) {
+            const opts = allQueued.map(n =>
                 `<option value="${n}" ${n === currentName ? 'selected' : ''}>${n}</option>`
             ).join('');
-            return `<select id="${fieldId}" style="flex:1;padding:9px 12px;border-radius:8px;background:#1e2a32;border:1px solid rgba(255,255,255,0.15);color:white;font-size:14px;">${opts}</select>`;
+            return `<select id="${fieldId}" style="flex:1;padding:8px 10px;border-radius:8px;background:#1e2a32;border:1px solid rgba(255,255,255,0.15);color:white;font-size:13px;">${opts}</select>`;
         }
-        document.getElementById('editModalBody').innerHTML =
-            '<p style="font-size:12px;color:#78909c;margin:0 0 12px">Choose who plays in the next match. Drag or edit here to pin specific players.</p>' +
-            [0,1,2,3].map(j => {
-                const cur = currentNames[j] || (allQueued[j] || '');
-                return `<div class="edit-player-row">
-                    <span class="slot-label" style="font-size:10px;width:80px;">${teamLabels[j]}</span>
-                    ${buildNextMatchDrop('nm_' + j, cur)}
-                </div>`;
-            }).join('');
+
+        let body = '<p style="font-size:12px;color:#78909c;margin:0 0 14px">Pin specific players for each court. Saves override the algorithm for the next fill.</p>';
+
+        for (let ci = 0; ci < numCourts; ci++) {
+            const cachedPreview = previews[ci] || [];
+            const overrideNames = (_nmo && _nmo[ci])
+                ? _nmo[ci].slice()
+                : cachedPreview.map(p => p ? p.name : '');
+            while (overrideNames.length < 4) overrideNames.push('');
+
+            const court = state.courts[ci];
+            const courtId = court ? court.id : (ci + 1);
+            const isBusy  = court && court.players.some(p => p !== null);
+            const courtLabel = isBusy ? `⏭ On Deck — Court ${courtId}` : `Court ${courtId}`;
+
+            if (ci > 0) body += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:14px 0">';
+            body += `<div style="font-size:11px;font-weight:700;color:#90caf9;letter-spacing:0.5px;margin-bottom:8px;">${courtLabel}</div>`;
+            body += [0,1,2,3].map(j => `
+                <div class="edit-player-row" style="margin-bottom:6px;">
+                    <span class="slot-label" style="font-size:10px;width:70px;flex-shrink:0;">${teamLabels[j]}</span>
+                    ${buildDrop('nm_' + ci + '_' + j, overrideNames[j] || '')}
+                </div>`).join('');
+        }
+
+        document.getElementById('editModalBody').innerHTML = body;
         document.getElementById('editModalOverlay').classList.add('open');
     }
 
@@ -3362,12 +3371,19 @@
     function saveEdit() {
         if (!editContext) return;
         if (editContext.type === 'nextmatch') {
-            // Store the chosen lineup as a manual override
-            const names = [0,1,2,3].map(j => {
-                const sel = document.getElementById('nm_' + j);
-                return sel ? sel.value : '';
-            }).filter(n => n && state.queue.some(p => p.name === n));
-            _nmo = names.length > 0 ? names : null;
+            // Write per-court overrides for every court shown in the modal
+            const numCourts = (window._nmpPreviews || []).length;
+            const newNmo = [];
+            let anySet = false;
+            for (let ci = 0; ci < numCourts; ci++) {
+                const names = [0,1,2,3].map(j => {
+                    const sel = document.getElementById('nm_' + ci + '_' + j);
+                    return sel ? sel.value : '';
+                }).filter(n => n && state.queue.some(p => p.name === n));
+                newNmo[ci] = names.length > 0 ? names : null;
+                if (names.length > 0) anySet = true;
+            }
+            _nmo = anySet ? newNmo : null;
             sync();
             closeEditModal();
             return;
@@ -4417,9 +4433,9 @@
         const results   = [];
 
         for (let i = 0; i < numCourts; i++) {
-            // For the first court preview, honour any manual override
-            if (i === 0 && _nmo && Array.isArray(_nmo)) {
-                const overridePlayers = _nmo
+            // Honour per-court manual override (_nmo[i])
+            if (_nmo && _nmo[i] && Array.isArray(_nmo[i])) {
+                const overridePlayers = _nmo[i]
                     .map(name => state.queue.find(p => p.name === name && p.in !== false))
                     .filter(Boolean);
                 if (overridePlayers.length > 0) {
@@ -4427,8 +4443,8 @@
                     results.push(overridePlayers);
                     continue;
                 }
-                // Override has stale / opted-out names — discard silently
-                _nmo = null;
+                // Stale — clear this court's override and fall through to algorithm
+                _nmo[i] = null;
             }
 
             const pool = state.queue.filter(p => p.in && !usedNames.has(p.name));
@@ -4712,36 +4728,23 @@
     }
 
     function fillLarongKalye(emptyCourts) {
-        let startIdx = 0;
-        // Apply manual override to the first court if one is set
-        if (_nmo && Array.isArray(_nmo) && emptyCourts.length > 0) {
-            const chosen = _nmo
-                .map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; })
-                .filter(Boolean);
-            _nmo = null;
-            if (chosen.length >= 4) {
-                const fc = emptyCourts[0];
-                fc.players   = chosen.slice(0, 4);
-                fc.startTime = Date.now();
-                fc.alerted   = false;
-                startIdx = 1;
+        const overrides = _nmo ? _nmo.slice() : [];
+        _nmo = null;
+        emptyCourts.forEach((c, courtIdx) => {
+            const ov = overrides[courtIdx];
+            if (ov && Array.isArray(ov) && ov.length >= 4) {
+                const chosen = ov.map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; }).filter(Boolean);
+                if (chosen.length >= 4) {
+                    c.players = chosen.slice(0, 4); c.startTime = Date.now(); c.alerted = false;
+                    return;
+                }
             }
-        }
-        emptyCourts.slice(startIdx).forEach(c => {
             const available = state.queue.filter(p => p.in);
             if (available.length < 4) return;
-
             const chosen = larongKalyePickFour(available);
             if (!chosen) return;
-
-            chosen.forEach(p => {
-                const idx = state.queue.findIndex(q => q.name === p.name);
-                if (idx !== -1) state.queue.splice(idx, 1);
-            });
-
-            c.players = chosen;
-            c.startTime = Date.now();
-            c.alerted   = false;
+            chosen.forEach(p => { const idx = state.queue.findIndex(q => q.name === p.name); if (idx !== -1) state.queue.splice(idx, 1); });
+            c.players = chosen; c.startTime = Date.now(); c.alerted = false;
         });
     }
 
@@ -4774,23 +4777,19 @@
         }
 
         const assigned = [];
-        let _rrStartIdx = 0;
-        // Apply manual override to first court if set
-        if (_nmo && Array.isArray(_nmo) && emptyCourts.length > 0) {
-            const chosen = _nmo
-                .map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; })
-                .filter(Boolean);
-            _nmo = null;
-            if (chosen.length >= 4) {
-                const fc = emptyCourts[0];
-                fc.players   = chosen.slice(0, 4);
-                fc.startTime = Date.now();
-                fc.alerted   = false;
-                chosen.forEach(p => assigned.push(p.name));
-                _rrStartIdx = 1;
+        const _rrOverrides = _nmo ? _nmo.slice() : [];
+        _nmo = null;
+        emptyCourts.forEach((c, courtIdx) => {
+            const ov = _rrOverrides[courtIdx];
+            if (ov && Array.isArray(ov) && ov.length >= 4) {
+                const chosen = ov.map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; }).filter(Boolean);
+                if (chosen.length >= 4) {
+                    c.players = chosen.slice(0, 4); c.startTime = Date.now(); c.alerted = false;
+                    chosen.forEach(p => assigned.push(p.name));
+                    return;
+                }
             }
-        }
-        emptyCourts.slice(_rrStartIdx).forEach(c => {
+            // Normal round-robin algorithm
             if (pool.length < 4) return;
             const foursome = pickFreshFoursome(pool, assigned);
             if (foursome) {
@@ -4865,24 +4864,20 @@
             pool.splice(sitIdx, 1);
         }
 
-        let _snakeStartIdx = 0;
-        // Apply manual override to first court if set
-        if (_nmo && Array.isArray(_nmo) && emptyCourts.length > 0) {
-            const chosen = _nmo
-                .map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; })
-                .filter(Boolean);
-            _nmo = null;
-            if (chosen.length >= 4) {
-                const fc = emptyCourts[0];
-                fc.players   = chosen.slice(0, 4);
-                fc.startTime = Date.now();
-                fc.alerted   = false;
-                _snakeStartIdx = 1;
-                // Also remove these from the snake pool
-                chosen.forEach(p => { const i = pool.findIndex(q => q.name === p.name); if (i !== -1) pool.splice(i, 1); });
+        const _snakeOverrides = _nmo ? _nmo.slice() : [];
+        _nmo = null;
+        emptyCourts.forEach((c, courtIdx) => {
+            const ov = _snakeOverrides[courtIdx];
+            if (ov && Array.isArray(ov) && ov.length >= 4) {
+                const chosen = ov.map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; }).filter(Boolean);
+                if (chosen.length >= 4) {
+                    c.players = chosen.slice(0, 4); c.startTime = Date.now(); c.alerted = false;
+                    // Also remove from snake pool
+                    chosen.forEach(p => { const pi = pool.findIndex(q => q.name === p.name); if (pi !== -1) pool.splice(pi, 1); });
+                    return;
+                }
             }
-        }
-        emptyCourts.slice(_snakeStartIdx).forEach(c => {
+            // Normal snake algorithm
             if (pool.length < 4) return;
             const group = pool.splice(0, 4);
             // Snake: [0,3] = Team A, [1,2] = Team B
