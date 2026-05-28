@@ -2980,16 +2980,24 @@
         document.getElementById('courtsGrid').innerHTML = state.courts.map((c, i) => {
             const isEmpty = c.players.every(p => p === null);
 
+            // Render a single player slot with lock indicator when applicable
+            const _slot = (j, teamClass) => {
+                const p = c.players[j];
+                const lkColor = p ? getLockColor(p.name) : null;
+                const lkStyle = lkColor ? `box-shadow:inset 3px 0 0 ${lkColor};` : '';
+                const lkMark  = lkColor ? ' 🔗' : '';
+                return `<div class="slot ${teamClass}" style="${lkStyle}"
+                     ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event,${i},${j})"
+                     draggable="${p ? 'true' : 'false'}" ondragstart="dragStart(event,'court',${j},${i})">
+                     ${p ? p.name + lkMark : '--'}</div>`;
+            };
+
             // Team A = slots 0,1 | Team B = slots 2,3
             const teamAHtml = `
                 <div class="team-section">
                     <span class="team-label team-a-label">Team A</span>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                        ${[0,1].map(j => `
-                            <div class="slot slot-team-a" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event,${i},${j})"
-                                 draggable="${c.players[j] ? 'true' : 'false'}" ondragstart="dragStart(event,'court',${j},${i})">
-                                 ${c.players[j] ? c.players[j].name : '--'}
-                            </div>`).join('')}
+                        ${[0,1].map(j => _slot(j, 'slot-team-a')).join('')}
                     </div>
                 </div>`;
 
@@ -2997,11 +3005,7 @@
                 <div class="team-section">
                     <span class="team-label team-b-label">Team B</span>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-                        ${[2,3].map(j => `
-                            <div class="slot slot-team-b" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event,${i},${j})"
-                                 draggable="${c.players[j] ? 'true' : 'false'}" ondragstart="dragStart(event,'court',${j},${i})">
-                                 ${c.players[j] ? c.players[j].name : '--'}
-                            </div>`).join('')}
+                        ${[2,3].map(j => _slot(j, 'slot-team-b')).join('')}
                     </div>
                 </div>`;
 
@@ -6309,13 +6313,30 @@
                     ? Math.floor(effectiveElapsed/60) + ':' + String(effectiveElapsed%60).padStart(2,'0') + (c.pausedAt ? ' ⏸' : '')
                     : '--:--';
                 const isOT = effectiveElapsed >= 900 && !c.pausedAt;
+                // Normalize pairedLocks from Firebase (may be object {0:…} instead of array)
+                const _liveLocks = liveState.pairedLocks
+                    ? (Array.isArray(liveState.pairedLocks)
+                        ? liveState.pairedLocks
+                        : Object.values(liveState.pairedLocks))
+                    : [];
+                const _liveColors = ['#26c6da','#ab47bc','#ffa726','#66bb6a','#ef5350','#7e57c2'];
+                const _liveLockColor = name => {
+                    const idx = _liveLocks.findIndex(l => l && (l.a === name || l.b === name));
+                    return idx >= 0 ? _liveColors[idx % _liveColors.length] : null;
+                };
                 const teamA = [0,1].map(j => {
                     const p = players[j];
-                    return '<div class="live-player-slot ' + (p ? '' : 'empty') + '">' + (p ? p.name : '&mdash;') + '</div>';
+                    const lkC = p ? _liveLockColor(p.name) : null;
+                    const lkSt = lkC ? 'box-shadow:inset 3px 0 0 ' + lkC + ';' : '';
+                    const lkMk = lkC ? ' 🔗' : '';
+                    return '<div class="live-player-slot ' + (p ? '' : 'empty') + '" style="' + lkSt + '">' + (p ? p.name + lkMk : '&mdash;') + '</div>';
                 }).join('');
                 const teamB = [2,3].map(j => {
                     const p = players[j];
-                    return '<div class="live-player-slot ' + (p ? '' : 'empty') + '">' + (p ? p.name : '&mdash;') + '</div>';
+                    const lkC = p ? _liveLockColor(p.name) : null;
+                    const lkSt = lkC ? 'box-shadow:inset 3px 0 0 ' + lkC + ';' : '';
+                    const lkMk = lkC ? ' 🔗' : '';
+                    return '<div class="live-player-slot ' + (p ? '' : 'empty') + '" style="' + lkSt + '">' + (p ? p.name + lkMk : '&mdash;') + '</div>';
                 }).join('');
                 return '<div class="live-court-card ' + (isOT ? 'ot' : '') + '" data-start="' + (c.startTime||0) + '" data-paused="' + (c.pausedAt||0) + '" data-court="' + ci + '">'
                     + '<div class="live-court-header">'
