@@ -5011,11 +5011,6 @@
     //   5. Select the combination with the LOWEST total collision score.
 
     function _lkPairScore(a, b, recentGames) {
-        // Locked partners — strong attraction: always favour this pair in combos.
-        const lk = getLockFor(a.name);
-        if (lk && ((lk.a === a.name && lk.b === b.name) || (lk.b === a.name && lk.a === b.name))) {
-            return -20; // very low score = highly preferred combination
-        }
         // Check last 3 games; differentiate teammate (heavy) vs opponent (light) penalty.
         // No early exit based on wait time — history always counts.
         let score = 0;
@@ -5073,6 +5068,54 @@
         return [foursome[bestOrder[0]], foursome[bestOrder[1]], foursome[bestOrder[2]], foursome[bestOrder[3]]];
     }
 
+    /* Trim pool to a multiple-of-4 count for matching modes that need it (RR, Snake).
+       Treats locked pairs as a unit when BOTH partners score higher than any unlocked
+       player — so over-gamed locked players rotate out together rather than individually.
+       scoreFn(player) → higher value = player should sit out sooner.                   */
+    function _sitOutToFourDivisible(pool, scoreFn) {
+        while (pool.length % 4 !== 0 && pool.length > 0) {
+            const needed = pool.length % 4;
+            let satPair = false;
+
+            if (needed >= 2) {
+                // Try to sit out a locked pair as a unit
+                let bestPairScore = -Infinity, pairA = -1, pairB = -1;
+                (state.pairedLocks || []).forEach(lk => {
+                    if (!lk) return;
+                    const iA = pool.findIndex(p => p.name === lk.a);
+                    const iB = pool.findIndex(p => p.name === lk.b);
+                    if (iA === -1 || iB === -1) return;
+                    // Use the LESSER score of the pair (the one less deserving of a sit-out)
+                    const score = Math.min(scoreFn(pool[iA]), scoreFn(pool[iB]));
+                    if (score > bestPairScore) { bestPairScore = score; pairA = iA; pairB = iB; }
+                });
+                if (pairA !== -1) {
+                    // Compare against the best single non-locked candidate
+                    let bestSingle = -Infinity;
+                    pool.forEach((p, i) => {
+                        if (i === pairA || i === pairB) return;
+                        const lk = getLockFor(p.name);
+                        const hasPartner = lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
+                        if (!hasPartner) { const s = scoreFn(p); if (s > bestSingle) bestSingle = s; }
+                    });
+                    if (bestPairScore > bestSingle) {
+                        // Both locked players are more overdue than any unlocked player → sit both
+                        const [hi, lo] = pairA > pairB ? [pairA, pairB] : [pairB, pairA];
+                        pool.splice(hi, 1); pool.splice(lo, 1);
+                        satPair = true;
+                    }
+                }
+            }
+
+            if (!satPair) {
+                // Normal single sit-out: highest-score player, no lock protection
+                let bestScore = -Infinity, sitIdx = pool.length - 1;
+                pool.forEach((p, i) => { const s = scoreFn(p); if (s > bestScore) { bestScore = s; sitIdx = i; } });
+                pool.splice(sitIdx, 1);
+            }
+        }
+    }
+
     function larongKalyePickFour(candidatePool) {
         const POOL_SIZE   = 8;
         const LOOKBACK_MS = 60 * 60 * 1000; // 60-minute history window
@@ -5096,18 +5139,8 @@
             return b.waitMs - a.waitMs; // longer wait = higher priority
         });
 
-        // Build pool from top POOL_SIZE, then FORCE-ADD any locked player outside the window
-        // so the pool size limit never splits a locked pair.
+        // Build pool from top POOL_SIZE players by wait time.
         const pool = enriched.slice(0, Math.min(POOL_SIZE, enriched.length));
-        (state.pairedLocks || []).forEach(lk => {
-            if (!lk) return;
-            [lk.a, lk.b].forEach(name => {
-                if (!pool.some(p => p.name === name)) {
-                    const found = enriched.find(p => p.name === name);
-                    if (found) pool.push(found);
-                }
-            });
-        });
         if (pool.length < 4) return null;
 
         // Recent match history — most recent first (covers whole session)
@@ -5116,47 +5149,11 @@
             .filter(g => g.timestamp && new Date(g.timestamp).getTime() > cutoff)
             .reverse();
 
-        // ── Lock-guaranteed selection ──────────────────────────────────────
-        // If active locked pairs are present, RESTRICT combo search to ONLY combos
-        // that include those pairs. A soft score bonus is not sufficient — history
-        // penalties can always outvote it.
-        const activeLocks = (state.pairedLocks || []).filter(lk =>
-            lk && pool.some(p => p.name === lk.a) && pool.some(p => p.name === lk.b)
-        );
-
-        if (activeLocks.length >= 2) {
-            // Two locked pairs → combine them as the foursome directly
-            const l1 = activeLocks[0], l2 = activeLocks[1];
-            const p1a = pool.find(p => p.name === l1.a), p1b = pool.find(p => p.name === l1.b);
-            const p2a = pool.find(p => p.name === l2.a), p2b = pool.find(p => p.name === l2.b);
-            if (p1a && p1b && p2a && p2b) return _bestTeamSplit([p1a, p1b, p2a, p2b], recentGames);
-        }
-
-        if (activeLocks.length === 1) {
-            // One locked pair → they MUST be in every candidate combo; pick best 2 others
-            const lk  = activeLocks[0];
-            const lkA = pool.find(p => p.name === lk.a);
-            const lkB = pool.find(p => p.name === lk.b);
-            if (lkA && lkB) {
-                const rest = pool.filter(p => p.name !== lk.a && p.name !== lk.b);
-                if (rest.length >= 2) {
-                    let bestCombo = null, bestScore = Infinity;
-                    for (let m = 0; m < rest.length - 1; m++) {
-                        for (let n = m + 1; n < rest.length; n++) {
-                            const combo = [lkA, lkB, rest[m], rest[n]];
-                            let score = 0;
-                            for (let x = 0; x < 3; x++)
-                                for (let y = x + 1; y < 4; y++)
-                                    score += _lkPairScore(combo[x], combo[y], recentGames);
-                            if (score < bestScore) { bestScore = score; bestCombo = combo; }
-                        }
-                    }
-                    return _bestTeamSplit(bestCombo || [lkA, lkB, rest[0], rest[1]], recentGames);
-                }
-            }
-        }
-
-        // ── Normal combo picker (no active locks in pool) ────────────────────
+        // ── Combo picker: history penalties + split-lock penalty ─────────────
+        // Both-or-neither for locked pairs: combos that include one partner but not
+        // the other get a +25 penalty, naturally discouraging splits without forcing
+        // the pair into every game. Fairness (wait time) drives overall selection;
+        // the penalty just keeps locked partners in sync.
         let bestCombo = null;
         let bestScore = Infinity;
 
@@ -5171,6 +5168,13 @@
                                 score += _lkPairScore(combo[x], combo[y], recentGames);
                             }
                         }
+                        // Split-lock penalty: prefer both-or-neither for each locked pair
+                        (state.pairedLocks || []).forEach(lk => {
+                            if (!lk) return;
+                            const hasA = combo.some(p => p.name === lk.a);
+                            const hasB = combo.some(p => p.name === lk.b);
+                            if (hasA !== hasB) score += 25;
+                        });
                         if (score < bestScore) {
                             bestScore = score;
                             bestCombo = combo;
@@ -5226,24 +5230,9 @@
             return ga - gb;
         });
 
-        // Handle sit-outs: if pool % 4 !== 0, sit out player(s) with most games.
-        // Lock-aware: prefer to sit out players whose locked partner is NOT also in pool,
-        // so we never accidentally separate a locked pair.
-        while (pool.length % 4 !== 0 && pool.length > 0) {
-            const hasAnyNonLocked = pool.some(p => {
-                const lk = getLockFor(p.name);
-                return !(lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b)));
-            });
-            let maxGames = -1, sitOutIdx = pool.length - 1;
-            pool.forEach((p, i) => {
-                const lk = getLockFor(p.name);
-                const hasPartner = lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
-                if (hasAnyNonLocked && hasPartner) return; // skip — keep locked pair together
-                const g = (state.stats[p.name] || {}).games || 0;
-                if (g > maxGames) { maxGames = g; sitOutIdx = i; }
-            });
-            pool.splice(sitOutIdx, 1); // sits out — stays in queue
-        }
+        // Sit-outs: remove players with most games until pool is a multiple of 4.
+        // Treats locked pairs as a unit when both are more overdue than any unlocked player.
+        _sitOutToFourDivisible(pool, p => (state.stats[p.name] || {}).games || 0);
 
         const assigned = [];
         const _rrOverrides = _nmo ? _nmo.slice() : [];
@@ -5286,50 +5275,30 @@
         const available = pool.filter(p => !alreadyAssigned.includes(p.name));
         if (available.length < 4) return null;
 
-        // ── Lock-aware priority pass ────────────────────────────────────
-        // Collect locked pairs where BOTH partners are in the available pool.
-        const activeLocks = (state.pairedLocks || []).filter(lk =>
-            lk && available.some(p => p.name === lk.a) && available.some(p => p.name === lk.b)
-        );
-
-        if (activeLocks.length >= 2) {
-            // Two locked pairs → build a complete foursome from them
-            const l1 = activeLocks[0], l2 = activeLocks[1];
-            const p1a = available.find(p => p.name === l1.a);
-            const p1b = available.find(p => p.name === l1.b);
-            const p2a = available.find(p => p.name === l2.a);
-            const p2b = available.find(p => p.name === l2.b);
-            if (p1a && p1b && p2a && p2b) return [p1a, p1b, p2a, p2b];
-        }
-
-        if (activeLocks.length >= 1) {
-            // One locked pair → use as pair1, find a fresh pair2 from the rest
-            const l1 = activeLocks[0];
-            const p1a = available.find(p => p.name === l1.a);
-            const p1b = available.find(p => p.name === l1.b);
-            if (p1a && p1b) {
-                const rest = available.filter(p => p.name !== l1.a && p.name !== l1.b);
-                for (let m = 0; m < rest.length; m++) {
-                    for (let n = m + 1; n < rest.length; n++) {
-                        if (werePartners(rest[m].name, rest[n].name)) continue;
-                        return [p1a, p1b, rest[m], rest[n]];
-                    }
-                }
-                if (rest.length >= 2) return [p1a, p1b, rest[0], rest[1]];
-            }
-        }
-
-        // ── Normal round-robin path: try to find 2 fresh pairs ──────────
-        for (let i = 0; i < available.length; i++) {
-            for (let j = i+1; j < available.length; j++) {
-                if (werePartners(available[i].name, available[j].name)) continue;
-                const pair1 = [available[i], available[j]];
-                // Find pair2 from remaining
-                const rest = available.filter((_, k) => k !== i && k !== j);
-                for (let m = 0; m < rest.length; m++) {
-                    for (let n = m+1; n < rest.length; n++) {
-                        if (werePartners(rest[m].name, rest[n].name)) continue;
-                        return [...pair1, rest[m], rest[n]];
+        // ── Two-pass: prefer combos that don't split any locked pair ────
+        // Pass 0: return the first fresh-pair foursome with no lock splits.
+        // Pass 1: fall back to any fresh-pair foursome (split allowed).
+        for (let pass = 0; pass < 2; pass++) {
+            for (let i = 0; i < available.length; i++) {
+                for (let j = i+1; j < available.length; j++) {
+                    if (werePartners(available[i].name, available[j].name)) continue;
+                    const pair1 = [available[i], available[j]];
+                    const rest = available.filter((_, k) => k !== i && k !== j);
+                    for (let m = 0; m < rest.length; m++) {
+                        for (let n = m+1; n < rest.length; n++) {
+                            if (werePartners(rest[m].name, rest[n].name)) continue;
+                            const combo = [...pair1, rest[m], rest[n]];
+                            if (pass === 0) {
+                                const splitExists = (state.pairedLocks || []).some(lk => {
+                                    if (!lk) return false;
+                                    const hasA = combo.some(p => p.name === lk.a);
+                                    const hasB = combo.some(p => p.name === lk.b);
+                                    return hasA !== hasB;
+                                });
+                                if (splitExists) continue;
+                            }
+                            return combo;
+                        }
                     }
                 }
             }
@@ -5356,7 +5325,7 @@
         });
 
         // Sit-out priority: player with shortest wait time (played most recently) sits first.
-        // Lock-aware: prefer to sit out players whose locked partner is NOT in pool.
+        // Treats locked pairs as a unit when both are more overdue than any unlocked player.
         {
             const _sNow = Date.now();
             const _sitScore = p => {
@@ -5364,21 +5333,7 @@
                 const games  = (state.stats[p.name] || {}).games || 0;
                 return waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
             };
-            while (pool.length % 4 !== 0 && pool.length > 0) {
-                const hasAnyNonLocked = pool.some(p => {
-                    const lk = getLockFor(p.name);
-                    return !(lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b)));
-                });
-                let worstScore = -Infinity, sitIdx = pool.length - 1;
-                pool.forEach((p, i) => {
-                    const lk = getLockFor(p.name);
-                    const hasPartner = lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
-                    if (hasAnyNonLocked && hasPartner) return; // keep locked pair together
-                    const s = _sitScore(p);
-                    if (s > worstScore) { worstScore = s; sitIdx = i; }
-                });
-                pool.splice(sitIdx, 1);
-            }
+            _sitOutToFourDivisible(pool, _sitScore);
         }
 
         // Colocate locked pairs so both partners always land in the same group of 4.
