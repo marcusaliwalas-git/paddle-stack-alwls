@@ -1099,6 +1099,20 @@
         }
         .paddle.is-in { border-left: 3px solid #4caf50; }
         .paddle.is-out { opacity: 0.6; }
+        /* Pair-lock button in queue rows */
+        .paddle-lock-btn {
+            font-size: 13px; padding: 2px 5px; border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06);
+            color: #78909c; cursor: pointer; flex-shrink: 0; transition: all 0.15s; line-height: 1;
+        }
+        .paddle-lock-btn:hover { background: rgba(255,255,255,0.14); }
+        .paddle-lock-btn.is-lock-pending { animation: lockPulse 0.8s ease-in-out infinite alternate; }
+        @keyframes lockPulse { from { opacity: 1; } to { opacity: 0.35; } }
+        .lock-partner-tag {
+            font-size: 9px; font-weight: bold; letter-spacing: 0.3px;
+            padding: 1px 4px; border-radius: 4px; background: rgba(0,0,0,0.25);
+            white-space: nowrap; flex-shrink: 0;
+        }
 
         /* Player count bar */
         .player-count-bar {
@@ -2121,7 +2135,8 @@
         playerRatings: {},
         gameLog: [],                  // full game records for CSV export
         sessionName: '',             // organizer-defined session name
-        trackScores: true            // if false, wins clear court with no score recorded
+        trackScores: true,           // if false, wins clear court with no score recorded
+        pairedLocks: []              // persistent pair locks — [{ a: 'Name1', b: 'Name2' }, ...]
     };
 
     window.onload = () => {
@@ -2727,6 +2742,64 @@
     // to Firebase (Firebase returns arrays as objects, breaking Array.isArray checks).
     let _nmo = null; // [name, name, name, name]
 
+    // ── Pair-Lock System ────────────────────────────────────────────────
+    // Organizer permanently locks two players as partners until manually unlocked.
+    // Stored in state.pairedLocks as [{ a, b }, ...] objects (not arrays, to survive
+    // Firebase's array→object serialization).
+
+    const LOCK_COLORS = ['#26c6da', '#ab47bc', '#ffa726', '#66bb6a', '#ef5350', '#7e57c2'];
+    let _lockingPlayer = null; // name of first selected player while building a lock
+
+    /** Returns the lock record for a player, or null if not locked. */
+    function getLockFor(name) {
+        const locks = state.pairedLocks || [];
+        return locks.find(l => l && (l.a === name || l.b === name)) || null;
+    }
+
+    /** Returns the CSS color for a locked player (cycles through LOCK_COLORS). */
+    function getLockColor(name) {
+        const locks = state.pairedLocks || [];
+        const idx   = locks.findIndex(l => l && (l.a === name || l.b === name));
+        return idx >= 0 ? LOCK_COLORS[idx % LOCK_COLORS.length] : null;
+    }
+
+    /**
+     * Two-tap UI handler: first tap marks first player, second tap creates the lock.
+     * Tapping the same player a second time cancels the selection.
+     */
+    function startPairLock(name) {
+        if (_lockingPlayer === null) {
+            _lockingPlayer = name;
+            updateDisplay();
+            showToast('🔗 Tap another player to lock as partners.', false);
+        } else if (_lockingPlayer === name) {
+            _lockingPlayer = null;
+            updateDisplay();
+            showToast('Lock selection cancelled.', false);
+        } else {
+            const a = _lockingPlayer, b = name;
+            _lockingPlayer = null;
+            if (!state.pairedLocks) state.pairedLocks = [];
+            if (getLockFor(a)) { showToast(a + ' is already in a lock. Break it first.', true); updateDisplay(); return; }
+            if (getLockFor(b)) { showToast(b + ' is already in a lock. Break it first.', true); updateDisplay(); return; }
+            state.pairedLocks.push({ a, b });
+            sync();
+            showToast('🔗 ' + a + ' & ' + b + ' locked as partners!', false);
+        }
+    }
+
+    /** Removes the lock that includes the given player. */
+    function breakPairLock(name) {
+        if (!state.pairedLocks) return;
+        const idx = state.pairedLocks.findIndex(l => l && (l.a === name || l.b === name));
+        if (idx !== -1) {
+            const lock = state.pairedLocks[idx];
+            state.pairedLocks.splice(idx, 1);
+            sync();
+            showToast('🔓 ' + lock.a + ' & ' + lock.b + ' partner lock removed.', false);
+        }
+    }
+
     function updateDisplay() {
 
         // Sync track-scores toggle
@@ -2782,7 +2855,23 @@
                 : (gamesPlayed > 0 ? 'in queue' : 'waiting');
             const metaStr     = gamesPlayed + ' game' + (gamesPlayed !== 1 ? 's' : '') + ' · ⏱ ' + waitStr;
             const safeName    = p.name.replace(/`/g, '\\`');
+            // Pair-lock indicators
+            const _lock       = getLockFor(p.name);
+            const _lockColor  = _lock ? getLockColor(p.name) : null;
+            const _partner    = _lock ? (_lock.a === p.name ? _lock.b : _lock.a) : null;
+            const _isPending  = _lockingPlayer === p.name;
+            const _safeN      = p.name.replace(/'/g, "\\'");
+            const _borderSt   = _lockColor ? `border-left: 3px solid ${_lockColor} !important;` : '';
+            const _lockBtn    = _lock
+                ? `<button class="paddle-lock-btn" style="color:${_lockColor};border-color:${_lockColor};" onclick="event.stopPropagation();breakPairLock('${_safeN}')" title="Break partner lock with ${_partner}">🔓</button>`
+                : _isPending
+                    ? `<button class="paddle-lock-btn is-lock-pending" onclick="event.stopPropagation();startPairLock('${_safeN}')" title="Cancel lock selection">⏳</button>`
+                    : `<button class="paddle-lock-btn" onclick="event.stopPropagation();startPairLock('${_safeN}')" title="Lock as partner with another player">🔗</button>`;
+            const _partnerTag = _lock
+                ? `<span class="lock-partner-tag" style="color:${_lockColor};">🔗 ${_partner}</span>`
+                : _isPending ? `<span class="lock-partner-tag" style="color:#ffa726;">selecting…</span>` : '';
             return `<div class="paddle ${isIn ? 'is-in' : 'is-out'}" id="paddle-${i}"
+                style="${_borderSt}"
                 ${isIn ? `draggable="true" ondragstart="dragStart(event,'rack',${i})"` : 'draggable="false"'}
                 ondblclick="event.stopPropagation();togglePlayerIn(${i})"
                 title="Double-click to toggle In / Out"
@@ -2799,7 +2888,9 @@
                     <span class="queue-player-name">${p.name}</span>
                     <span class="queue-meta" id="qmeta-${i}" data-since="${p.lastGameTime || ''}">${metaStr}</span>
                 </span>
+                ${_partnerTag}
                 ${ratingBadge}
+                ${_lockBtn}
                 <button class="paddle-edit-btn" onclick="event.stopPropagation();openQueueEdit(${i})" title="Edit">✎</button>
             </div>`;
         }).join('') || '<small style="opacity:0.5">Queue is empty</small>';
@@ -2819,10 +2910,15 @@
                 const dropAttrs = 'ondragover="nmpSlotDragOver(event)" ondragleave="nmpSlotDragLeave(event)" '
                     + 'ondrop="dropToNextMatchSlot(event,' + pi + ',' + slotIdx + ')"';
                 if (!p) return '<div class="nmp-player" ' + dropAttrs + ' style="opacity:0.35;font-style:italic;font-size:11px;cursor:copy;">Drop here</div>';
-                const safeName = p.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+                const safeName  = p.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+                const _plkColor = getLockColor(p.name);
+                const _border   = _plkColor
+                    ? 'border-left:3px solid ' + _plkColor + ';box-shadow:inset 2px 0 0 ' + _plkColor + '22;'
+                    : 'border-left:3px solid ' + color + ';';
+                const _lockMark = _plkColor ? ' 🔗' : '';
                 return '<div class="nmp-player" draggable="true" ' + dropAttrs + ' '
                     + 'ondragstart="nmpDragStart(event,&quot;' + safeName + '&quot;)" '
-                    + 'style="border-left:3px solid ' + color + ';cursor:grab;">' + p.name + '</div>';
+                    + 'style="' + _border + 'cursor:grab;">' + p.name + _lockMark + '</div>';
             };
             const ta = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
                 + '<div class="nmp-players-grid" style="margin-bottom:8px;">'
@@ -4545,7 +4641,12 @@
                 }
                 if (trimmed.length >= 4) {
                     const g = trimmed.slice(0, 4);
-                    foursome = [g[0], g[3], g[1], g[2]]; // snake order
+                    // Use lock-aware split in preview too
+                    const _pvNow = Date.now();
+                    const _pvGames = [...(state.gameLog || [])]
+                        .filter(gl => gl.timestamp && new Date(gl.timestamp).getTime() > _pvNow - 3600000)
+                        .reverse();
+                    foursome = _bestTeamSplit(g, _pvGames);
                 } else {
                     foursome = pool.slice(0, pool.length);
                 }
@@ -4617,8 +4718,12 @@
         }
         if (pool.length < 4) return state.queue.filter(p => p.in).slice(0, 4);
         const group = pool.slice(0, 4);
-        // Snake: [0,3] = Team A, [1,2] = Team B → return as [A1, A2, B1, B2]
-        return [group[0], group[3], group[1], group[2]];
+        // Use lock-aware split so preview matches what fillSnakeDraft will do
+        const _pvNow = Date.now();
+        const _pvGames = [...(state.gameLog || [])]
+            .filter(g => g.timestamp && new Date(g.timestamp).getTime() > _pvNow - 3600000)
+            .reverse();
+        return _bestTeamSplit(group, _pvGames);
     }
 
     // ── Fill all empty courts using current algorithm ────────────────────
@@ -4670,6 +4775,11 @@
     //   5. Select the combination with the LOWEST total collision score.
 
     function _lkPairScore(a, b, recentGames) {
+        // Locked partners — strong attraction: always favour this pair in combos.
+        const lk = getLockFor(a.name);
+        if (lk && ((lk.a === a.name && lk.b === b.name) || (lk.b === a.name && lk.a === b.name))) {
+            return -20; // very low score = highly preferred combination
+        }
         // Check last 3 games; differentiate teammate (heavy) vs opponent (light) penalty.
         // No early exit based on wait time — history always counts.
         let score = 0;
@@ -4688,13 +4798,30 @@
     }
 
     /* Given a chosen foursome, try all 3 possible team splits and return the
-       arrangement [teamA0, teamA1, teamB0, teamB1] with lowest same-team repetition. */
+       arrangement [teamA0, teamA1, teamB0, teamB1] with lowest same-team repetition.
+       Lock enforcement: locked partners on the same team gets a big bonus (−50);
+       locked partners split across teams gets a big penalty (+50). */
     function _bestTeamSplit(foursome, recentGames) {
+        // Helper: returns true if players at indices i & j are locked partners
+        const areLocked = (i, j) => {
+            const lk = getLockFor(foursome[i].name);
+            return lk && ((lk.a === foursome[i].name && lk.b === foursome[j].name) ||
+                          (lk.b === foursome[i].name && lk.a === foursome[j].name));
+        };
+
         // The three ways to pair 4 people into 2 teams of 2:
         const splits = [[0,1,2,3], [0,2,1,3], [0,3,1,2]];
         let bestOrder = splits[0], bestScore = Infinity;
         for (const [a,b,c,d] of splits) {
             let score = 0;
+
+            // Lock enforcement (checked before history so locks dominate)
+            if (areLocked(a, b)) score -= 50; // locked pair on Team A — strongly prefer
+            if (areLocked(c, d)) score -= 50; // locked pair on Team B — strongly prefer
+            // If locked pair ends up as opponents that's very bad
+            if (areLocked(a, c) || areLocked(a, d) || areLocked(b, c) || areLocked(b, d)) score += 50;
+
+            // Same-team repetition penalty from game history
             for (let i = 0; i < Math.min(3, recentGames.length); i++) {
                 const g    = recentGames[i];
                 const tA   = g.teamA || [], tB = g.teamB || [];
@@ -4865,7 +4992,40 @@
         const available = pool.filter(p => !alreadyAssigned.includes(p.name));
         if (available.length < 4) return null;
 
-        // Try to find 2 fresh pairs
+        // ── Lock-aware priority pass ────────────────────────────────────
+        // Collect locked pairs where BOTH partners are in the available pool.
+        const activeLocks = (state.pairedLocks || []).filter(lk =>
+            lk && available.some(p => p.name === lk.a) && available.some(p => p.name === lk.b)
+        );
+
+        if (activeLocks.length >= 2) {
+            // Two locked pairs → build a complete foursome from them
+            const l1 = activeLocks[0], l2 = activeLocks[1];
+            const p1a = available.find(p => p.name === l1.a);
+            const p1b = available.find(p => p.name === l1.b);
+            const p2a = available.find(p => p.name === l2.a);
+            const p2b = available.find(p => p.name === l2.b);
+            if (p1a && p1b && p2a && p2b) return [p1a, p1b, p2a, p2b];
+        }
+
+        if (activeLocks.length >= 1) {
+            // One locked pair → use as pair1, find a fresh pair2 from the rest
+            const l1 = activeLocks[0];
+            const p1a = available.find(p => p.name === l1.a);
+            const p1b = available.find(p => p.name === l1.b);
+            if (p1a && p1b) {
+                const rest = available.filter(p => p.name !== l1.a && p.name !== l1.b);
+                for (let m = 0; m < rest.length; m++) {
+                    for (let n = m + 1; n < rest.length; n++) {
+                        if (werePartners(rest[m].name, rest[n].name)) continue;
+                        return [p1a, p1b, rest[m], rest[n]];
+                    }
+                }
+                if (rest.length >= 2) return [p1a, p1b, rest[0], rest[1]];
+            }
+        }
+
+        // ── Normal round-robin path: try to find 2 fresh pairs ──────────
         for (let i = 0; i < available.length; i++) {
             for (let j = i+1; j < available.length; j++) {
                 if (werePartners(available[i].name, available[j].name)) continue;
@@ -4885,6 +5045,9 @@
     }
 
     function werePartners(a, b) {
+        // Locked partners are always allowed to pair — never treated as "already partnered"
+        const lk = getLockFor(a);
+        if (lk && ((lk.a === a && lk.b === b) || (lk.b === a && lk.a === b))) return false;
         const hist = state.partnerHistory || {};
         return (hist[a] || []).includes(b);
     }
@@ -4928,8 +5091,14 @@
             // Normal snake algorithm
             if (pool.length < 4) return;
             const group = pool.splice(0, 4);
-            // Snake: [0,3] = Team A, [1,2] = Team B
-            c.players = [group[0], group[3], group[1], group[2]];
+            // Apply lock-aware team split (also minimises teammate repetition).
+            // Falls back to classic snake order [0,3 vs 1,2] when no locks or history.
+            const _snakeNow = Date.now();
+            const _snakeCutoff = _snakeNow - 60 * 60 * 1000;
+            const _snakeGames = [...(state.gameLog || [])]
+                .filter(g => g.timestamp && new Date(g.timestamp).getTime() > _snakeCutoff)
+                .reverse();
+            c.players = _bestTeamSplit(group, _snakeGames);
             c.startTime = Date.now(); c.alerted = false;
             // Remove from queue
             c.players.forEach(p => {
@@ -4947,8 +5116,9 @@
 
     function resetAll() {
         if (!confirm("Reset everything?")) return;
-        _nmo = null; // clear manual next-match override
-        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true };
+        _nmo = null;           // clear manual next-match override
+        _lockingPlayer = null; // cancel any in-progress lock selection
+        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true, pairedLocks: [] };
         clearSessionUI(); // wipe report table + session name input
         sync();
         // Show setup popup so organizer can name the session and pick a mode
@@ -5216,6 +5386,12 @@
             // Firebase drops empty arrays as null — always normalise queue explicitly
             state.queue = fbData.queue
                 ? (Array.isArray(fbData.queue) ? fbData.queue : Object.values(fbData.queue))
+                : [];
+            // Normalize pairedLocks — Firebase may return {0:…,1:…} object instead of array
+            state.pairedLocks = fbData.pairedLocks
+                ? (Array.isArray(fbData.pairedLocks)
+                    ? fbData.pairedLocks
+                    : Object.values(fbData.pairedLocks))
                 : [];
             // Keep IN players first, OUT players at the end (stable sort preserves relative order)
             state.queue.sort((a, b) => {
