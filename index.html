@@ -4607,11 +4607,18 @@
                     const gb = (state.stats[b.name] || {}).games || 0;
                     return ga - gb;
                 });
-                // Trim to divisible-by-4
+                // Trim to divisible-by-4 — skip locked players whose partner is in pool
                 const trimmed = [...sorted];
                 while (trimmed.length % 4 !== 0 && trimmed.length > 0) {
+                    const hasAnyNL = trimmed.some(p => {
+                        const lk = getLockFor(p.name);
+                        return !(lk && trimmed.some(q => q !== p && (q.name === lk.a || q.name === lk.b)));
+                    });
                     let maxG = -1, idx = trimmed.length - 1;
                     trimmed.forEach((p, j) => {
+                        const lk = getLockFor(p.name);
+                        const hasPartner = lk && trimmed.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
+                        if (hasAnyNL && hasPartner) return;
                         const g = (state.stats[p.name] || {}).games || 0;
                         if (g > maxG) { maxG = g; idx = j; }
                     });
@@ -4628,20 +4635,40 @@
                     return rb - ra;
                 });
                 const trimmed = [...sorted];
-                while (trimmed.length % 4 !== 0 && trimmed.length > 0) {
-                    const now = Date.now();
-                    let worstScore = -Infinity, idx = trimmed.length - 1;
-                    trimmed.forEach((p, j) => {
-                        const waitMs = p.lastGameTime ? (now - p.lastGameTime) : Infinity;
-                        const games  = (state.stats[p.name] || {}).games || 0;
-                        const score  = waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
-                        if (score > worstScore) { worstScore = score; idx = j; }
+                {
+                    const _pvNow2 = Date.now();
+                    // Lock-aware trim: prefer to sit out players whose locked partner is NOT in trimmed
+                    while (trimmed.length % 4 !== 0 && trimmed.length > 0) {
+                        const hasAnyNL = trimmed.some(p => {
+                            const lk = getLockFor(p.name);
+                            return !(lk && trimmed.some(q => q !== p && (q.name === lk.a || q.name === lk.b)));
+                        });
+                        let worstScore = -Infinity, idx = trimmed.length - 1;
+                        trimmed.forEach((p, j) => {
+                            const lk = getLockFor(p.name);
+                            const hasPartner = lk && trimmed.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
+                            if (hasAnyNL && hasPartner) return;
+                            const waitMs = p.lastGameTime ? (_pvNow2 - p.lastGameTime) : Infinity;
+                            const games  = (state.stats[p.name] || {}).games || 0;
+                            const score  = waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
+                            if (score > worstScore) { worstScore = score; idx = j; }
+                        });
+                        trimmed.splice(idx, 1);
+                    }
+                    // Colocate locked pairs so preview shows them in the same court slot
+                    (state.pairedLocks || []).forEach(lk => {
+                        if (!lk) return;
+                        const idxA = trimmed.findIndex(p => p.name === lk.a);
+                        const idxB = trimmed.findIndex(p => p.name === lk.b);
+                        if (idxA < 0 || idxB < 0) return;
+                        const [lo, hi] = idxA < idxB ? [idxA, idxB] : [idxB, idxA];
+                        if (Math.floor(lo / 4) === Math.floor(hi / 4)) return;
+                        const moved = trimmed.splice(hi, 1)[0];
+                        trimmed.splice(lo + 1, 0, moved);
                     });
-                    trimmed.splice(idx, 1);
                 }
                 if (trimmed.length >= 4) {
                     const g = trimmed.slice(0, 4);
-                    // Use lock-aware split in preview too
                     const _pvNow = Date.now();
                     const _pvGames = [...(state.gameLog || [])]
                         .filter(gl => gl.timestamp && new Date(gl.timestamp).getTime() > _pvNow - 3600000)
@@ -4678,10 +4705,18 @@
             const gb = (state.stats[b.name] || {}).games || 0;
             return ga - gb;
         });
-        // Sit-out players with most games until divisible by 4
+        // Sit-out players with most games until divisible by 4.
+        // Lock-aware: prefer to sit out players whose locked partner is NOT in pool.
         while (pool.length % 4 !== 0 && pool.length > 0) {
+            const hasAnyNL = pool.some(p => {
+                const lk = getLockFor(p.name);
+                return !(lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b)));
+            });
             let maxG = -1, idx = pool.length - 1;
             pool.forEach((p, i) => {
+                const lk = getLockFor(p.name);
+                const hasPartner = lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
+                if (hasAnyNL && hasPartner) return;
                 const g = (state.stats[p.name] || {}).games || 0;
                 if (g > maxG) { maxG = g; idx = i; }
             });
@@ -4702,23 +4737,40 @@
             const rb = (state.playerRatings || {})[b.name] || 3.0;
             return rb - ra;
         });
-        // Sit out: prioritise shortest wait (played most recently), break ties by most games
-        while (pool.length % 4 !== 0 && pool.length > 0) {
-            const now = Date.now();
-            let worstScore = -Infinity, idx = pool.length - 1;
-            pool.forEach((p, i) => {
-                const waitMs = p.lastGameTime ? (now - p.lastGameTime) : Infinity;
-                const games  = (state.stats[p.name] || {}).games || 0;
-                // Higher score = better candidate to sit out
-                // Never-played (Infinity wait) → score = -Infinity → never sits first
-                const score = waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
-                if (score > worstScore) { worstScore = score; idx = i; }
-            });
-            pool.splice(idx, 1);
+        // Sit out: prioritise shortest wait, lock-aware (don't separate locked pairs)
+        {
+            const _psNow = Date.now();
+            while (pool.length % 4 !== 0 && pool.length > 0) {
+                const hasAnyNL = pool.some(p => {
+                    const lk = getLockFor(p.name);
+                    return !(lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b)));
+                });
+                let worstScore = -Infinity, idx = pool.length - 1;
+                pool.forEach((p, i) => {
+                    const lk = getLockFor(p.name);
+                    const hasPartner = lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
+                    if (hasAnyNL && hasPartner) return;
+                    const waitMs = p.lastGameTime ? (_psNow - p.lastGameTime) : Infinity;
+                    const games  = (state.stats[p.name] || {}).games || 0;
+                    const score  = waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
+                    if (score > worstScore) { worstScore = score; idx = i; }
+                });
+                pool.splice(idx, 1);
+            }
         }
+        // Colocate locked pairs so preview shows them in the same court group
+        (state.pairedLocks || []).forEach(lk => {
+            if (!lk) return;
+            const idxA = pool.findIndex(p => p.name === lk.a);
+            const idxB = pool.findIndex(p => p.name === lk.b);
+            if (idxA < 0 || idxB < 0) return;
+            const [lo, hi] = idxA < idxB ? [idxA, idxB] : [idxB, idxA];
+            if (Math.floor(lo / 4) === Math.floor(hi / 4)) return;
+            const moved = pool.splice(hi, 1)[0];
+            pool.splice(lo + 1, 0, moved);
+        });
         if (pool.length < 4) return state.queue.filter(p => p.in).slice(0, 4);
         const group = pool.slice(0, 4);
-        // Use lock-aware split so preview matches what fillSnakeDraft will do
         const _pvNow = Date.now();
         const _pvGames = [...(state.gameLog || [])]
             .filter(g => g.timestamp && new Date(g.timestamp).getTime() > _pvNow - 3600000)
@@ -4860,7 +4912,18 @@
             return b.waitMs - a.waitMs; // longer wait = higher priority
         });
 
+        // Build pool from top POOL_SIZE, then FORCE-ADD any locked player outside the window
+        // so the pool size limit never splits a locked pair.
         const pool = enriched.slice(0, Math.min(POOL_SIZE, enriched.length));
+        (state.pairedLocks || []).forEach(lk => {
+            if (!lk) return;
+            [lk.a, lk.b].forEach(name => {
+                if (!pool.some(p => p.name === name)) {
+                    const found = enriched.find(p => p.name === name);
+                    if (found) pool.push(found);
+                }
+            });
+        });
         if (pool.length < 4) return null;
 
         // Recent match history — most recent first (covers whole session)
@@ -4869,7 +4932,47 @@
             .filter(g => g.timestamp && new Date(g.timestamp).getTime() > cutoff)
             .reverse();
 
-        // Generate all C(pool, 4) combinations — pick the one with lowest total pair-collision score
+        // ── Lock-guaranteed selection ──────────────────────────────────────
+        // If active locked pairs are present, RESTRICT combo search to ONLY combos
+        // that include those pairs. A soft score bonus is not sufficient — history
+        // penalties can always outvote it.
+        const activeLocks = (state.pairedLocks || []).filter(lk =>
+            lk && pool.some(p => p.name === lk.a) && pool.some(p => p.name === lk.b)
+        );
+
+        if (activeLocks.length >= 2) {
+            // Two locked pairs → combine them as the foursome directly
+            const l1 = activeLocks[0], l2 = activeLocks[1];
+            const p1a = pool.find(p => p.name === l1.a), p1b = pool.find(p => p.name === l1.b);
+            const p2a = pool.find(p => p.name === l2.a), p2b = pool.find(p => p.name === l2.b);
+            if (p1a && p1b && p2a && p2b) return _bestTeamSplit([p1a, p1b, p2a, p2b], recentGames);
+        }
+
+        if (activeLocks.length === 1) {
+            // One locked pair → they MUST be in every candidate combo; pick best 2 others
+            const lk  = activeLocks[0];
+            const lkA = pool.find(p => p.name === lk.a);
+            const lkB = pool.find(p => p.name === lk.b);
+            if (lkA && lkB) {
+                const rest = pool.filter(p => p.name !== lk.a && p.name !== lk.b);
+                if (rest.length >= 2) {
+                    let bestCombo = null, bestScore = Infinity;
+                    for (let m = 0; m < rest.length - 1; m++) {
+                        for (let n = m + 1; n < rest.length; n++) {
+                            const combo = [lkA, lkB, rest[m], rest[n]];
+                            let score = 0;
+                            for (let x = 0; x < 3; x++)
+                                for (let y = x + 1; y < 4; y++)
+                                    score += _lkPairScore(combo[x], combo[y], recentGames);
+                            if (score < bestScore) { bestScore = score; bestCombo = combo; }
+                        }
+                    }
+                    return _bestTeamSplit(bestCombo || [lkA, lkB, rest[0], rest[1]], recentGames);
+                }
+            }
+        }
+
+        // ── Normal combo picker (no active locks in pool) ────────────────────
         let bestCombo = null;
         let bestScore = Infinity;
 
@@ -4898,7 +5001,6 @@
         }
 
         const foursome = bestCombo || pool.slice(0, 4);
-        // Optimize team assignment — try all 3 splits and pick the one with least teammate repetition
         return _bestTeamSplit(foursome, recentGames);
     }
 
@@ -4940,11 +5042,19 @@
             return ga - gb;
         });
 
-        // Handle sit-outs: if pool % 4 !== 0, sit out player(s) with most games
+        // Handle sit-outs: if pool % 4 !== 0, sit out player(s) with most games.
+        // Lock-aware: prefer to sit out players whose locked partner is NOT also in pool,
+        // so we never accidentally separate a locked pair.
         while (pool.length % 4 !== 0 && pool.length > 0) {
-            // Find player with most games among pool
+            const hasAnyNonLocked = pool.some(p => {
+                const lk = getLockFor(p.name);
+                return !(lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b)));
+            });
             let maxGames = -1, sitOutIdx = pool.length - 1;
             pool.forEach((p, i) => {
+                const lk = getLockFor(p.name);
+                const hasPartner = lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
+                if (hasAnyNonLocked && hasPartner) return; // skip — keep locked pair together
                 const g = (state.stats[p.name] || {}).games || 0;
                 if (g > maxGames) { maxGames = g; sitOutIdx = i; }
             });
@@ -5062,18 +5172,43 @@
         });
 
         // Sit-out priority: player with shortest wait time (played most recently) sits first.
-        // Break ties with most games played. Players who have never played (Infinity wait) never sit first.
-        while (pool.length % 4 !== 0 && pool.length > 0) {
-            const now = Date.now();
-            let worstScore = -Infinity, sitIdx = pool.length - 1;
-            pool.forEach((p, i) => {
-                const waitMs = p.lastGameTime ? (now - p.lastGameTime) : Infinity;
+        // Lock-aware: prefer to sit out players whose locked partner is NOT in pool.
+        {
+            const _sNow = Date.now();
+            const _sitScore = p => {
+                const waitMs = p.lastGameTime ? (_sNow - p.lastGameTime) : Infinity;
                 const games  = (state.stats[p.name] || {}).games || 0;
-                const score  = waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
-                if (score > worstScore) { worstScore = score; sitIdx = i; }
-            });
-            pool.splice(sitIdx, 1);
+                return waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
+            };
+            while (pool.length % 4 !== 0 && pool.length > 0) {
+                const hasAnyNonLocked = pool.some(p => {
+                    const lk = getLockFor(p.name);
+                    return !(lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b)));
+                });
+                let worstScore = -Infinity, sitIdx = pool.length - 1;
+                pool.forEach((p, i) => {
+                    const lk = getLockFor(p.name);
+                    const hasPartner = lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
+                    if (hasAnyNonLocked && hasPartner) return; // keep locked pair together
+                    const s = _sitScore(p);
+                    if (s > worstScore) { worstScore = s; sitIdx = i; }
+                });
+                pool.splice(sitIdx, 1);
+            }
         }
+
+        // Colocate locked pairs so both partners always land in the same group of 4.
+        // Rating sort may have placed them at indices 1 and 6 — move them adjacent.
+        (state.pairedLocks || []).forEach(lk => {
+            if (!lk) return;
+            const idxA = pool.findIndex(p => p.name === lk.a);
+            const idxB = pool.findIndex(p => p.name === lk.b);
+            if (idxA < 0 || idxB < 0) return;
+            const [lo, hi] = idxA < idxB ? [idxA, idxB] : [idxB, idxA];
+            if (Math.floor(lo / 4) === Math.floor(hi / 4)) return; // already same group
+            const moved = pool.splice(hi, 1)[0];
+            pool.splice(lo + 1, 0, moved); // place immediately after lo
+        });
 
         const _snakeOverrides = _nmo ? _nmo.slice() : [];
         _nmo = null;
