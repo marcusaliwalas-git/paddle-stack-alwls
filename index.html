@@ -822,6 +822,38 @@
             padding: 4px 0;
         }
         .nmp-divider { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 8px 0; }
+        /* Custom Match Queue */
+        .cm-card {
+            background: rgba(255,152,0,0.1); border: 1px solid rgba(255,152,0,0.3);
+            border-radius: 9px; padding: 9px 11px; margin-bottom: 8px;
+        }
+        .cm-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 10px; font-weight: bold; color: #ffa726;
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 7px;
+        }
+        .cm-cancel-btn {
+            background: none; border: 1px solid rgba(255,152,0,0.4); color: #ffa726;
+            border-radius: 5px; padding: 2px 7px; font-size: 10px; cursor: pointer;
+        }
+        .cm-cancel-btn:hover { background: rgba(255,152,0,0.15); }
+        .cm-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+        .cm-team-cell {
+            background: rgba(0,0,0,0.2); border-radius: 6px; padding: 4px 7px;
+            font-size: 11px; font-weight: 600; color: #eceff1;
+        }
+        .cm-team-cell.unavail { color: #546e7a; text-decoration: line-through; }
+        .cm-team-label {
+            font-size: 9px; font-weight: bold; letter-spacing: 0.3px;
+            margin-bottom: 3px;
+        }
+        /* Badge in queue row for players in a pending custom match */
+        .cm-queue-tag {
+            font-size: 9px; font-weight: bold; letter-spacing: 0.3px;
+            padding: 1px 4px; border-radius: 4px;
+            background: rgba(255,152,0,0.18); color: #ffa726;
+            white-space: nowrap; flex-shrink: 0;
+        }
 
         /* Team labels */
         .team-section { margin-bottom: 8px; }
@@ -2136,7 +2168,8 @@
         gameLog: [],                  // full game records for CSV export
         sessionName: '',             // organizer-defined session name
         trackScores: true,           // if false, wins clear court with no score recorded
-        pairedLocks: []              // persistent pair locks — [{ a: 'Name1', b: 'Name2' }, ...]
+        pairedLocks: [],             // persistent pair locks — [{ a: 'Name1', b: 'Name2' }, ...]
+        customMatches: []            // one-time custom 4-player requests — [{ id, a1, a2, b1, b2 }, ...]
     };
 
     window.onload = () => {
@@ -2788,6 +2821,62 @@
         }
     }
 
+    // ── Custom Match Queue ──────────────────────────────────────────────
+    // One-time 4-player groups that grab the next available court in priority.
+    // Stored as [{ id, a1, a2, b1, b2 }, ...] (named fields, not arrays).
+
+    /** Returns the pending custom match record for a player, or null. */
+    function getCustomMatchFor(name) {
+        return (state.customMatches || []).find(
+            cm => cm && (cm.a1 === name || cm.a2 === name || cm.b1 === name || cm.b2 === name)
+        ) || null;
+    }
+
+    /** Opens the modal to compose a new custom match. */
+    function openCustomMatchModal() {
+        const inPlayers = state.queue.filter(p => p.in !== false).map(p => p.name);
+        if (inPlayers.length < 4) { showToast('Need at least 4 IN players to create a custom match.', true); return; }
+        editContext = { type: 'custommatch' };
+        document.getElementById('editModalTitle').textContent = '📋 Custom Match Request';
+
+        const selStyle = 'flex:1;padding:8px 10px;border-radius:8px;background:#1e2a32;' +
+            'border:1px solid rgba(255,255,255,0.15);color:white;font-size:13px;';
+
+        const buildSel = (id, hint) => {
+            const opts = `<option value="">— ${hint} —</option>` +
+                inPlayers.map(n => `<option value="${n}">${n}</option>`).join('');
+            return `<select id="${id}" style="${selStyle}">${opts}</select>`;
+        };
+
+        const row = (id, label, hint) =>
+            `<div class="edit-player-row" style="margin-bottom:6px;">
+                <span class="slot-label" style="font-size:10px;width:70px;flex-shrink:0;">${label}</span>
+                ${buildSel(id, hint)}
+             </div>`;
+
+        document.getElementById('editModalBody').innerHTML =
+            `<p style="font-size:12px;color:#78909c;margin:0 0 14px;">
+                Pick 4 players. They will play together on the <strong>next available court</strong>,
+                then return to normal rotation.
+             </p>
+             <div style="font-size:11px;font-weight:700;color:#90caf9;letter-spacing:0.5px;margin-bottom:8px;">Team A</div>
+             ${row('cm_a1','Player 1','Pick player')}
+             ${row('cm_a2','Player 2','Pick player')}
+             <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:12px 0">
+             <div style="font-size:11px;font-weight:700;color:#f48fb1;letter-spacing:0.5px;margin-bottom:8px;">Team B</div>
+             ${row('cm_b1','Player 3','Pick player')}
+             ${row('cm_b2','Player 4','Pick player')}`;
+
+        document.getElementById('editModalOverlay').classList.add('open');
+    }
+
+    /** Cancels a pending custom match by id. */
+    function cancelCustomMatch(id) {
+        if (!state.customMatches) return;
+        const idx = state.customMatches.findIndex(cm => cm && cm.id === id);
+        if (idx !== -1) { state.customMatches.splice(idx, 1); sync(); }
+    }
+
     /** Removes the lock that includes the given player. */
     function breakPairLock(name) {
         if (!state.pairedLocks) return;
@@ -2855,6 +2944,11 @@
                 : (gamesPlayed > 0 ? 'in queue' : 'waiting');
             const metaStr     = gamesPlayed + ' game' + (gamesPlayed !== 1 ? 's' : '') + ' · ⏱ ' + waitStr;
             const safeName    = p.name.replace(/`/g, '\\`');
+            // Custom match indicator
+            const _cm         = getCustomMatchFor(p.name);
+            const _cmTag      = _cm
+                ? `<span class="cm-queue-tag">📋 Custom</span>`
+                : '';
             // Pair-lock indicators
             const _lock       = getLockFor(p.name);
             const _lockColor  = _lock ? getLockColor(p.name) : null;
@@ -2889,6 +2983,7 @@
                     <span class="queue-meta" id="qmeta-${i}" data-since="${p.lastGameTime || ''}">${metaStr}</span>
                 </span>
                 ${_partnerTag}
+                ${_cmTag}
                 ${ratingBadge}
                 ${_lockBtn}
                 <button class="paddle-edit-btn" onclick="event.stopPropagation();openQueueEdit(${i})" title="Edit">✎</button>
@@ -2940,8 +3035,39 @@
             let nmpHtml = '<div class="nmp-header"><div class="nmp-dot"></div><span class="nmp-title">Next Match</span>'
                 + '<div style="display:flex;gap:5px;margin-left:auto;">'
                 + (inCount2 >= 4 && emptyCourtsArr.length > 0 ? '<button onclick="fillAllCourts()" style="background:#ff6d00;color:white;border:none;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:bold;cursor:pointer;">&#9654; Fill Courts</button>' : '')
+                + '<button onclick="openCustomMatchModal()" style="background:rgba(255,152,0,0.2);color:#ffa726;border:1px solid rgba(255,152,0,0.35);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;" title="Queue a one-time custom 4-player match">&#128203; Custom</button>'
                 + '<button onclick="openNextMatchEdit()" style="background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">&#9998; Edit</button>'
                 + '</div></div>';
+
+            // ── Pending custom match cards (shown before normal previews) ──────
+            const pendingCMs = state.customMatches || [];
+            if (pendingCMs.length > 0) {
+                nmpHtml += '<div style="margin-bottom:10px;">';
+                pendingCMs.forEach(cm => {
+                    if (!cm) return;
+                    const inSet = new Set(state.queue.filter(p => p.in !== false).map(p => p.name));
+                    const cellHtml = (name, teamColor) => {
+                        const avail = inSet.has(name);
+                        return `<div class="cm-team-cell${avail ? '' : ' unavail'}">${name}${avail ? '' : ' ⚠️'}</div>`;
+                    };
+                    const safeId = cm.id.replace(/'/g, "\\'");
+                    nmpHtml += `<div class="cm-card">
+                        <div class="cm-card-header">
+                            <span>&#128203; Custom Match Pending</span>
+                            <button class="cm-cancel-btn" onclick="cancelCustomMatch('${safeId}')">✕ Cancel</button>
+                        </div>
+                        <div style="font-size:9px;font-weight:bold;color:#90caf9;margin-bottom:3px;letter-spacing:0.3px;">TEAM A</div>
+                        <div class="cm-teams" style="margin-bottom:6px;">
+                            ${cellHtml(cm.a1)}${cellHtml(cm.a2)}
+                        </div>
+                        <div style="font-size:9px;font-weight:bold;color:#f48fb1;margin-bottom:3px;letter-spacing:0.3px;">TEAM B</div>
+                        <div class="cm-teams">
+                            ${cellHtml(cm.b1)}${cellHtml(cm.b2)}
+                        </div>
+                    </div>`;
+                });
+                nmpHtml += '</div>';
+            }
 
             // Cache for drag/edit lookups
             window._nmpPreviews = previews;
@@ -3515,6 +3641,26 @@
 
     function saveEdit() {
         if (!editContext) return;
+
+        if (editContext.type === 'custommatch') {
+            const a1 = document.getElementById('cm_a1').value;
+            const a2 = document.getElementById('cm_a2').value;
+            const b1 = document.getElementById('cm_b1').value;
+            const b2 = document.getElementById('cm_b2').value;
+            const names = [a1, a2, b1, b2];
+            if (names.some(n => !n)) { showToast('Please select all 4 players.', true); return; }
+            if (new Set(names).size < 4) { showToast('Each player can only appear once.', true); return; }
+            if (!state.customMatches) state.customMatches = [];
+            state.customMatches.push({
+                id: 'cm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                a1, a2, b1, b2
+            });
+            sync();
+            showToast('📋 Custom match queued: ' + a1 + ' & ' + a2 + ' vs ' + b1 + ' & ' + b2, false);
+            closeEditModal();
+            return;
+        }
+
         if (editContext.type === 'nextmatch') {
             // Write per-court overrides; deduplicate so a player appears in at most one court
             const numCourts = (window._nmpPreviews || []).length;
@@ -4795,21 +4941,55 @@
             if (snInput) { snInput.focus(); snInput.style.outline = '2px solid var(--warning)'; setTimeout(() => { snInput.style.outline = ''; }, 2000); }
             return;
         }
-        const emptyCourts = state.courts.filter(c => c.players.every(p => p === null));
-        const inPlayers = getInQueue();
-        if (emptyCourts.length === 0 || inPlayers.length < 4) {
-            if (inPlayers.length < 4 && emptyCourts.length > 0) {
-                showToast('Need at least 4 players tagged "IN" to start a court.', true);
+        let emptyCourts = state.courts.filter(c => c.players.every(p => p === null));
+        if (emptyCourts.length === 0) return;
+
+        // ── Step 1: Consume pending custom matches (grab next available courts) ──
+        // Custom matches take priority over the normal algorithm. Each pending match
+        // fills one empty court in order; if a match's players aren't all available
+        // (IN queue) that match is skipped and stays in the queue.
+        if (state.customMatches && state.customMatches.length > 0) {
+            const remaining = [];     // custom matches not consumed this fill
+            const filledCourts = new Set();
+            let courtPtr = 0;         // points into emptyCourts
+
+            for (const cm of state.customMatches) {
+                if (!cm) continue;
+                // Advance courtPtr past already-filled courts
+                while (courtPtr < emptyCourts.length && filledCourts.has(emptyCourts[courtPtr])) courtPtr++;
+                if (courtPtr >= emptyCourts.length) { remaining.push(cm); continue; }
+
+                // Check all 4 players are IN and in the queue
+                const allAvail = [cm.a1, cm.a2, cm.b1, cm.b2].every(
+                    name => state.queue.some(p => p.name === name && p.in !== false)
+                );
+                if (!allAvail) { remaining.push(cm); continue; } // skip — keep in queue
+
+                // Pull players from queue and assign to court
+                const pick = name => {
+                    const idx = state.queue.findIndex(q => q.name === name);
+                    return idx !== -1 ? state.queue.splice(idx, 1)[0] : null;
+                };
+                const court = emptyCourts[courtPtr];
+                court.players = [pick(cm.a1), pick(cm.a2), pick(cm.b1), pick(cm.b2)];
+                court.startTime = Date.now(); court.alerted = false;
+                filledCourts.add(court);
+                showToast('📋 Custom match started: ' + cm.a1 + ' & ' + cm.a2 + ' vs ' + cm.b1 + ' & ' + cm.b2, false);
             }
-            return;
+            state.customMatches = remaining;
+            // Remaining empty courts (not claimed by custom matches) go to normal algorithm
+            emptyCourts = emptyCourts.filter(c => !filledCourts.has(c));
         }
-        if (state.matchingMode === 'roundrobin') {
-            fillRoundRobin(emptyCourts);
-        } else if (state.matchingMode === 'snake') {
-            fillSnakeDraft(emptyCourts);
-        } else {
-            // Larong Kalye: FIFO + anti-staleness algorithm
-            fillLarongKalye(emptyCourts);
+
+        // ── Step 2: Normal algorithm on remaining empty courts ───────────────
+        if (emptyCourts.length > 0 && getInQueue().length >= 4) {
+            if (state.matchingMode === 'roundrobin') {
+                fillRoundRobin(emptyCourts);
+            } else if (state.matchingMode === 'snake') {
+                fillSnakeDraft(emptyCourts);
+            } else {
+                fillLarongKalye(emptyCourts);
+            }
         }
         sync();
     }
@@ -5257,7 +5437,7 @@
         if (!confirm("Reset everything?")) return;
         _nmo = null;           // clear manual next-match override
         _lockingPlayer = null; // cancel any in-progress lock selection
-        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true, pairedLocks: [] };
+        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true, pairedLocks: [], customMatches: [] };
         clearSessionUI(); // wipe report table + session name input
         sync();
         // Show setup popup so organizer can name the session and pick a mode
@@ -5531,6 +5711,12 @@
                 ? (Array.isArray(fbData.pairedLocks)
                     ? fbData.pairedLocks
                     : Object.values(fbData.pairedLocks))
+                : [];
+            // Normalize customMatches — same Firebase array→object issue
+            state.customMatches = fbData.customMatches
+                ? (Array.isArray(fbData.customMatches)
+                    ? fbData.customMatches
+                    : Object.values(fbData.customMatches))
                 : [];
             // Keep IN players first, OUT players at the end (stable sort preserves relative order)
             state.queue.sort((a, b) => {
