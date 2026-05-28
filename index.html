@@ -3060,7 +3060,7 @@
                 : (currentPreview ? currentPreview.map(p => p ? p.name : '') : []);
             while (base.length < 4) base.push('');
 
-            // If incoming already appears elsewhere in this court's override, swap positions
+            // If incoming already appears elsewhere in THIS court's override, swap positions
             const existingSlot = base.indexOf(incoming.name);
             if (existingSlot !== -1 && existingSlot !== slotIndex) {
                 base[existingSlot] = displaced.name;
@@ -3069,10 +3069,25 @@
 
             if (!_nmo) _nmo = [];
             _nmo[previewIdx] = base.filter(Boolean);
+
+            // Remove incoming player from any OTHER court's override to prevent duplicates.
+            // Back-fill that slot with the displaced player so the other court still has 4.
+            _nmo.forEach((courtOv, idx) => {
+                if (idx === previewIdx || !courtOv) return;
+                const pos = courtOv.indexOf(incoming.name);
+                if (pos === -1) return;
+                // Replace the incoming player's old slot with the displaced player
+                // (if displaced isn't already in that court's override)
+                if (displaced && displaced.name && !courtOv.includes(displaced.name)) {
+                    courtOv[pos] = displaced.name;
+                } else {
+                    courtOv.splice(pos, 1); // just remove — court will show partial
+                }
+            });
         }
 
         sync();
-        showToast(incoming.name + ' swapped with ' + displaced.name + ' in next match', false);
+        showToast(incoming.name + ' → Court ' + (previewIdx + 1) + ' (swapped with ' + displaced.name + ')', false);
     }
 
     function dropToNextMatch(ev) {
@@ -3371,15 +3386,17 @@
     function saveEdit() {
         if (!editContext) return;
         if (editContext.type === 'nextmatch') {
-            // Write per-court overrides for every court shown in the modal
+            // Write per-court overrides; deduplicate so a player appears in at most one court
             const numCourts = (window._nmpPreviews || []).length;
             const newNmo = [];
             let anySet = false;
+            const globalUsed = new Set();
             for (let ci = 0; ci < numCourts; ci++) {
                 const names = [0,1,2,3].map(j => {
                     const sel = document.getElementById('nm_' + ci + '_' + j);
                     return sel ? sel.value : '';
-                }).filter(n => n && state.queue.some(p => p.name === n));
+                }).filter(n => n && state.queue.some(p => p.name === n) && !globalUsed.has(n));
+                names.forEach(n => globalUsed.add(n));
                 newNmo[ci] = names.length > 0 ? names : null;
                 if (names.length > 0) anySet = true;
             }
@@ -4434,16 +4451,17 @@
 
         for (let i = 0; i < numCourts; i++) {
             // Honour per-court manual override (_nmo[i])
+            // Filter out players already assigned to a previous court (usedNames)
             if (_nmo && _nmo[i] && Array.isArray(_nmo[i])) {
                 const overridePlayers = _nmo[i]
-                    .map(name => state.queue.find(p => p.name === name && p.in !== false))
+                    .map(name => state.queue.find(p => p.name === name && p.in !== false && !usedNames.has(p.name)))
                     .filter(Boolean);
                 if (overridePlayers.length > 0) {
                     overridePlayers.forEach(p => usedNames.add(p.name));
                     results.push(overridePlayers);
                     continue;
                 }
-                // Stale — clear this court's override and fall through to algorithm
+                // All override players are stale or already used — clear and fall through
                 _nmo[i] = null;
             }
 
