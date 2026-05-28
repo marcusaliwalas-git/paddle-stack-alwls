@@ -2121,8 +2121,7 @@
         playerRatings: {},
         gameLog: [],                  // full game records for CSV export
         sessionName: '',             // organizer-defined session name
-        trackScores: true,           // if false, wins clear court with no score recorded
-        nextMatchOverride: null      // [name,name,name,name] — manually set next match lineup
+        trackScores: true            // if false, wins clear court with no score recorded
     };
 
     window.onload = () => {
@@ -2724,6 +2723,10 @@
         });
     }
 
+    // Next-match manual override — kept outside state so it never gets serialized
+    // to Firebase (Firebase returns arrays as objects, breaking Array.isArray checks).
+    let _nmo = null; // [name, name, name, name]
+
     function updateDisplay() {
 
         // Sync track-scores toggle
@@ -3063,7 +3066,7 @@
                 base[existingSlot] = displaced.name;
             }
             base[slotIndex] = incoming.name;
-            state.nextMatchOverride = base.filter(Boolean);
+            _nmo = base.filter(Boolean);
         }
 
         sync();
@@ -3085,12 +3088,25 @@
         if (data.type !== 'rack') return;
         const _dmPlayer = state.queue[data.index];
         if (!_dmPlayer || _dmPlayer.in === false) return;
-        const player = state.queue.splice(data.index, 1)[0];
-        const firstInIdx = state.queue.findIndex(p => p.in);
-        if (firstInIdx !== -1) state.queue.splice(firstInIdx, 0, player);
-        else state.queue.unshift(player);
+
+        // Put this player at slot 0 of the override so it shows immediately in the preview
+        const currentPreview = (window._nmpPreviews && window._nmpPreviews[0]) || [];
+        const base = _nmo
+            ? _nmo.slice()
+            : currentPreview.map(p => p ? p.name : '');
+        while (base.length < 4) {
+            const next = state.queue.find(p => p.in && !base.includes(p.name) && p.name !== _dmPlayer.name);
+            base.push(next ? next.name : '');
+        }
+        // Remove incoming from wherever it sits, insert at front
+        const existingIdx = base.indexOf(_dmPlayer.name);
+        if (existingIdx !== -1) base.splice(existingIdx, 1);
+        else base.splice(3, 1); // drop last slot to keep length 4
+        base.unshift(_dmPlayer.name);
+        _nmo = base.filter(Boolean);
+
         sync();
-        showToast(player.name + ' moved to front of queue', false);
+        showToast(_dmPlayer.name + ' added to next match', false);
     }
 
     function nmpDragStart(ev, name) {
@@ -3222,8 +3238,8 @@
         // Reflect what's currently shown in the Next Match panel:
         // use the manual override if set, otherwise fall back to the cached algorithm preview
         const cachedPreview = (window._nmpPreviews && window._nmpPreviews[0]) || [];
-        const currentNames = state.nextMatchOverride
-            ? state.nextMatchOverride.slice()
+        const currentNames = _nmo
+            ? _nmo.slice()
             : cachedPreview.map(p => p ? p.name : '');
         while (currentNames.length < 4) {
             const next = inQueued.find(n => !currentNames.includes(n));
@@ -3351,7 +3367,7 @@
                 const sel = document.getElementById('nm_' + j);
                 return sel ? sel.value : '';
             }).filter(n => n && state.queue.some(p => p.name === n));
-            state.nextMatchOverride = names.length > 0 ? names : null;
+            _nmo = names.length > 0 ? names : null;
             sync();
             closeEditModal();
             return;
@@ -4402,8 +4418,8 @@
 
         for (let i = 0; i < numCourts; i++) {
             // For the first court preview, honour any manual override
-            if (i === 0 && state.nextMatchOverride && Array.isArray(state.nextMatchOverride)) {
-                const overridePlayers = state.nextMatchOverride
+            if (i === 0 && _nmo && Array.isArray(_nmo)) {
+                const overridePlayers = _nmo
                     .map(name => state.queue.find(p => p.name === name && p.in !== false))
                     .filter(Boolean);
                 if (overridePlayers.length > 0) {
@@ -4412,7 +4428,7 @@
                     continue;
                 }
                 // Override has stale / opted-out names — discard silently
-                state.nextMatchOverride = null;
+                _nmo = null;
             }
 
             const pool = state.queue.filter(p => p.in && !usedNames.has(p.name));
@@ -4698,11 +4714,11 @@
     function fillLarongKalye(emptyCourts) {
         let startIdx = 0;
         // Apply manual override to the first court if one is set
-        if (state.nextMatchOverride && Array.isArray(state.nextMatchOverride) && emptyCourts.length > 0) {
-            const chosen = state.nextMatchOverride
+        if (_nmo && Array.isArray(_nmo) && emptyCourts.length > 0) {
+            const chosen = _nmo
                 .map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; })
                 .filter(Boolean);
-            state.nextMatchOverride = null;
+            _nmo = null;
             if (chosen.length >= 4) {
                 const fc = emptyCourts[0];
                 fc.players   = chosen.slice(0, 4);
@@ -4760,11 +4776,11 @@
         const assigned = [];
         let _rrStartIdx = 0;
         // Apply manual override to first court if set
-        if (state.nextMatchOverride && Array.isArray(state.nextMatchOverride) && emptyCourts.length > 0) {
-            const chosen = state.nextMatchOverride
+        if (_nmo && Array.isArray(_nmo) && emptyCourts.length > 0) {
+            const chosen = _nmo
                 .map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; })
                 .filter(Boolean);
-            state.nextMatchOverride = null;
+            _nmo = null;
             if (chosen.length >= 4) {
                 const fc = emptyCourts[0];
                 fc.players   = chosen.slice(0, 4);
@@ -4851,11 +4867,11 @@
 
         let _snakeStartIdx = 0;
         // Apply manual override to first court if set
-        if (state.nextMatchOverride && Array.isArray(state.nextMatchOverride) && emptyCourts.length > 0) {
-            const chosen = state.nextMatchOverride
+        if (_nmo && Array.isArray(_nmo) && emptyCourts.length > 0) {
+            const chosen = _nmo
                 .map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; })
                 .filter(Boolean);
-            state.nextMatchOverride = null;
+            _nmo = null;
             if (chosen.length >= 4) {
                 const fc = emptyCourts[0];
                 fc.players   = chosen.slice(0, 4);
@@ -4888,7 +4904,8 @@
 
     function resetAll() {
         if (!confirm("Reset everything?")) return;
-        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true, nextMatchOverride: null };
+        _nmo = null; // clear manual next-match override
+        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true };
         clearSessionUI(); // wipe report table + session name input
         sync();
         // Show setup popup so organizer can name the session and pick a mode
