@@ -2121,7 +2121,8 @@
         playerRatings: {},
         gameLog: [],                  // full game records for CSV export
         sessionName: '',             // organizer-defined session name
-        trackScores: true            // if false, wins clear court with no score recorded
+        trackScores: true,           // if false, wins clear court with no score recorded
+        nextMatchOverride: null      // [name,name,name,name] — manually set next match lineup
     };
 
     window.onload = () => {
@@ -2809,10 +2810,11 @@
 
         const inQueue = state.queue.filter(p => p.in);
 
-        function buildTeamGrid(players) {
+        function buildTeamGrid(players, previewIdx) {
+            const pi = previewIdx || 0;
             const makeSlot = (p, color, slotIdx) => {
                 const dropAttrs = 'ondragover="nmpSlotDragOver(event)" ondragleave="nmpSlotDragLeave(event)" '
-                    + 'ondrop="dropToNextMatchSlot(event,' + slotIdx + ')"';
+                    + 'ondrop="dropToNextMatchSlot(event,' + pi + ',' + slotIdx + ')"';
                 if (!p) return '<div class="nmp-player" ' + dropAttrs + ' style="opacity:0.35;font-style:italic;font-size:11px;cursor:copy;">Drop here</div>';
                 const safeName = p.name.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
                 return '<div class="nmp-player" draggable="true" ' + dropAttrs + ' '
@@ -2832,36 +2834,47 @@
             nmpEl.style.display = 'none';
         } else {
             nmpEl.style.display = '';
-            const inCount2 = state.queue.filter(p => p.in).length;
+            const numCourts  = state.courts.length;
+            const previews   = buildNextMatchPreviews(numCourts);
+            const inCount2   = inQueue.length;
+
             let nmpHtml = '<div class="nmp-header"><div class="nmp-dot"></div><span class="nmp-title">Next Match</span>'
                 + '<div style="display:flex;gap:5px;margin-left:auto;">'
                 + (inCount2 >= 4 && emptyCourtsArr.length > 0 ? '<button onclick="fillAllCourts()" style="background:#ff6d00;color:white;border:none;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:bold;cursor:pointer;">&#9654; Fill Courts</button>' : '')
                 + '<button onclick="openNextMatchEdit()" style="background:rgba(255,255,255,0.12);color:white;border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">&#9998; Edit</button>'
                 + '</div></div>';
-            const isAlgo = !!state.matchingMode; // all modes (incl. Larong Kalye) use algorithm-based preview
 
-            if (emptyCourtsArr.length > 0) {
-                emptyCourtsArr.forEach((ec, ei) => {
-                    // First empty court: use the real algorithm preview so it matches fillRoundRobin/fillSnakeDraft.
-                    // Subsequent courts: fall back to slicing remaining IN queue (multi-court preview is approximate).
-                    let upcoming;
-                    if (ei === 0 && isAlgo) {
-                        upcoming = previewNextFoursome();
-                    } else {
-                        upcoming = inQueue.slice(ei * 4, ei * 4 + 4);
-                    }
-                    if (ei > 0) nmpHtml += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:8px 0">';
-                    nmpHtml += '<div class="nmb-court-label">Court ' + ec.id + '</div>';
-                    nmpHtml += buildTeamGrid(upcoming);
-                    if (upcoming.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4 - upcoming.length) + ' more IN needed</div>';
-                });
-            } else {
-                // All courts busy — show "On Deck" using the algorithm preview so it matches what will actually fill
-                const onDeck = isAlgo ? previewNextFoursome() : inQueue.slice(0, 4);
-                nmpHtml += '<div class="nmb-court-label">On Deck</div>';
-                nmpHtml += buildTeamGrid(onDeck);
-                if (onDeck.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4 - onDeck.length) + ' more IN needed</div>';
+            // Cache for drag/edit lookups
+            window._nmpPreviews = previews;
+
+            // Always show one preview block per court regardless of whether the court is busy or empty
+            previews.forEach((upcoming, ei) => {
+                const court    = state.courts[ei];
+                const isBusy   = court && court.players.some(p => p !== null);
+                const courtId  = court ? court.id : (ei + 1);
+                const label    = isBusy
+                    ? '&#9197; On Deck &mdash; Court ' + courtId
+                    : 'Court ' + courtId;
+
+                if (ei > 0) nmpHtml += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:8px 0">';
+                nmpHtml += '<div class="nmb-court-label">' + label + '</div>';
+                nmpHtml += buildTeamGrid(upcoming, ei);
+                if (upcoming.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4 - upcoming.length) + ' more IN needed</div>';
+            });
+
+            // If there are more courts than available foursomes, show a placeholder for the remainder
+            for (let ei = previews.length; ei < numCourts; ei++) {
+                const court   = state.courts[ei];
+                const courtId = court ? court.id : (ei + 1);
+                const isBusy  = court && court.players.some(p => p !== null);
+                const label   = isBusy
+                    ? '&#9197; On Deck &mdash; Court ' + courtId
+                    : 'Court ' + courtId;
+                if (ei > 0) nmpHtml += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:8px 0">';
+                nmpHtml += '<div class="nmb-court-label">' + label + '</div>';
+                nmpHtml += '<div class="nmp-waiting" style="padding:10px 0;">&#9650; Need more players tagged IN</div>';
             }
+
             nmpEl.innerHTML = nmpHtml;
         }
 
@@ -3014,10 +3027,10 @@
     }
     function nmpLeaveDrop(ev) { ev.currentTarget.classList.remove('drag-over'); }
 
-    // Drop onto a specific Next Match slot — swap with the player currently in that slot
-    function dropToNextMatchSlot(ev, slotIndex) {
+    // Drop onto a specific Next Match slot — updates the manual override for that court
+    function dropToNextMatchSlot(ev, previewIdx, slotIndex) {
         ev.preventDefault(); ev.stopPropagation();
-        ev.currentTarget.classList.remove('drag-over');
+        ev.currentTarget.style.outline = '';
 
         // Gate: at least one court must be active (started via Fill Court)
         if (!state.courts.some(c => c.startTime)) {
@@ -3031,25 +3044,30 @@
         const incoming = state.queue[data.index];
         if (!incoming || incoming.in === false) return;
 
-        // Get the current IN queue preview (same logic as previewNextFoursome)
-        const inQueue = state.queue.filter(p => p.in);
-        const displaced = inQueue[slotIndex]; // player currently shown in that slot
+        // Identify the player currently shown at this slot using the cached preview
+        const currentPreview = window._nmpPreviews && window._nmpPreviews[previewIdx];
+        const displaced = currentPreview ? currentPreview[slotIndex] : null;
 
         if (!displaced || displaced.name === incoming.name) return;
 
-        // Find their actual indices in state.queue
-        const incomingQIdx = data.index;
-        const displacedQIdx = state.queue.findIndex(p => p.name === displaced.name);
+        // Build or update the override from the current preview
+        if (previewIdx === 0) {
+            const base = currentPreview
+                ? currentPreview.map(p => p ? p.name : '')
+                : state.queue.filter(p => p.in).slice(0, 4).map(p => p.name);
+            while (base.length < 4) base.push('');
 
-        if (displacedQIdx === -1) return;
-
-        // Swap their positions in the queue
-        const temp = state.queue[incomingQIdx];
-        state.queue[incomingQIdx] = state.queue[displacedQIdx];
-        state.queue[displacedQIdx] = temp;
+            // If incoming already appears elsewhere in the override, swap positions
+            const existingSlot = base.indexOf(incoming.name);
+            if (existingSlot !== -1 && existingSlot !== slotIndex) {
+                base[existingSlot] = displaced.name;
+            }
+            base[slotIndex] = incoming.name;
+            state.nextMatchOverride = base.filter(Boolean);
+        }
 
         sync();
-        showToast(incoming.name + ' swapped with ' + displaced.name, false);
+        showToast(incoming.name + ' swapped with ' + displaced.name + ' in next match', false);
     }
 
     function dropToNextMatch(ev) {
@@ -3194,13 +3212,24 @@
 
 
     function openNextMatchEdit() {
+        const inQueued = state.queue.filter(p => p.in !== false).map(p => p.name);
         const allQueued = state.queue.map(p => p.name);
         if (allQueued.length === 0) { showToast('Queue is empty.', true); return; }
         editContext = { type: 'nextmatch' };
         document.getElementById('editModalTitle').textContent = 'Edit Next Match Players';
         const teamLabels = ['Team A — Player 1','Team A — Player 2','Team B — Player 1','Team B — Player 2'];
-        const top4 = state.queue.slice(0, 4);
-        // Dropdown of all queue players
+
+        // Reflect what's currently shown in the Next Match panel:
+        // use the manual override if set, otherwise fall back to the cached algorithm preview
+        const cachedPreview = (window._nmpPreviews && window._nmpPreviews[0]) || [];
+        const currentNames = state.nextMatchOverride
+            ? state.nextMatchOverride.slice()
+            : cachedPreview.map(p => p ? p.name : '');
+        while (currentNames.length < 4) {
+            const next = inQueued.find(n => !currentNames.includes(n));
+            currentNames.push(next || '');
+        }
+
         function buildNextMatchDrop(fieldId, currentName) {
             let opts = allQueued.map(n =>
                 `<option value="${n}" ${n === currentName ? 'selected' : ''}>${n}</option>`
@@ -3208,9 +3237,9 @@
             return `<select id="${fieldId}" style="flex:1;padding:9px 12px;border-radius:8px;background:#1e2a32;border:1px solid rgba(255,255,255,0.15);color:white;font-size:14px;">${opts}</select>`;
         }
         document.getElementById('editModalBody').innerHTML =
-            '<p style="font-size:12px;color:#78909c;margin:0 0 12px">Reorder who plays in the next match by selecting from the queue.</p>' +
+            '<p style="font-size:12px;color:#78909c;margin:0 0 12px">Choose who plays in the next match. Drag or edit here to pin specific players.</p>' +
             [0,1,2,3].map(j => {
-                const cur = top4[j] ? top4[j].name : (allQueued[j] || '');
+                const cur = currentNames[j] || (allQueued[j] || '');
                 return `<div class="edit-player-row">
                     <span class="slot-label" style="font-size:10px;width:80px;">${teamLabels[j]}</span>
                     ${buildNextMatchDrop('nm_' + j, cur)}
@@ -3316,6 +3345,17 @@
 
     function saveEdit() {
         if (!editContext) return;
+        if (editContext.type === 'nextmatch') {
+            // Store the chosen lineup as a manual override
+            const names = [0,1,2,3].map(j => {
+                const sel = document.getElementById('nm_' + j);
+                return sel ? sel.value : '';
+            }).filter(n => n && state.queue.some(p => p.name === n));
+            state.nextMatchOverride = names.length > 0 ? names : null;
+            sync();
+            closeEditModal();
+            return;
+        }
         if (editContext.type === 'court') {
             const c = state.courts[editContext.idx];
             [0,1,2,3].forEach(j => {
@@ -4353,6 +4393,95 @@
 
 
     // ── Preview next foursome without mutating state ─────────────────────
+    /* Builds up to `numCourts` non-overlapping foursome previews using the active
+       matching algorithm. Each iteration removes picked players from the pool so
+       the same player is never shown in two previews at once. */
+    function buildNextMatchPreviews(numCourts) {
+        const usedNames = new Set();
+        const results   = [];
+
+        for (let i = 0; i < numCourts; i++) {
+            // For the first court preview, honour any manual override
+            if (i === 0 && state.nextMatchOverride && Array.isArray(state.nextMatchOverride)) {
+                const overridePlayers = state.nextMatchOverride
+                    .map(name => state.queue.find(p => p.name === name && p.in !== false))
+                    .filter(Boolean);
+                if (overridePlayers.length > 0) {
+                    overridePlayers.forEach(p => usedNames.add(p.name));
+                    results.push(overridePlayers);
+                    continue;
+                }
+                // Override has stale / opted-out names — discard silently
+                state.nextMatchOverride = null;
+            }
+
+            const pool = state.queue.filter(p => p.in && !usedNames.has(p.name));
+            if (pool.length === 0) break;
+
+            let foursome;
+            if (state.matchingMode === 'manual') {
+                foursome = pool.length >= 4
+                    ? (larongKalyePickFour(pool) || pool.slice(0, 4))
+                    : pool.slice(0, pool.length);
+
+            } else if (state.matchingMode === 'roundrobin') {
+                if (!state.partnerHistory) state.partnerHistory = {};
+                const sorted = [...pool].sort((a, b) => {
+                    const ga = (state.stats[a.name] || {}).games || 0;
+                    const gb = (state.stats[b.name] || {}).games || 0;
+                    return ga - gb;
+                });
+                // Trim to divisible-by-4
+                const trimmed = [...sorted];
+                while (trimmed.length % 4 !== 0 && trimmed.length > 0) {
+                    let maxG = -1, idx = trimmed.length - 1;
+                    trimmed.forEach((p, j) => {
+                        const g = (state.stats[p.name] || {}).games || 0;
+                        if (g > maxG) { maxG = g; idx = j; }
+                    });
+                    trimmed.splice(idx, 1);
+                }
+                foursome = trimmed.length >= 4
+                    ? (pickFreshFoursome(trimmed, []) || trimmed.slice(0, 4))
+                    : pool.slice(0, pool.length);
+
+            } else if (state.matchingMode === 'snake') {
+                const sorted = [...pool].sort((a, b) => {
+                    const ra = (state.playerRatings || {})[a.name] || 3.0;
+                    const rb = (state.playerRatings || {})[b.name] || 3.0;
+                    return rb - ra;
+                });
+                const trimmed = [...sorted];
+                while (trimmed.length % 4 !== 0 && trimmed.length > 0) {
+                    const now = Date.now();
+                    let worstScore = -Infinity, idx = trimmed.length - 1;
+                    trimmed.forEach((p, j) => {
+                        const waitMs = p.lastGameTime ? (now - p.lastGameTime) : Infinity;
+                        const games  = (state.stats[p.name] || {}).games || 0;
+                        const score  = waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
+                        if (score > worstScore) { worstScore = score; idx = j; }
+                    });
+                    trimmed.splice(idx, 1);
+                }
+                if (trimmed.length >= 4) {
+                    const g = trimmed.slice(0, 4);
+                    foursome = [g[0], g[3], g[1], g[2]]; // snake order
+                } else {
+                    foursome = pool.slice(0, pool.length);
+                }
+
+            } else {
+                foursome = pool.slice(0, 4);
+            }
+
+            if (foursome && foursome.length > 0) {
+                foursome.forEach(p => { if (p) usedNames.add(p.name); });
+                results.push(foursome);
+            } else break;
+        }
+        return results;
+    }
+
     function previewNextFoursome() {
         if (state.matchingMode === 'roundrobin') return previewRoundRobin();
         if (state.matchingMode === 'snake') return previewSnakeDraft();
@@ -4567,7 +4696,22 @@
     }
 
     function fillLarongKalye(emptyCourts) {
-        emptyCourts.forEach(c => {
+        let startIdx = 0;
+        // Apply manual override to the first court if one is set
+        if (state.nextMatchOverride && Array.isArray(state.nextMatchOverride) && emptyCourts.length > 0) {
+            const chosen = state.nextMatchOverride
+                .map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; })
+                .filter(Boolean);
+            state.nextMatchOverride = null;
+            if (chosen.length >= 4) {
+                const fc = emptyCourts[0];
+                fc.players   = chosen.slice(0, 4);
+                fc.startTime = Date.now();
+                fc.alerted   = false;
+                startIdx = 1;
+            }
+        }
+        emptyCourts.slice(startIdx).forEach(c => {
             const available = state.queue.filter(p => p.in);
             if (available.length < 4) return;
 
@@ -4614,7 +4758,23 @@
         }
 
         const assigned = [];
-        emptyCourts.forEach(c => {
+        let _rrStartIdx = 0;
+        // Apply manual override to first court if set
+        if (state.nextMatchOverride && Array.isArray(state.nextMatchOverride) && emptyCourts.length > 0) {
+            const chosen = state.nextMatchOverride
+                .map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; })
+                .filter(Boolean);
+            state.nextMatchOverride = null;
+            if (chosen.length >= 4) {
+                const fc = emptyCourts[0];
+                fc.players   = chosen.slice(0, 4);
+                fc.startTime = Date.now();
+                fc.alerted   = false;
+                chosen.forEach(p => assigned.push(p.name));
+                _rrStartIdx = 1;
+            }
+        }
+        emptyCourts.slice(_rrStartIdx).forEach(c => {
             if (pool.length < 4) return;
             const foursome = pickFreshFoursome(pool, assigned);
             if (foursome) {
@@ -4689,7 +4849,24 @@
             pool.splice(sitIdx, 1);
         }
 
-        emptyCourts.forEach(c => {
+        let _snakeStartIdx = 0;
+        // Apply manual override to first court if set
+        if (state.nextMatchOverride && Array.isArray(state.nextMatchOverride) && emptyCourts.length > 0) {
+            const chosen = state.nextMatchOverride
+                .map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; })
+                .filter(Boolean);
+            state.nextMatchOverride = null;
+            if (chosen.length >= 4) {
+                const fc = emptyCourts[0];
+                fc.players   = chosen.slice(0, 4);
+                fc.startTime = Date.now();
+                fc.alerted   = false;
+                _snakeStartIdx = 1;
+                // Also remove these from the snake pool
+                chosen.forEach(p => { const i = pool.findIndex(q => q.name === p.name); if (i !== -1) pool.splice(i, 1); });
+            }
+        }
+        emptyCourts.slice(_snakeStartIdx).forEach(c => {
             if (pool.length < 4) return;
             const group = pool.splice(0, 4);
             // Snake: [0,3] = Team A, [1,2] = Team B
@@ -4711,7 +4888,7 @@
 
     function resetAll() {
         if (!confirm("Reset everything?")) return;
-        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true };
+        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true, nextMatchOverride: null };
         clearSessionUI(); // wipe report table + session name input
         sync();
         // Show setup popup so organizer can name the session and pick a mode
