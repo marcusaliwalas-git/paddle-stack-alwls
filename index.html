@@ -3035,12 +3035,6 @@
         ev.preventDefault(); ev.stopPropagation();
         ev.currentTarget.style.outline = '';
 
-        // Gate: at least one court must be active (started via Fill Court)
-        if (!state.courts.some(c => c.startTime)) {
-            showToast('⚠️ Click "Fill Court" to start a game before adjusting the next match.', true);
-            return;
-        }
-
         const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
         if (data.type !== 'rack') return;
 
@@ -3094,12 +3088,6 @@
         // Panel-level drop fallback — move dragged player to front of IN queue
         ev.preventDefault();
         ev.currentTarget.classList.remove('drag-over');
-
-        // Gate: at least one court must be active (started via Fill Court)
-        if (!state.courts.some(c => c.startTime)) {
-            showToast('⚠️ Click "Fill Court" to start a game before adjusting the next match.', true);
-            return;
-        }
 
         const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
         if (data.type !== 'rack') return;
@@ -3245,43 +3233,85 @@
 
 
     function openNextMatchEdit() {
-        const allQueued = state.queue.map(p => p.name);
-        if (allQueued.length === 0) { showToast('Queue is empty.', true); return; }
+        // Only checked-in (IN) players are eligible
+        const inQueued = state.queue.filter(p => p.in !== false).map(p => p.name);
+        if (inQueued.length === 0) { showToast('No players are tagged IN yet.', true); return; }
         editContext = { type: 'nextmatch' };
         document.getElementById('editModalTitle').textContent = 'Edit Next Match';
 
         const previews   = window._nmpPreviews || [];
-        const numCourts  = previews.length;
+        const numCourts  = previews.length || state.courts.length;
         const teamLabels = ['Team A · P1','Team A · P2','Team B · P1','Team B · P2'];
 
-        function buildDrop(fieldId, currentName) {
-            const opts = allQueued.map(n =>
-                `<option value="${n}" ${n === currentName ? 'selected' : ''}>${n}</option>`
+        /* Build a <select> for one slot.
+           pool    = IN players still available for this court at this slot position
+           current = name pre-selected (may be empty)
+           disabled = true when the pool is empty and no player is pinned here */
+        function buildDrop(fieldId, current, pool, disabled) {
+            const selStyle = 'flex:1;padding:8px 10px;border-radius:8px;background:#1e2a32;' +
+                'border:1px solid rgba(255,255,255,0.15);color:white;font-size:13px;' +
+                (disabled ? 'opacity:0.38;cursor:not-allowed;' : '');
+            if (disabled) {
+                return `<select id="${fieldId}" disabled style="${selStyle}">` +
+                    `<option>— Not enough IN players —</option></select>`;
+            }
+            // Current player goes first; then all remaining pool players
+            let opts = '';
+            if (current && !pool.includes(current)) {
+                // Current is pinned but not in pool (already used elsewhere) — still show it
+                opts += `<option value="${current}" selected>${current}</option>`;
+            }
+            opts += pool.map(n =>
+                `<option value="${n}" ${n === current ? 'selected' : ''}>${n}</option>`
             ).join('');
-            return `<select id="${fieldId}" style="flex:1;padding:8px 10px;border-radius:8px;background:#1e2a32;border:1px solid rgba(255,255,255,0.15);color:white;font-size:13px;">${opts}</select>`;
+            return `<select id="${fieldId}" style="${selStyle}">${opts}</select>`;
         }
 
-        let body = '<p style="font-size:12px;color:#78909c;margin:0 0 14px">Pin specific players for each court. Saves override the algorithm for the next fill.</p>';
+        let body = '<p style="font-size:12px;color:#78909c;margin:0 0 14px">Pin specific players for each court. Only checked-in players appear. Saves override the algorithm.</p>';
+
+        // Track which IN players are already pinned to earlier courts in the modal
+        const globalUsed = new Set();
 
         for (let ci = 0; ci < numCourts; ci++) {
-            const cachedPreview = previews[ci] || [];
-            const overrideNames = (_nmo && _nmo[ci])
-                ? _nmo[ci].slice()
-                : cachedPreview.map(p => p ? p.name : '');
+            const cachedPreview = (previews[ci] || []).map(p => p ? p.name : '');
+            const overrideNames = (_nmo && _nmo[ci]) ? _nmo[ci].slice() : cachedPreview.slice();
             while (overrideNames.length < 4) overrideNames.push('');
 
-            const court = state.courts[ci];
+            const court   = state.courts[ci];
             const courtId = court ? court.id : (ci + 1);
             const isBusy  = court && court.players.some(p => p !== null);
             const courtLabel = isBusy ? `⏭ On Deck — Court ${courtId}` : `Court ${courtId}`;
 
+            // Pool of IN players not already assigned to a previous court in the modal
+            const basePool = inQueued.filter(n => !globalUsed.has(n));
+
             if (ci > 0) body += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:14px 0">';
             body += `<div style="font-size:11px;font-weight:700;color:#90caf9;letter-spacing:0.5px;margin-bottom:8px;">${courtLabel}</div>`;
-            body += [0,1,2,3].map(j => `
-                <div class="edit-player-row" style="margin-bottom:6px;">
+
+            // Track players pinned within this court so slots don't repeat each other
+            const courtPinned = new Set();
+
+            body += [0,1,2,3].map(j => {
+                const current = overrideNames[j] || '';
+                // Pool for this slot = base pool minus already-pinned slots in this court
+                const slotPool = basePool.filter(n => !courtPinned.has(n));
+                const hasCurrent = current && basePool.includes(current);
+                const disabled = !hasCurrent && slotPool.length === 0;
+
+                if (hasCurrent) courtPinned.add(current);
+                else if (!disabled) {
+                    // Slot is open — don't pre-consume from pool; user will pick
+                }
+
+                return `<div class="edit-player-row" style="margin-bottom:6px;">
                     <span class="slot-label" style="font-size:10px;width:70px;flex-shrink:0;">${teamLabels[j]}</span>
-                    ${buildDrop('nm_' + ci + '_' + j, overrideNames[j] || '')}
-                </div>`).join('');
+                    ${buildDrop('nm_' + ci + '_' + j, hasCurrent ? current : '', slotPool, disabled)}
+                </div>`;
+            }).join('');
+
+            // Reserve all pinned players for this court from subsequent courts
+            overrideNames.filter(n => n && inQueued.includes(n) && !globalUsed.has(n))
+                .forEach(n => globalUsed.add(n));
         }
 
         document.getElementById('editModalBody').innerHTML = body;
@@ -3395,7 +3425,7 @@
                 const names = [0,1,2,3].map(j => {
                     const sel = document.getElementById('nm_' + ci + '_' + j);
                     return sel ? sel.value : '';
-                }).filter(n => n && state.queue.some(p => p.name === n) && !globalUsed.has(n));
+                }).filter(n => n && state.queue.some(p => p.name === n && p.in !== false) && !globalUsed.has(n));
                 names.forEach(n => globalUsed.add(n));
                 newNmo[ci] = names.length > 0 ? names : null;
                 if (names.length > 0) anySet = true;
