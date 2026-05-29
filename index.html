@@ -3290,20 +3290,43 @@
             if (!_nmo) _nmo = [];
             _nmo[previewIdx] = base.filter(Boolean);
 
-            // Remove incoming player from any OTHER court's override to prevent duplicates.
+            // Remove incoming player from any OTHER court's EXISTING override to prevent duplicates.
             // Back-fill that slot with the displaced player so the other court still has 4.
             _nmo.forEach((courtOv, idx) => {
                 if (idx === previewIdx || !courtOv) return;
                 const pos = courtOv.indexOf(incoming.name);
                 if (pos === -1) return;
-                // Replace the incoming player's old slot with the displaced player
-                // (if displaced isn't already in that court's override)
                 if (displaced && displaced.name && !courtOv.includes(displaced.name)) {
                     courtOv[pos] = displaced.name;
                 } else {
                     courtOv.splice(pos, 1); // just remove — court will show partial
                 }
             });
+
+            // Also handle courts whose preview comes purely from the ALGORITHM (no _nmo yet).
+            // If the incoming player already appears in another court's cached algorithm preview,
+            // lock that court's preview in as an override and swap incoming → displaced there too.
+            // Without this, buildNextMatchPreviews re-runs the algorithm for that court and picks
+            // the incoming player again, creating a duplicate and leaving this court with an empty slot.
+            if (window._nmpPreviews) {
+                window._nmpPreviews.forEach((preview, idx) => {
+                    if (idx === previewIdx) return; // already handled the target court
+                    if (_nmo && _nmo[idx] && _nmo[idx].some(n => n === incoming.name)) return; // already deduped above
+                    if (!preview) return;
+                    const posInPreview = preview.findIndex(p => p && p.name === incoming.name);
+                    if (posInPreview === -1) return; // incoming not in this court's algorithm preview
+                    // Lock this court's algorithm preview as an explicit override,
+                    // replacing the incoming player with the displaced player.
+                    const lockBase = preview.map(p => p ? p.name : '');
+                    if (displaced && displaced.name && !lockBase.includes(displaced.name)) {
+                        lockBase[posInPreview] = displaced.name;
+                    } else {
+                        lockBase.splice(posInPreview, 1); // can't back-fill — court shows partial
+                    }
+                    if (!_nmo) _nmo = [];
+                    _nmo[idx] = lockBase.filter(Boolean);
+                });
+            }
         }
 
         sync();
@@ -4757,23 +4780,9 @@
                     const gb = (state.stats[b.name] || {}).games || 0;
                     return ga - gb;
                 });
-                // Trim to divisible-by-4 — skip locked players whose partner is in pool
+                // Trim to divisible-by-4 using the same fair sit-out logic as fillRoundRobin
                 const trimmed = [...sorted];
-                while (trimmed.length % 4 !== 0 && trimmed.length > 0) {
-                    const hasAnyNL = trimmed.some(p => {
-                        const lk = getLockFor(p.name);
-                        return !(lk && trimmed.some(q => q !== p && (q.name === lk.a || q.name === lk.b)));
-                    });
-                    let maxG = -1, idx = trimmed.length - 1;
-                    trimmed.forEach((p, j) => {
-                        const lk = getLockFor(p.name);
-                        const hasPartner = lk && trimmed.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
-                        if (hasAnyNL && hasPartner) return;
-                        const g = (state.stats[p.name] || {}).games || 0;
-                        if (g > maxG) { maxG = g; idx = j; }
-                    });
-                    trimmed.splice(idx, 1);
-                }
+                _sitOutToFourDivisible(trimmed, p => (state.stats[p.name] || {}).games || 0);
                 foursome = trimmed.length >= 4
                     ? (pickFreshFoursome(trimmed, []) || trimmed.slice(0, 4))
                     : pool.slice(0, pool.length);
@@ -4787,24 +4796,12 @@
                 const trimmed = [...sorted];
                 {
                     const _pvNow2 = Date.now();
-                    // Lock-aware trim: prefer to sit out players whose locked partner is NOT in trimmed
-                    while (trimmed.length % 4 !== 0 && trimmed.length > 0) {
-                        const hasAnyNL = trimmed.some(p => {
-                            const lk = getLockFor(p.name);
-                            return !(lk && trimmed.some(q => q !== p && (q.name === lk.a || q.name === lk.b)));
-                        });
-                        let worstScore = -Infinity, idx = trimmed.length - 1;
-                        trimmed.forEach((p, j) => {
-                            const lk = getLockFor(p.name);
-                            const hasPartner = lk && trimmed.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
-                            if (hasAnyNL && hasPartner) return;
-                            const waitMs = p.lastGameTime ? (_pvNow2 - p.lastGameTime) : Infinity;
-                            const games  = (state.stats[p.name] || {}).games || 0;
-                            const score  = waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
-                            if (score > worstScore) { worstScore = score; idx = j; }
-                        });
-                        trimmed.splice(idx, 1);
-                    }
+                    // Trim to divisible-by-4 using the same fair sit-out logic as fillSnakeDraft
+                    _sitOutToFourDivisible(trimmed, p => {
+                        const waitMs = p.lastGameTime ? (_pvNow2 - p.lastGameTime) : Infinity;
+                        const games  = (state.stats[p.name] || {}).games || 0;
+                        return waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
+                    });
                     // Colocate locked pairs so preview shows them in the same court slot
                     (state.pairedLocks || []).forEach(lk => {
                         if (!lk) return;
