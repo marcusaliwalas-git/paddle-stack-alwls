@@ -1882,7 +1882,7 @@
     </div>
 
     <div class="right-column">
-        <div class="next-match-panel nmp-drop-zone" id="nextMatchPanel" style="display:none" ondragover="nmpAllowDrop(event)" ondragleave="nmpLeaveDrop(event)" ondrop="dropToNextMatch(event)"></div>
+        <div class="next-match-panel" id="nextMatchPanel" style="display:none"></div>
         <div class="courts-grid" id="courtsGrid"></div>
     </div>
 </div>
@@ -2228,6 +2228,15 @@
         if (!p) return;
         const wasIn = !!p.in;
         p.in = !wasIn;
+        // When checking a player OUT, automatically break their pair lock
+        if (wasIn && state.pairedLocks) {
+            const lockIdx = state.pairedLocks.findIndex(l => l && (l.a === p.name || l.b === p.name));
+            if (lockIdx !== -1) {
+                const lock = state.pairedLocks[lockIdx];
+                state.pairedLocks.splice(lockIdx, 1);
+                showToast('🔓 ' + lock.a + ' & ' + lock.b + ' lock ended (player checked out).', false);
+            }
+        }
         // Physically reorder: IN players first, OUT players at end
         state.queue.splice(idx, 1);
         if (!wasIn) {
@@ -3012,7 +3021,7 @@
                     : 'border-left:3px solid ' + color + ';';
                 const _lockMark = _plkColor ? ' 🔗' : '';
                 return '<div class="nmp-player" draggable="true" ' + dropAttrs + ' '
-                    + 'ondragstart="nmpDragStart(event,&quot;' + safeName + '&quot;)" '
+                    + 'ondragstart="nmpDragStart(event,&quot;' + safeName + '&quot;,' + pi + ',' + slotIdx + ')" '
                     + 'style="' + _border + 'cursor:grab;">' + p.name + _lockMark + '</div>';
             };
             const ta = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
@@ -3256,31 +3265,33 @@
     }
     function nmpLeaveDrop(ev) { ev.currentTarget.classList.remove('drag-over'); }
 
-    // Drop onto a specific Next Match slot — updates the manual override for that court
+    // Drop onto a specific Next Match slot — updates the manual override for that court.
+    // Accepts both 'rack' (queue sidebar) and 'nextmatch' (NMP slot) drag sources.
     function dropToNextMatchSlot(ev, previewIdx, slotIndex) {
         ev.preventDefault(); ev.stopPropagation();
         ev.currentTarget.style.outline = '';
 
         const data = JSON.parse(ev.dataTransfer.getData("text") || '{}');
-        if (data.type !== 'rack') return;
-
-        const incoming = state.queue[data.index];
-        if (!incoming || incoming.in === false) return;
-
-        // Identify the player currently shown at this slot using the cached preview
         const currentPreview = window._nmpPreviews && window._nmpPreviews[previewIdx];
         const displaced = currentPreview ? currentPreview[slotIndex] : null;
 
-        if (!displaced || displaced.name === incoming.name) return;
+        // ── From queue sidebar (rack) ────────────────────────────────────────
+        if (data.type === 'rack') {
+            const incoming = state.queue[data.index];
+            if (!incoming || incoming.in === false) return;
+            if (!displaced || displaced.name === incoming.name) return;
 
-        // Build or update the per-court override for this preview index
-        {
+            // Don't displace a locked-in player
+            if (getLockFor(displaced.name)) {
+                showToast('🔒 ' + displaced.name + ' is locked in — remove their lock first.', true);
+                return;
+            }
+
             const base = (_nmo && _nmo[previewIdx])
                 ? _nmo[previewIdx].slice()
                 : (currentPreview ? currentPreview.map(p => p ? p.name : '') : []);
             while (base.length < 4) base.push('');
 
-            // If incoming already appears elsewhere in THIS court's override, swap positions
             const existingSlot = base.indexOf(incoming.name);
             if (existingSlot !== -1 && existingSlot !== slotIndex) {
                 base[existingSlot] = displaced.name;
@@ -3290,47 +3301,91 @@
             if (!_nmo) _nmo = [];
             _nmo[previewIdx] = base.filter(Boolean);
 
-            // Remove incoming player from any OTHER court's EXISTING override to prevent duplicates.
-            // Back-fill that slot with the displaced player so the other court still has 4.
+            // Remove incoming from any OTHER court's EXISTING override → back-fill with displaced
             _nmo.forEach((courtOv, idx) => {
                 if (idx === previewIdx || !courtOv) return;
                 const pos = courtOv.indexOf(incoming.name);
                 if (pos === -1) return;
-                if (displaced && displaced.name && !courtOv.includes(displaced.name)) {
+                if (displaced.name && !courtOv.includes(displaced.name)) {
                     courtOv[pos] = displaced.name;
                 } else {
-                    courtOv.splice(pos, 1); // just remove — court will show partial
+                    courtOv.splice(pos, 1);
                 }
             });
 
-            // Also handle courts whose preview comes purely from the ALGORITHM (no _nmo yet).
-            // If the incoming player already appears in another court's cached algorithm preview,
-            // lock that court's preview in as an override and swap incoming → displaced there too.
-            // Without this, buildNextMatchPreviews re-runs the algorithm for that court and picks
-            // the incoming player again, creating a duplicate and leaving this court with an empty slot.
+            // Also lock in any court whose algorithm-only preview still shows the incoming player
             if (window._nmpPreviews) {
                 window._nmpPreviews.forEach((preview, idx) => {
-                    if (idx === previewIdx) return; // already handled the target court
-                    if (_nmo && _nmo[idx] && _nmo[idx].some(n => n === incoming.name)) return; // already deduped above
+                    if (idx === previewIdx) return;
+                    if (_nmo && _nmo[idx] && _nmo[idx].some(n => n === incoming.name)) return;
                     if (!preview) return;
                     const posInPreview = preview.findIndex(p => p && p.name === incoming.name);
-                    if (posInPreview === -1) return; // incoming not in this court's algorithm preview
-                    // Lock this court's algorithm preview as an explicit override,
-                    // replacing the incoming player with the displaced player.
+                    if (posInPreview === -1) return;
                     const lockBase = preview.map(p => p ? p.name : '');
-                    if (displaced && displaced.name && !lockBase.includes(displaced.name)) {
+                    if (displaced.name && !lockBase.includes(displaced.name)) {
                         lockBase[posInPreview] = displaced.name;
                     } else {
-                        lockBase.splice(posInPreview, 1); // can't back-fill — court shows partial
+                        lockBase.splice(posInPreview, 1);
                     }
                     if (!_nmo) _nmo = [];
                     _nmo[idx] = lockBase.filter(Boolean);
                 });
             }
-        }
 
-        sync();
-        showToast(incoming.name + ' → Court ' + (previewIdx + 1) + ' (swapped with ' + displaced.name + ')', false);
+            sync();
+            showToast(incoming.name + ' → Court ' + (previewIdx + 1) + ' (swapped with ' + displaced.name + ')', false);
+
+        // ── From another NMP slot (nextmatch) ───────────────────────────────
+        } else if (data.type === 'nextmatch') {
+            const fromPreviewIdx = data.previewIdx;
+            const fromSlotIdx    = data.slotIdx;
+            const incomingName   = data.name;
+            if (!incomingName) return;
+            if (displaced && displaced.name === incomingName) return; // same player, no-op
+
+            // Don't displace a locked-in player to a different court
+            if (displaced && fromPreviewIdx !== previewIdx && getLockFor(displaced.name)) {
+                showToast('🔒 ' + displaced.name + ' is locked in — remove their lock first.', true);
+                return;
+            }
+
+            if (!_nmo) _nmo = [];
+
+            // Update TARGET court override
+            const targetBase = (_nmo[previewIdx])
+                ? _nmo[previewIdx].slice()
+                : (currentPreview ? currentPreview.map(p => p ? p.name : '') : []);
+            while (targetBase.length < 4) targetBase.push('');
+            // If incoming already in this court at a different slot, swap those two positions
+            const existInTarget = targetBase.indexOf(incomingName);
+            if (existInTarget !== -1 && existInTarget !== slotIndex) {
+                targetBase[existInTarget] = displaced ? displaced.name : '';
+            }
+            targetBase[slotIndex] = incomingName;
+            _nmo[previewIdx] = targetBase.filter(Boolean);
+
+            // Update SOURCE court override (put displaced into incoming's vacated slot)
+            if (fromPreviewIdx !== previewIdx) {
+                const fromPreview = window._nmpPreviews && window._nmpPreviews[fromPreviewIdx];
+                const sourceBase = (_nmo[fromPreviewIdx])
+                    ? _nmo[fromPreviewIdx].slice()
+                    : (fromPreview ? fromPreview.map(p => p ? p.name : '') : []);
+                while (sourceBase.length < 4) sourceBase.push('');
+                if (displaced && displaced.name && !sourceBase.includes(displaced.name)) {
+                    sourceBase[fromSlotIdx] = displaced.name;
+                } else {
+                    sourceBase[fromSlotIdx] = ''; // vacate — court will show partial
+                }
+                _nmo[fromPreviewIdx] = sourceBase.filter(Boolean);
+            }
+            // Same-court: existInTarget swap above already handles repositioning
+
+            const label = fromPreviewIdx !== previewIdx
+                ? incomingName + ' → Court ' + (previewIdx + 1) + (displaced ? ' (swapped with ' + displaced.name + ')' : '')
+                : incomingName + ' repositioned';
+            sync();
+            showToast(label, false);
+        }
     }
 
     function dropToNextMatch(ev) {
@@ -3363,8 +3418,8 @@
         showToast(_dmPlayer.name + ' added to next match', false);
     }
 
-    function nmpDragStart(ev, name) {
-        ev.dataTransfer.setData("text", JSON.stringify({type:'nextmatch', name: name}));
+    function nmpDragStart(ev, name, previewIdx, slotIdx) {
+        ev.dataTransfer.setData("text", JSON.stringify({type:'nextmatch', name, previewIdx, slotIdx}));
     }
     function allowDrop(ev) { ev.preventDefault(); ev.currentTarget.style.borderColor = 'var(--primary)'; }
     function leaveDrop(ev) { ev.currentTarget.style.borderColor = ''; }
