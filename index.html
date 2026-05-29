@@ -3371,10 +3371,18 @@
                     ? _nmo[fromPreviewIdx].slice()
                     : (fromPreview ? fromPreview.map(p => p ? p.name : '') : []);
                 while (sourceBase.length < 4) sourceBase.push('');
+
                 if (displaced && displaced.name && !sourceBase.includes(displaced.name)) {
+                    // Swap: put the displaced player into incoming's old slot
                     sourceBase[fromSlotIdx] = displaced.name;
                 } else {
-                    sourceBase[fromSlotIdx] = ''; // vacate — court will show partial
+                    // Empty target slot — auto-fill the vacated source slot from the queue
+                    // so the source court stays at 4 players and slot positions don't scramble.
+                    const takenNames = new Set([incomingName]);
+                    (_nmo || []).forEach(ov => { if (ov) ov.forEach(n => takenNames.add(n)); });
+                    sourceBase.forEach(n => { if (n) takenNames.add(n); });
+                    const fill = state.queue.find(p => p.in !== false && !takenNames.has(p.name));
+                    sourceBase[fromSlotIdx] = fill ? fill.name : '';
                 }
                 _nmo[fromPreviewIdx] = sourceBase.filter(Boolean);
             }
