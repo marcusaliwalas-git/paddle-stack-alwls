@@ -2169,7 +2169,8 @@
         sessionName: '',             // organizer-defined session name
         trackScores: true,           // if false, wins clear court with no score recorded
         pairedLocks: [],             // persistent pair locks — [{ a: 'Name1', b: 'Name2' }, ...]
-        customMatches: []            // one-time custom 4-player requests — [{ id, a1, a2, b1, b2 }, ...]
+        customMatches: [],           // one-time custom 4-player requests — [{ id, a1, a2, b1, b2 }, ...]
+        nextMatchPreview: []         // per-court NMP result synced to Firebase for spectators
     };
 
     window.onload = () => {
@@ -2614,6 +2615,13 @@
     function sync() {
         localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
         updateDisplay();
+        // Capture the freshly-computed NMP previews (set by updateDisplay → buildNextMatchPreviews)
+        // into state so they get written to Firebase and are visible to spectators.
+        if (window._nmpPreviews) {
+            state.nextMatchPreview = window._nmpPreviews.map(foursome =>
+                (foursome || []).map(p => p ? p.name : null).filter(Boolean)
+            );
+        }
         if (window.fbWrite) {
             window.fbWrite(state);
         } else {
@@ -5452,7 +5460,7 @@
         if (!confirm("Reset everything?")) return;
         _nmo = null;           // clear manual next-match override
         _lockingPlayer = null; // cancel any in-progress lock selection
-        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true, pairedLocks: [], customMatches: [] };
+        state = { theme: state.theme || 'dark', designTheme: state.designTheme || null, queue: [], history: [], stats: {}, courts: [{ id: "1", players: [null,null,null,null], startTime: null, alerted: false }], matchingMode: null, partnerHistory: {}, playerRatings: {}, gameLog: [], sessionName: '', trackScores: true, pairedLocks: [], customMatches: [], nextMatchPreview: [] };
         clearSessionUI(); // wipe report table + session name input
         sync();
         // Show setup popup so organizer can name the session and pick a mode
@@ -5732,6 +5740,14 @@
                 ? (Array.isArray(fbData.customMatches)
                     ? fbData.customMatches
                     : Object.values(fbData.customMatches))
+                : [];
+            // Normalize nextMatchPreview — array-of-arrays; Firebase may return nested objects
+            state.nextMatchPreview = fbData.nextMatchPreview
+                ? (Array.isArray(fbData.nextMatchPreview)
+                    ? fbData.nextMatchPreview.map(court =>
+                        Array.isArray(court) ? court : Object.values(court || {}))
+                    : Object.values(fbData.nextMatchPreview).map(court =>
+                        Array.isArray(court) ? court : Object.values(court || {})))
                 : [];
             // Keep IN players first, OUT players at the end (stable sort preserves relative order)
             state.queue.sort((a, b) => {
@@ -6565,8 +6581,6 @@
             return s.games > 0 ? (s.wins + 'W ' + losses + 'L') : '0W 0L';
         }
 
-        // On Deck panel (first 4 IN players)
-        const next4 = inQueue.slice(0, 4);
         let html = '';
 
         if (inQueue.length === 0) {
@@ -6578,32 +6592,79 @@
             return;
         }
 
-        // Next match section
+        // ── On Deck: use organizer's computed NMP previews (synced via state.nextMatchPreview) ──
+        const nmpPreviews = (liveState.nextMatchPreview && liveState.nextMatchPreview.length)
+            ? (Array.isArray(liveState.nextMatchPreview)
+                ? liveState.nextMatchPreview
+                : Object.values(liveState.nextMatchPreview))
+            : null;
+
         html += '<div style="font-size:11px;font-weight:bold;color:#81c784;margin-bottom:8px;">&#9654; On Deck</div>';
-        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:12px;">';
-        html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
-        [0,1].forEach(j => {
-            if (next4[j]) {
-                html += '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
-                    + '<span style="font-weight:bold;">' + next4[j].name + '</span>'
-                    + '<span style="font-size:10px;color:#90caf9;">' + playerStat(next4[j].name) + '</span>'
-                    + '</div>';
-            } else {
-                html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
-            }
-        });
-        html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
-        [2,3].forEach(j => {
-            if (next4[j]) {
-                html += '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
-                    + '<span style="font-weight:bold;">' + next4[j].name + '</span>'
-                    + '<span style="font-size:10px;color:#f48fb1;">' + playerStat(next4[j].name) + '</span>'
-                    + '</div>';
-            } else {
-                html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
-            }
-        });
-        html += '</div>';
+
+        if (nmpPreviews && nmpPreviews.length > 0) {
+            // Render one card per court using the organizer's algorithm result
+            nmpPreviews.forEach((courtNames, ci) => {
+                const names = Array.isArray(courtNames) ? courtNames : Object.values(courtNames || {});
+                if (!names || names.length === 0) return;
+                const numCourts = (liveState.courts || []).length;
+                if (numCourts > 1) {
+                    html += '<div style="font-size:10px;font-weight:bold;color:#aaa;margin-bottom:4px;">Court ' + (ci + 1) + '</div>';
+                }
+                html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:12px;">';
+                html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
+                [0, 1].forEach(j => {
+                    const name = names[j];
+                    if (name) {
+                        html += '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
+                            + '<span style="font-weight:bold;">' + name + '</span>'
+                            + '<span style="font-size:10px;color:#90caf9;">' + playerStat(name) + '</span>'
+                            + '</div>';
+                    } else {
+                        html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+                    }
+                });
+                html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
+                [2, 3].forEach(j => {
+                    const name = names[j];
+                    if (name) {
+                        html += '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
+                            + '<span style="font-weight:bold;">' + name + '</span>'
+                            + '<span style="font-size:10px;color:#f48fb1;">' + playerStat(name) + '</span>'
+                            + '</div>';
+                    } else {
+                        html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+                    }
+                });
+                html += '</div>';
+            });
+        } else {
+            // Fallback: first 4 IN players (shown when organizer hasn't synced NMP yet)
+            const next4 = inQueue.slice(0, 4);
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:12px;">';
+            html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
+            [0, 1].forEach(j => {
+                if (next4[j]) {
+                    html += '<div class="live-queue-item" style="border-left:3px solid rgba(25,118,210,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
+                        + '<span style="font-weight:bold;">' + next4[j].name + '</span>'
+                        + '<span style="font-size:10px;color:#90caf9;">' + playerStat(next4[j].name) + '</span>'
+                        + '</div>';
+                } else {
+                    html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+                }
+            });
+            html += '<div style="font-size:10px;font-weight:bold;color:#f48fb1;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
+            [2, 3].forEach(j => {
+                if (next4[j]) {
+                    html += '<div class="live-queue-item" style="border-left:3px solid rgba(194,24,91,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
+                        + '<span style="font-weight:bold;">' + next4[j].name + '</span>'
+                        + '<span style="font-size:10px;color:#f48fb1;">' + playerStat(next4[j].name) + '</span>'
+                        + '</div>';
+                } else {
+                    html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
+                }
+            });
+            html += '</div>';
+        }
 
         // Full IN queue list with standings
         if (inQueue.length > 0) {
