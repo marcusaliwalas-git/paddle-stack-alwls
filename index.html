@@ -5213,23 +5213,19 @@
         const LOOKBACK_MS = 60 * 60 * 1000; // 60-minute history window
         const now         = Date.now();
 
-        // Enrich with waitMs + preserve checkInTime for tiebreaking
+        // Enrich with waitMs.
+        // For players who have never played: count wait from checkInTime so they
+        // queue behind people who have been waiting longer, not ahead of them.
         const enriched = candidatePool.map(p => ({
             ...p,
-            waitMs:      p.lastGameTime ? (now - p.lastGameTime) : Infinity,
-            checkInTime: p.checkInTime  || 0
+            waitMs: p.lastGameTime
+                ? (now - p.lastGameTime)
+                : (p.checkInTime ? (now - p.checkInTime) : 0),
+            checkInTime: p.checkInTime || 0
         }));
 
         // Sort: longest wait first.
-        // Tiebreaker for brand-new players (waitMs = Infinity): earlier check-in = higher priority.
-        enriched.sort((a, b) => {
-            if (a.waitMs === Infinity && b.waitMs === Infinity) {
-                return (a.checkInTime || 0) - (b.checkInTime || 0); // earlier check-in first
-            }
-            if (a.waitMs === Infinity) return -1;
-            if (b.waitMs === Infinity) return 1;
-            return b.waitMs - a.waitMs; // longer wait = higher priority
-        });
+        enriched.sort((a, b) => b.waitMs - a.waitMs);
 
         // Build pool from top POOL_SIZE players by wait time.
         const pool = enriched.slice(0, Math.min(POOL_SIZE, enriched.length));
