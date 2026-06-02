@@ -2598,9 +2598,33 @@
             announce('No players are tagged in yet.');
             return;
         }
-        const nextNames = inQueue.slice(0, 4).map(p => p.name).join(', ');
-        showToast('📢 Next up: ' + nextNames);
-        announce('Next up: ' + nextNames + '.');
+
+        // Use the algorithm-computed NMP previews so the announcement matches
+        // exactly what the organizer sees in the Next Match panel.
+        const previews = window._nmpPreviews && window._nmpPreviews.length
+            ? window._nmpPreviews.filter(Boolean)
+            : null;
+
+        if (previews && previews.length > 0) {
+            const numCourts = previews.length;
+            if (numCourts === 1) {
+                const names = previews[0].map(p => p.name).join(', ');
+                showToast('📢 Next up: ' + names);
+                announce('Next up: ' + names + '.');
+            } else {
+                // Multi-court: announce each court separately
+                const parts = previews.map((foursome, i) =>
+                    'Court ' + (i + 1) + ': ' + foursome.map(p => p.name).join(', ')
+                );
+                showToast('📢 Next up — ' + parts.join(' | '));
+                announce('Next up. ' + parts.join('. ') + '.');
+            }
+        } else {
+            // Fallback if NMP hasn't been computed yet
+            const nextNames = inQueue.slice(0, 4).map(p => p.name).join(', ');
+            showToast('📢 Next up: ' + nextNames);
+            announce('Next up: ' + nextNames + '.');
+        }
     }
 
     function announce(msg) {
