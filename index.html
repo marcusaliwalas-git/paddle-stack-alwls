@@ -570,15 +570,29 @@
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
         }
         .proj-court-name { font-size: 1.2rem; font-weight: bold; color: #ff6d00; text-transform: uppercase; letter-spacing: 1px; }
-        .proj-court-timer { font-family: monospace; font-size: 2.4rem; color: #fff; font-weight: bold; }
-        .proj-team-label { font-size: 0.72rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin: 10px 0 4px; }
+        .proj-court-timer { font-family: monospace; font-size: 1.44rem; color: #fff; font-weight: bold; }
+        .proj-team-label { font-size: 0.864rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin: 10px 0 4px; }
         .proj-team-a-label { color: #90caf9; }
         .proj-team-b-label { color: #f48fb1; }
+        .proj-players-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 2px; }
         .proj-player-name {
-            font-size: 1.75rem; font-weight: bold; color: #fff; padding: 3px 0;
+            font-size: 1.75rem; font-weight: bold; color: #fff; padding: 4px 6px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            background: rgba(255,255,255,0.05); border-radius: 8px; text-align: center;
         }
-        .proj-vs { text-align: center; font-size: 0.8rem; color: rgba(255,255,255,0.2); letter-spacing: 5px; margin: 6px 0; }
+        .proj-vs { text-align: center; font-size: 0.96rem; color: #fff; letter-spacing: 5px; margin: 8px 0; font-weight: bold; }
+        /* Sponsor bar above courts in projector view */
+        .proj-sponsor-bar {
+            display: flex; align-items: center; justify-content: center;
+            gap: 18px; padding: 7px 24px; flex-shrink: 0; flex-wrap: wrap;
+            background: rgba(0,0,0,0.35); border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .proj-sponsor-bar:empty { display: none; padding: 0; }
+        .proj-sponsor-logo {
+            height: 44px; width: auto; max-width: 130px;
+            object-fit: contain; border-radius: 6px;
+            background: #fff; padding: 4px 8px;
+        }
         .proj-queue-strip {
             background: rgba(255,255,255,0.04); border-radius: 12px;
             padding: 10px 16px; display: flex; align-items: center;
@@ -631,8 +645,8 @@
         .proj-rank-stat { font-size: 0.9rem; color: #90a4ae; flex-shrink: 0; }
         @media (max-width: 960px) {
             .proj-sidebar { width: 220px; }
-            .proj-court-timer { font-size: 1.8rem; }
-            .proj-player-name { font-size: 1.35rem; }
+            .proj-court-timer { font-size: 1.1rem; }
+            .proj-player-name { font-size: 1.2rem; }
             .proj-ondeck-player { font-size: 1.05rem; }
         }
 
@@ -1869,6 +1883,8 @@
             <span class="proj-live-badge">● LIVE</span>
             <button class="proj-exit-btn" onclick="toggleProjectorView()">✕ Exit Projector</button>
         </div>
+        <!-- Sponsor bar — populated from Firebase sponsorBanners, hidden when empty -->
+        <div class="proj-sponsor-bar" id="projSponsorBar"></div>
         <div class="proj-body">
             <!-- Left: courts + waiting queue -->
             <div class="proj-main">
@@ -6355,6 +6371,21 @@
 
     /* Renders up to 3 banners per sidebar.
        If more than 6 total, cycles through them every 8 s. */
+    // Renders sponsors as a horizontal logo strip inside the projector overlay.
+    // Called by _renderSponsorSidebars so both views stay in sync.
+    function _renderProjSponsorBar() {
+        const el = document.getElementById('projSponsorBar');
+        if (!el) return;
+        const all = window._sponsors || [];
+        if (all.length === 0) { el.innerHTML = ''; return; }
+        el.innerHTML = all.map(s => {
+            const inner = '<img class="proj-sponsor-logo" src="' + _spEsc(s.imageUrl) + '" alt="' + _spEsc(s.name || 'Sponsor') + '" onerror="this.parentElement.style.display=\'none\'">';
+            return s.clickUrl
+                ? '<a href="' + _spEsc(s.clickUrl) + '" target="_blank" rel="noopener" style="display:inline-flex;">' + inner + '</a>'
+                : '<span style="display:inline-flex;">' + inner + '</span>';
+        }).join('');
+    }
+
     function _renderSponsorSidebars() {
         const leftEl  = document.getElementById('liveSponsorLeft');
         const rightEl = document.getElementById('liveSponsorRight');
@@ -6413,6 +6444,9 @@
                 _renderFrame(offset);
             }, 8000);
         }
+
+        // Keep projector sponsor bar in sync
+        _renderProjSponsorBar();
     }
 
     function _refreshSponsorList() {
@@ -6636,10 +6670,10 @@
                         + '<span class="proj-court-timer" id="pct-' + ci + '">' + timerStr + '</span>'
                         + '</div>'
                         + '<div class="proj-team-label proj-team-a-label">Team A</div>'
-                        + pSlot(0) + pSlot(1)
-                        + '<div class="proj-vs">— VS —</div>'
+                        + '<div class="proj-players-row">' + pSlot(0) + pSlot(1) + '</div>'
+                        + '<div class="proj-vs">VS</div>'
                         + '<div class="proj-team-label proj-team-b-label">Team B</div>'
-                        + pSlot(2) + pSlot(3)
+                        + '<div class="proj-players-row">' + pSlot(2) + pSlot(3) + '</div>'
                         + '</div>';
                 }).join('');
             }
