@@ -2241,7 +2241,10 @@
         // Physically reorder: IN players first, OUT players at end
         state.queue.splice(idx, 1);
         if (!wasIn) {
-            // Was OUT → now IN: insert just before the first OUT player
+            // Was OUT → now IN: stamp the moment they actually joined the active queue
+            // so wait-time ranking starts from NOW, not from when they joined the roster.
+            p.checkInTime = Date.now();
+            // Insert just before the first OUT player
             const firstOut = state.queue.findIndex(q => !q.in);
             state.queue.splice(firstOut === -1 ? state.queue.length : firstOut, 0, p);
         } else {
