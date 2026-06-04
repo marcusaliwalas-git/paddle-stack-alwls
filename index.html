@@ -5063,16 +5063,17 @@
        Two-pass design:
          Pass 1 — honour _nmo overrides first, claiming their players before
                   any algorithm court runs. This prevents a newly-cleared court
-                  from "stealing" players that were already shown in other courts'
-                  On Deck panels.
-         Pass 2 — algorithm picks for every remaining court, using whoever is left.
+                  from "stealing" players already shown in other courts' On Deck panels.
+                  Partial overrides (< 4 players) are stored as-is; Pass 2 supplements them.
+         Pass 2 — for every court not yet at 4 players (no override OR partial override),
+                  the algorithm fills/completes the remaining slots from whoever is left.
     */
     function buildNextMatchPreviews(numCourts) {
         const usedNames = new Set();
         // Indexed by court position so display mapping (ei → courts[ei]) is preserved.
         const results   = new Array(numCourts).fill(null);
 
-        // ── Pass 1: claim _nmo-override courts first ──────────────────────
+        // ── Pass 1: claim _nmo-override players first ─────────────────────
         for (let i = 0; i < numCourts; i++) {
             if (!(_nmo && _nmo[i] && Array.isArray(_nmo[i]))) continue;
             const overridePlayers = _nmo[i]
@@ -5080,88 +5081,146 @@
                 .filter(Boolean);
             if (overridePlayers.length > 0) {
                 overridePlayers.forEach(p => usedNames.add(p.name));
-                results[i] = overridePlayers;
+                results[i] = overridePlayers; // may be partial (< 4) — Pass 2 will complete it
             } else {
-                // All override players are gone or already used — fall through to algorithm
+                // All override players gone or already used — fall through to algorithm
                 _nmo[i] = null;
             }
         }
 
-        // ── Pass 2: algorithm picks for courts without an override ────────
+        // ── Pass 2: fill or complete each court ───────────────────────────
         for (let i = 0; i < numCourts; i++) {
-            if (results[i] !== null) continue; // already handled in pass 1
+            const existing   = results[i] || [];
+            const slotsNeeded = 4 - existing.length;
+            if (slotsNeeded <= 0) continue; // already full
 
             const pool = state.queue.filter(p => p.in && !usedNames.has(p.name));
             if (pool.length === 0) break;
 
-            let foursome;
-            if (state.matchingMode === 'manual') {
-                foursome = pool.length >= 4
-                    ? (larongKalyePickFour(pool) || pool.slice(0, 4))
-                    : pool.slice(0, pool.length);
+            let picks; // the new players to add (may be fewer than slotsNeeded if pool is thin)
 
-            } else if (state.matchingMode === 'roundrobin') {
-                if (!state.partnerHistory) state.partnerHistory = {};
-                const sorted = [...pool].sort((a, b) => {
-                    const ga = (state.stats[a.name] || {}).games || 0;
-                    const gb = (state.stats[b.name] || {}).games || 0;
-                    return ga - gb;
-                });
-                const trimmed = [...sorted];
-                _sitOutToFourDivisible(trimmed, p => (state.stats[p.name] || {}).games || 0);
-                foursome = trimmed.length >= 4
-                    ? (pickFreshFoursome(trimmed, []) || trimmed.slice(0, 4))
-                    : pool.slice(0, pool.length);
+            if (existing.length === 0) {
+                // ── No override: run full algorithm ──────────────────────
+                if (state.matchingMode === 'manual') {
+                    picks = pool.length >= 4
+                        ? (larongKalyePickFour(pool) || pool.slice(0, 4))
+                        : pool.slice(0, pool.length);
 
-            } else if (state.matchingMode === 'snake') {
-                const sorted = [...pool].sort((a, b) => {
-                    const ra = (state.playerRatings || {})[a.name] || 3.0;
-                    const rb = (state.playerRatings || {})[b.name] || 3.0;
-                    return rb - ra;
-                });
-                const trimmed = [...sorted];
-                {
-                    const _pvNow2 = Date.now();
-                    _sitOutToFourDivisible(trimmed, p => {
-                        const waitMs = p.lastGameTime ? (_pvNow2 - p.lastGameTime) : Infinity;
-                        const games  = (state.stats[p.name] || {}).games || 0;
-                        return waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
+                } else if (state.matchingMode === 'roundrobin') {
+                    if (!state.partnerHistory) state.partnerHistory = {};
+                    const sorted = [...pool].sort((a, b) => {
+                        const ga = (state.stats[a.name] || {}).games || 0;
+                        const gb = (state.stats[b.name] || {}).games || 0;
+                        return ga - gb;
                     });
-                    (state.pairedLocks || []).forEach(lk => {
-                        if (!lk) return;
-                        const idxA = trimmed.findIndex(p => p.name === lk.a);
-                        const idxB = trimmed.findIndex(p => p.name === lk.b);
-                        if (idxA < 0 || idxB < 0) return;
-                        const [lo, hi] = idxA < idxB ? [idxA, idxB] : [idxB, idxA];
-                        if (Math.floor(lo / 4) === Math.floor(hi / 4)) return;
-                        const moved = trimmed.splice(hi, 1)[0];
-                        trimmed.splice(lo + 1, 0, moved);
+                    const trimmed = [...sorted];
+                    _sitOutToFourDivisible(trimmed, p => (state.stats[p.name] || {}).games || 0);
+                    picks = trimmed.length >= 4
+                        ? (pickFreshFoursome(trimmed, []) || trimmed.slice(0, 4))
+                        : pool.slice(0, pool.length);
+
+                } else if (state.matchingMode === 'snake') {
+                    const sorted = [...pool].sort((a, b) => {
+                        const ra = (state.playerRatings || {})[a.name] || 3.0;
+                        const rb = (state.playerRatings || {})[b.name] || 3.0;
+                        return rb - ra;
                     });
-                }
-                if (trimmed.length >= 4) {
-                    const g = trimmed.slice(0, 4);
-                    const _pvNow = Date.now();
-                    const _pvGames = [...(state.gameLog || [])]
-                        .filter(gl => gl.timestamp && new Date(gl.timestamp).getTime() > _pvNow - 3600000)
-                        .reverse();
-                    foursome = _bestTeamSplit(g, _pvGames);
+                    const trimmed = [...sorted];
+                    {
+                        const _pvNow2 = Date.now();
+                        _sitOutToFourDivisible(trimmed, p => {
+                            const waitMs = p.lastGameTime ? (_pvNow2 - p.lastGameTime) : Infinity;
+                            const games  = (state.stats[p.name] || {}).games || 0;
+                            return waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
+                        });
+                        (state.pairedLocks || []).forEach(lk => {
+                            if (!lk) return;
+                            const idxA = trimmed.findIndex(p => p.name === lk.a);
+                            const idxB = trimmed.findIndex(p => p.name === lk.b);
+                            if (idxA < 0 || idxB < 0) return;
+                            const [lo, hi] = idxA < idxB ? [idxA, idxB] : [idxB, idxA];
+                            if (Math.floor(lo / 4) === Math.floor(hi / 4)) return;
+                            const moved = trimmed.splice(hi, 1)[0];
+                            trimmed.splice(lo + 1, 0, moved);
+                        });
+                    }
+                    if (trimmed.length >= 4) {
+                        const g = trimmed.slice(0, 4);
+                        const _pvNow = Date.now();
+                        const _pvGames = [...(state.gameLog || [])]
+                            .filter(gl => gl.timestamp && new Date(gl.timestamp).getTime() > _pvNow - 3600000)
+                            .reverse();
+                        picks = _bestTeamSplit(g, _pvGames);
+                    } else {
+                        picks = pool.slice(0, pool.length);
+                    }
                 } else {
-                    foursome = pool.slice(0, pool.length);
+                    picks = pool.slice(0, 4);
                 }
 
             } else {
-                foursome = pool.slice(0, 4);
+                // ── Partial override: supplement remaining slots ──────────
+                // Keep the manually-placed players; fill the rest using
+                // mode-appropriate logic so the foursome makes sense.
+                picks = _supplementSlots(pool, existing, slotsNeeded);
             }
 
-            if (foursome && foursome.length > 0) {
-                foursome.forEach(p => { if (p) usedNames.add(p.name); });
-                results[i] = foursome;
+            if (picks && picks.length > 0) {
+                picks.forEach(p => { if (p) usedNames.add(p.name); });
+                results[i] = [...existing, ...picks];
             }
         }
 
         // Return only non-null slots (preserves relative order; gaps only occur when
         // the queue runs dry, same behaviour as the previous single-pass version).
         return results.filter(r => r !== null);
+    }
+
+    /* Pick `needed` players from `pool` to complete a partial foursome that
+       already contains `existing` players. Respects the active matching mode:
+       - Larong Kalye: lowest collision score against existing players, tiebreak by wait time
+       - Round Robin:  fewest games played
+       - Snake:        longest wait time (keeps from double-penalising players already assigned)
+    */
+    function _supplementSlots(pool, existing, needed) {
+        if (!pool.length || needed <= 0) return [];
+        const now = Date.now();
+
+        if (state.matchingMode === 'manual') {
+            const LOOKBACK_MS = 60 * 60 * 1000;
+            const recentGames = [...(state.gameLog || [])]
+                .filter(g => g.timestamp && new Date(g.timestamp).getTime() > now - LOOKBACK_MS)
+                .reverse();
+            // Score each pool player by how much collision they add with existing players
+            const scored = pool.map(p => {
+                const waitMs = p.lastGameTime
+                    ? (now - p.lastGameTime)
+                    : (p.checkInTime ? (now - p.checkInTime) : 0);
+                let collision = 0;
+                existing.forEach(e => { collision += _lkPairScore(e, p, recentGames); });
+                return { p, collision, waitMs };
+            });
+            scored.sort((a, b) => a.collision - b.collision || b.waitMs - a.waitMs);
+            return scored.slice(0, needed).map(s => s.p);
+        }
+
+        if (state.matchingMode === 'roundrobin') {
+            return [...pool]
+                .sort((a, b) => ((state.stats[a.name]||{}).games||0) - ((state.stats[b.name]||{}).games||0))
+                .slice(0, needed);
+        }
+
+        if (state.matchingMode === 'snake') {
+            return [...pool]
+                .sort((a, b) => {
+                    const wa = a.lastGameTime ? (now - a.lastGameTime) : (a.checkInTime ? (now - a.checkInTime) : 0);
+                    const wb = b.lastGameTime ? (now - b.lastGameTime) : (b.checkInTime ? (now - b.checkInTime) : 0);
+                    return wb - wa; // longest wait first
+                })
+                .slice(0, needed);
+        }
+
+        return pool.slice(0, needed);
     }
 
     function previewNextFoursome() {
