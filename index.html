@@ -2630,6 +2630,20 @@
             timestamp: new Date().toISOString()
         });
 
+        // Freeze the current NMP for all OTHER courts into _nmo before the returning
+        // players re-enter the queue. Without this, buildNextMatchPreviews re-runs and
+        // the newly-returned players (who now rank high by wait time) can displace the
+        // players that were already shown in other courts' "On Deck" panels.
+        if (window._nmpPreviews) {
+            if (!_nmo) _nmo = [];
+            window._nmpPreviews.forEach((preview, idx) => {
+                if (idx === courtIdx) return; // this court gets a fresh algorithm pick
+                if (preview && preview.length > 0 && !_nmo[idx]) {
+                    _nmo[idx] = preview.filter(Boolean).map(p => p.name);
+                }
+            });
+        }
+
         // Return all players to queue, keep their IN status; stamp last-game time for wait display
         const _recTs = Date.now();
         c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true, lastGameTime: _recTs }); });
@@ -2923,6 +2937,17 @@
                 winner: teamLabel,
                 durationSec: duration,
                 timestamp: new Date().toISOString()
+            });
+        }
+
+        // Freeze NMP for all other courts before returning players to queue
+        if (window._nmpPreviews) {
+            if (!_nmo) _nmo = [];
+            window._nmpPreviews.forEach((preview, pi) => {
+                if (pi === idx) return;
+                if (preview && preview.length > 0 && !_nmo[pi]) {
+                    _nmo[pi] = preview.filter(Boolean).map(p => p.name);
+                }
             });
         }
 
@@ -4096,9 +4121,21 @@
             return { name, wins: s.wins, games: s.games, losses, winPct: parseFloat(winPct), points };
         }).filter(p => p.games > 0)
           .sort((a, b) => {
-              if (mode === 'wins')   return b.wins - a.wins || b.games - a.games;
-              if (mode === 'winpct') return b.winPct - a.winPct || b.points - a.points || b.games - a.games;
-              if (mode === 'points') return b.points - a.points;
+              if (mode === 'wins')
+                  return b.wins - a.wins
+                      || b.winPct - a.winPct        // same wins → fewer losses ranks higher
+                      || b.points - a.points        // same W/L → more points ranks higher
+                      || a.name.localeCompare(b.name); // fully deterministic final tie
+              if (mode === 'winpct')
+                  return b.winPct - a.winPct
+                      || b.wins - a.wins            // same % → more wins (more reliable)
+                      || b.points - a.points
+                      || a.name.localeCompare(b.name);
+              if (mode === 'points')
+                  return b.points - a.points
+                      || b.winPct - a.winPct
+                      || b.wins - a.wins
+                      || a.name.localeCompare(b.name);
               return 0;
           });
     }
@@ -4328,9 +4365,22 @@
             const winPct = games > 0 ? ((wins / games) * 100).toFixed(1) : '0.0';
             return { name, wins, games, losses, winPct: parseFloat(winPct), points: pointsMap[name] || 0 };
         }).filter(p => p.games > 0).sort((a, b) => {
-            if (mode === 'winpct')  return b.winPct - a.winPct  || b.points - a.points || b.games - a.games;
-            if (mode === 'points')  return b.points - a.points;
-            return b.wins - a.wins || b.games - a.games; // default: wins
+            if (mode === 'wins')
+                return b.wins - a.wins
+                    || b.winPct - a.winPct
+                    || b.points - a.points
+                    || a.name.localeCompare(b.name);
+            if (mode === 'winpct')
+                return b.winPct - a.winPct
+                    || b.wins - a.wins
+                    || b.points - a.points
+                    || a.name.localeCompare(b.name);
+            if (mode === 'points')
+                return b.points - a.points
+                    || b.winPct - a.winPct
+                    || b.wins - a.wins
+                    || a.name.localeCompare(b.name);
+            return b.wins - a.wins || a.name.localeCompare(b.name);
         });
     }
 
@@ -5008,26 +5058,38 @@
     // ── Preview next foursome without mutating state ─────────────────────
     /* Builds up to `numCourts` non-overlapping foursome previews using the active
        matching algorithm. Each iteration removes picked players from the pool so
-       the same player is never shown in two previews at once. */
+       the same player is never shown in two previews at once.
+
+       Two-pass design:
+         Pass 1 — honour _nmo overrides first, claiming their players before
+                  any algorithm court runs. This prevents a newly-cleared court
+                  from "stealing" players that were already shown in other courts'
+                  On Deck panels.
+         Pass 2 — algorithm picks for every remaining court, using whoever is left.
+    */
     function buildNextMatchPreviews(numCourts) {
         const usedNames = new Set();
-        const results   = [];
+        // Indexed by court position so display mapping (ei → courts[ei]) is preserved.
+        const results   = new Array(numCourts).fill(null);
 
+        // ── Pass 1: claim _nmo-override courts first ──────────────────────
         for (let i = 0; i < numCourts; i++) {
-            // Honour per-court manual override (_nmo[i])
-            // Filter out players already assigned to a previous court (usedNames)
-            if (_nmo && _nmo[i] && Array.isArray(_nmo[i])) {
-                const overridePlayers = _nmo[i]
-                    .map(name => state.queue.find(p => p.name === name && p.in !== false && !usedNames.has(p.name)))
-                    .filter(Boolean);
-                if (overridePlayers.length > 0) {
-                    overridePlayers.forEach(p => usedNames.add(p.name));
-                    results.push(overridePlayers);
-                    continue;
-                }
-                // All override players are stale or already used — clear and fall through
+            if (!(_nmo && _nmo[i] && Array.isArray(_nmo[i]))) continue;
+            const overridePlayers = _nmo[i]
+                .map(name => state.queue.find(p => p.name === name && p.in !== false && !usedNames.has(p.name)))
+                .filter(Boolean);
+            if (overridePlayers.length > 0) {
+                overridePlayers.forEach(p => usedNames.add(p.name));
+                results[i] = overridePlayers;
+            } else {
+                // All override players are gone or already used — fall through to algorithm
                 _nmo[i] = null;
             }
+        }
+
+        // ── Pass 2: algorithm picks for courts without an override ────────
+        for (let i = 0; i < numCourts; i++) {
+            if (results[i] !== null) continue; // already handled in pass 1
 
             const pool = state.queue.filter(p => p.in && !usedNames.has(p.name));
             if (pool.length === 0) break;
@@ -5045,7 +5107,6 @@
                     const gb = (state.stats[b.name] || {}).games || 0;
                     return ga - gb;
                 });
-                // Trim to divisible-by-4 using the same fair sit-out logic as fillRoundRobin
                 const trimmed = [...sorted];
                 _sitOutToFourDivisible(trimmed, p => (state.stats[p.name] || {}).games || 0);
                 foursome = trimmed.length >= 4
@@ -5061,13 +5122,11 @@
                 const trimmed = [...sorted];
                 {
                     const _pvNow2 = Date.now();
-                    // Trim to divisible-by-4 using the same fair sit-out logic as fillSnakeDraft
                     _sitOutToFourDivisible(trimmed, p => {
                         const waitMs = p.lastGameTime ? (_pvNow2 - p.lastGameTime) : Infinity;
                         const games  = (state.stats[p.name] || {}).games || 0;
                         return waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
                     });
-                    // Colocate locked pairs so preview shows them in the same court slot
                     (state.pairedLocks || []).forEach(lk => {
                         if (!lk) return;
                         const idxA = trimmed.findIndex(p => p.name === lk.a);
@@ -5096,10 +5155,13 @@
 
             if (foursome && foursome.length > 0) {
                 foursome.forEach(p => { if (p) usedNames.add(p.name); });
-                results.push(foursome);
-            } else break;
+                results[i] = foursome;
+            }
         }
-        return results;
+
+        // Return only non-null slots (preserves relative order; gaps only occur when
+        // the queue runs dry, same behaviour as the previous single-pass version).
+        return results.filter(r => r !== null);
     }
 
     function previewNextFoursome() {
@@ -6797,9 +6859,21 @@
             result.push({ name: displayName, wins: s.wins||0, games: s.games||0, losses, winPct, points });
         });
         return result.sort((a,b) => {
-            if (mode === 'wins')   return b.wins - a.wins || b.games - a.games;
-            if (mode === 'winpct') return b.winPct - a.winPct || b.games - a.games;
-            if (mode === 'points') return b.points - a.points;
+            if (mode === 'wins')
+                return b.wins - a.wins
+                    || b.winPct - a.winPct
+                    || b.points - a.points
+                    || a.name.localeCompare(b.name);
+            if (mode === 'winpct')
+                return b.winPct - a.winPct
+                    || b.wins - a.wins
+                    || b.points - a.points
+                    || a.name.localeCompare(b.name);
+            if (mode === 'points')
+                return b.points - a.points
+                    || b.winPct - a.winPct
+                    || b.wins - a.wins
+                    || a.name.localeCompare(b.name);
             return 0;
         });
     }
