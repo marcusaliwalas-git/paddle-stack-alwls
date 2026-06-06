@@ -5398,12 +5398,29 @@
 
         // ── Step 2: Normal algorithm on remaining empty courts ───────────────
         if (emptyCourts.length > 0 && getInQueue().length >= 4) {
+            // Save _nmo before fill functions clear it. Courts that are still BUSY
+            // (not in emptyCourts) have frozen NMP entries that must survive the fill.
+            const _savedNmoFill = _nmo ? _nmo.slice() : null;
+            const _emptyCourtSet = new Set(emptyCourts);
+
             if (state.matchingMode === 'roundrobin') {
                 fillRoundRobin(emptyCourts);
             } else if (state.matchingMode === 'snake') {
                 fillSnakeDraft(emptyCourts);
             } else {
                 fillLarongKalye(emptyCourts);
+            }
+
+            // Restore _nmo for courts that were NOT just filled (still playing).
+            // Fill functions do `_nmo = null` internally; without this restore
+            // their frozen On Deck entries are lost and Court 2 rerandomises.
+            if (_savedNmoFill) {
+                if (!_nmo) _nmo = [];
+                state.courts.forEach((c, pi) => {
+                    if (!_emptyCourtSet.has(c) && _savedNmoFill[pi]) {
+                        _nmo[pi] = _nmo[pi] || _savedNmoFill[pi];
+                    }
+                });
             }
         }
         sync();
