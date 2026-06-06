@@ -5426,10 +5426,11 @@
     //   5. Select the combination with the LOWEST total collision score.
 
     function _lkPairScore(a, b, recentGames) {
-        // Check last 5 games; differentiate teammate (heavy) vs opponent (meaningful) penalty.
-        // Extending to 5 games and raising opponent penalty prevents repeat matchups.
+        // Check last 8 games so pair history stays relevant long enough to prevent
+        // the same 4 players clustering together once their early-game penalties expire.
+        // Weights decay with recency: teammate 10/6/3/1/1/1/1/1, opponent 5/3/1/0...
         let score = 0;
-        for (let i = 0; i < Math.min(5, recentGames.length); i++) {
+        for (let i = 0; i < Math.min(8, recentGames.length); i++) {
             const g = recentGames[i];
             const teamA = g.teamA || [];
             const teamB = g.teamB || [];
@@ -5467,8 +5468,8 @@
             // If locked pair ends up as opponents that's very bad
             if (areLocked(a, c) || areLocked(a, d) || areLocked(b, c) || areLocked(b, d)) score += 50;
 
-            // Same-team repetition penalty from last 5 games
-            for (let i = 0; i < Math.min(5, recentGames.length); i++) {
+            // Same-team repetition penalty from last 8 games (matches _lkPairScore window)
+            for (let i = 0; i < Math.min(8, recentGames.length); i++) {
                 const g    = recentGames[i];
                 const tA   = g.teamA || [], tB = g.teamB || [];
                 const abSame = (tA.includes(foursome[a].name) && tA.includes(foursome[b].name)) ||
@@ -5569,15 +5570,20 @@
             .filter(g => g.timestamp && new Date(g.timestamp).getTime() > cutoff)
             .reverse();
 
-        // ── Combo picker: history penalties + split-lock penalty ─────────────
-        // Both-or-neither for locked pairs: combos that include one partner but not
-        // the other get a +25 penalty, naturally discouraging splits without forcing
-        // the pair into every game. Fairness (wait time) drives overall selection;
-        // the penalty just keeps locked partners in sync.
-        // Collect ALL minimum-score combos and pick one randomly to prevent the
-        // same 4 players from being selected every time scores are tied at 0.
+        // ── Combo picker: wait time + history penalties + split-lock penalty ────
+        // Score = pair_history_penalty − total_wait_minutes
+        //   • Lower is better (minimised).
+        //   • Each minute a player has been waiting subtracts 1 from the score,
+        //     so longer-waiting combos are always preferred over shorter-waiting
+        //     ones with the same pair-history penalty.
+        //   • Scale: a +10 same-team penalty is overcome by ~10 extra wait-minutes
+        //     across the foursome — so history matters but cannot strand a player
+        //     who has been queuing for a long time.
+        //   • Combos within 0.001 score of the minimum are treated as tied and one
+        //     is chosen randomly so results don't become deterministic.
         let bestCombos = [];
         let bestScore  = Infinity;
+        const SCORE_EPS = 0.001; // treat scores within ~60 ms of wait time as tied
 
         for (let a = 0; a < pool.length - 3; a++) {
             for (let b = a + 1; b < pool.length - 2; b++) {
@@ -5585,11 +5591,12 @@
                     for (let d = c + 1; d < pool.length; d++) {
                         const combo = [pool[a], pool[b], pool[c], pool[d]];
                         let score = 0;
-                        for (let x = 0; x < 3; x++) {
-                            for (let y = x + 1; y < 4; y++) {
+
+                        // Pair history penalties (same-team / opponent repetition)
+                        for (let x = 0; x < 3; x++)
+                            for (let y = x + 1; y < 4; y++)
                                 score += _lkPairScore(combo[x], combo[y], recentGames);
-                            }
-                        }
+
                         // Split-lock penalty: prefer both-or-neither for each locked pair
                         (state.pairedLocks || []).forEach(lk => {
                             if (!lk) return;
@@ -5597,10 +5604,16 @@
                             const hasB = combo.some(p => p.name === lk.b);
                             if (hasA !== hasB) score += 25;
                         });
-                        if (score < bestScore) {
+
+                        // Wait-time priority: subtract total minutes waited by all 4 players.
+                        // This makes wait time a primary driver — the combo with the most
+                        // accumulated wait time wins whenever pair history is comparable.
+                        score -= combo.reduce((sum, p) => sum + (p.waitMs || 0), 0) / 60000;
+
+                        if (score < bestScore - SCORE_EPS) {
                             bestScore  = score;
                             bestCombos = [combo];
-                        } else if (score === bestScore) {
+                        } else if (score < bestScore + SCORE_EPS) {
                             bestCombos.push(combo);
                         }
                     }
@@ -5608,8 +5621,7 @@
             }
         }
 
-        // Pick randomly among all tied-best combos so different players get
-        // selected each time rather than always the first iteration order.
+        // Pick randomly among tied-best combos so results don't repeat identically.
         const foursome = bestCombos.length > 0
             ? bestCombos[Math.floor(Math.random() * bestCombos.length)]
             : pool.slice(0, 4);
