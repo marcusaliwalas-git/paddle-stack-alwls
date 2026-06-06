@@ -2903,10 +2903,20 @@
                 if (snInput) { snInput.focus(); snInput.style.outline = '2px solid var(--warning)'; setTimeout(() => snInput.style.outline = '', 2000); }
                 return;
             }
-            // Fill only this one court
+            // Fill only this one court.
+            // Save _nmo first — fill functions clear it internally, which would
+            // destroy any freeze that was already in place for other courts.
+            const _savedNmoEmpty = _nmo ? _nmo.slice() : null;
             if (state.matchingMode === 'roundrobin') fillRoundRobin([c]);
             else if (state.matchingMode === 'snake')  fillSnakeDraft([c]);
             else                                       fillLarongKalye([c]);
+            // Restore frozen NMO for courts that weren't just filled
+            if (_savedNmoEmpty) {
+                if (!_nmo) _nmo = [];
+                _savedNmoEmpty.forEach((val, pi) => {
+                    if (pi !== idx && val) _nmo[pi] = _nmo[pi] || val;
+                });
+            }
             sync();
             return;
         }
@@ -2965,6 +2975,11 @@
         c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true, lastGameTime: _rotTs }); });
         c.players = [null, null, null, null];
 
+        // Snapshot _nmo AFTER the freeze (above) but BEFORE calling fill functions.
+        // Fill functions clear _nmo internally; without this snapshot the frozen
+        // values for other courts would be lost and their NMP would re-randomize.
+        const _frozenNmoRotate = _nmo ? _nmo.slice() : null;
+
         if (state.queue.filter(p => p.in).length >= 4) {
             if (state.matchingMode === 'roundrobin') {
                 fillRoundRobin([c]);
@@ -2977,6 +2992,14 @@
         } else {
             // Not enough for a full court — leave empty
             c.startTime = null; c.alerted = false;
+        }
+
+        // Restore frozen NMO for courts OTHER than the one just rotated.
+        if (_frozenNmoRotate) {
+            if (!_nmo) _nmo = [];
+            _frozenNmoRotate.forEach((val, pi) => {
+                if (pi !== idx && val) _nmo[pi] = _nmo[pi] || val;
+            });
         }
 
         sync();
