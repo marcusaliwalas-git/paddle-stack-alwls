@@ -5394,10 +5394,10 @@
     //   5. Select the combination with the LOWEST total collision score.
 
     function _lkPairScore(a, b, recentGames) {
-        // Check last 3 games; differentiate teammate (heavy) vs opponent (light) penalty.
-        // No early exit based on wait time — history always counts.
+        // Check last 5 games; differentiate teammate (heavy) vs opponent (meaningful) penalty.
+        // Extending to 5 games and raising opponent penalty prevents repeat matchups.
         let score = 0;
-        for (let i = 0; i < Math.min(3, recentGames.length); i++) {
+        for (let i = 0; i < Math.min(5, recentGames.length); i++) {
             const g = recentGames[i];
             const teamA = g.teamA || [];
             const teamB = g.teamB || [];
@@ -5405,8 +5405,8 @@
             const bInA = teamA.includes(b.name), bInB = teamB.includes(b.name);
             const sameTeam = (aInA && bInA) || (aInB && bInB);
             const opponents = (aInA && bInB) || (aInB && bInA);
-            if (sameTeam)        score += (i === 0 ? 10 : i === 1 ? 6 : 3);
-            else if (opponents)  score += (i === 0 ? 2  : 0);
+            if (sameTeam)        score += (i === 0 ? 10 : i === 1 ? 6 : i === 2 ? 3 : 1);
+            else if (opponents)  score += (i === 0 ? 5  : i === 1 ? 3 : i === 2 ? 1 : 0);
         }
         return score;
     }
@@ -5425,7 +5425,7 @@
 
         // The three ways to pair 4 people into 2 teams of 2:
         const splits = [[0,1,2,3], [0,2,1,3], [0,3,1,2]];
-        let bestOrder = splits[0], bestScore = Infinity;
+        let bestOrders = [splits[0]], bestScore = Infinity;
         for (const [a,b,c,d] of splits) {
             let score = 0;
 
@@ -5435,19 +5435,22 @@
             // If locked pair ends up as opponents that's very bad
             if (areLocked(a, c) || areLocked(a, d) || areLocked(b, c) || areLocked(b, d)) score += 50;
 
-            // Same-team repetition penalty from game history
-            for (let i = 0; i < Math.min(3, recentGames.length); i++) {
+            // Same-team repetition penalty from last 5 games
+            for (let i = 0; i < Math.min(5, recentGames.length); i++) {
                 const g    = recentGames[i];
                 const tA   = g.teamA || [], tB = g.teamB || [];
                 const abSame = (tA.includes(foursome[a].name) && tA.includes(foursome[b].name)) ||
                                (tB.includes(foursome[a].name) && tB.includes(foursome[b].name));
                 const cdSame = (tA.includes(foursome[c].name) && tA.includes(foursome[d].name)) ||
                                (tB.includes(foursome[c].name) && tB.includes(foursome[d].name));
-                if (abSame) score += (i === 0 ? 10 : i === 1 ? 6 : 3);
-                if (cdSame) score += (i === 0 ? 10 : i === 1 ? 6 : 3);
+                if (abSame) score += (i === 0 ? 10 : i === 1 ? 6 : i === 2 ? 3 : 1);
+                if (cdSame) score += (i === 0 ? 10 : i === 1 ? 6 : i === 2 ? 3 : 1);
             }
-            if (score < bestScore) { bestScore = score; bestOrder = [a,b,c,d]; }
+            if (score < bestScore) { bestScore = score; bestOrders = [[a,b,c,d]]; }
+            else if (score === bestScore) { bestOrders.push([a,b,c,d]); }
         }
+        // Pick randomly among tied-best splits so teammates vary each game
+        const bestOrder = bestOrders[Math.floor(Math.random() * bestOrders.length)];
         return [foursome[bestOrder[0]], foursome[bestOrder[1]], foursome[bestOrder[2]], foursome[bestOrder[3]]];
     }
 
@@ -5533,8 +5536,10 @@
         // the other get a +25 penalty, naturally discouraging splits without forcing
         // the pair into every game. Fairness (wait time) drives overall selection;
         // the penalty just keeps locked partners in sync.
-        let bestCombo = null;
-        let bestScore = Infinity;
+        // Collect ALL minimum-score combos and pick one randomly to prevent the
+        // same 4 players from being selected every time scores are tied at 0.
+        let bestCombos = [];
+        let bestScore  = Infinity;
 
         for (let a = 0; a < pool.length - 3; a++) {
             for (let b = a + 1; b < pool.length - 2; b++) {
@@ -5555,19 +5560,21 @@
                             if (hasA !== hasB) score += 25;
                         });
                         if (score < bestScore) {
-                            bestScore = score;
-                            bestCombo = combo;
-                            if (score === 0) break;
+                            bestScore  = score;
+                            bestCombos = [combo];
+                        } else if (score === bestScore) {
+                            bestCombos.push(combo);
                         }
                     }
-                    if (bestScore === 0) break;
                 }
-                if (bestScore === 0) break;
             }
-            if (bestScore === 0) break;
         }
 
-        const foursome = bestCombo || pool.slice(0, 4);
+        // Pick randomly among all tied-best combos so different players get
+        // selected each time rather than always the first iteration order.
+        const foursome = bestCombos.length > 0
+            ? bestCombos[Math.floor(Math.random() * bestCombos.length)]
+            : pool.slice(0, 4);
         return _bestTeamSplit(foursome, recentGames);
     }
 
