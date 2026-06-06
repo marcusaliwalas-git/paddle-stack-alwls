@@ -2349,6 +2349,15 @@
             document.body.setAttribute('data-design', state.designTheme);
             if (state.designTheme === 'professional') document.body.removeAttribute('data-theme');
         }
+        // Restore _nmo from last synced NMP so a page refresh doesn't re-randomize
+        // the Next Match lineup. _nmo is module-level and not persisted; seeding it
+        // here pins the same players until a court clears or an edit is made.
+        if (state.nextMatchPreview && state.nextMatchPreview.length > 0) {
+            const restored = state.nextMatchPreview.map(courtNames =>
+                Array.isArray(courtNames) ? courtNames.filter(Boolean) : []
+            ).filter(arr => arr.length > 0);
+            if (restored.length > 0) _nmo = restored;
+        }
         updateDisplay();
         setInterval(checkTimers, 1000);
     };
