@@ -5650,10 +5650,9 @@
         _nmo = null;
         emptyCourts.forEach((c, courtIdx) => {
             // Use the GLOBAL court index so we read the correct _nmo entry.
-            // courtIdx is the local position inside emptyCourts (a subset of courts);
-            // it does not match the global position when e.g. only Court 2 is being filled.
             const globalIdx = state.courts.indexOf(c);
-            const ov = overrides[globalIdx !== -1 ? globalIdx : courtIdx];
+            const effIdx    = globalIdx !== -1 ? globalIdx : courtIdx;
+            const ov = overrides[effIdx];
             if (ov && Array.isArray(ov) && ov.length >= 4) {
                 const chosen = ov.map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; }).filter(Boolean);
                 if (chosen.length >= 4) {
@@ -5661,7 +5660,14 @@
                     return;
                 }
             }
-            const available = state.queue.filter(p => p.in);
+            // Exclude players reserved for OTHER courts' overrides — they must not be
+            // stolen by this court's algorithm (e.g. Joyce reserved for Court 2 _nmo).
+            const _lkReserved = new Set();
+            overrides.forEach((otherOv, otherIdx) => {
+                if (otherIdx !== effIdx && otherOv && Array.isArray(otherOv))
+                    otherOv.forEach(name => _lkReserved.add(name));
+            });
+            const available = state.queue.filter(p => p.in && !_lkReserved.has(p.name));
             if (available.length < 4) return;
             const chosen = larongKalyePickFour(available);
             if (!chosen) return;
@@ -5680,8 +5686,15 @@
     function fillRoundRobin(emptyCourts) {
         if (!state.partnerHistory) state.partnerHistory = {};
 
-        // Only use "in" players
-        const pool = [...state.queue.filter(p => p.in)].sort((a, b) => {
+        // Save overrides FIRST so reserved players can be excluded from the algorithm pool.
+        const _rrOverrides = _nmo ? _nmo.slice() : [];
+        _nmo = null;
+        // Players committed to any court's override must not be taken by the algorithm.
+        const _rrReserved = new Set();
+        _rrOverrides.forEach(ov => { if (ov && Array.isArray(ov)) ov.forEach(n => _rrReserved.add(n)); });
+
+        // Only use "in" players that are NOT reserved for an override court.
+        const pool = [...state.queue.filter(p => p.in && !_rrReserved.has(p.name))].sort((a, b) => {
             const ga = (state.stats[a.name] || {}).games || 0;
             const gb = (state.stats[b.name] || {}).games || 0;
             return ga - gb;
@@ -5692,8 +5705,6 @@
         _sitOutToFourDivisible(pool, p => (state.stats[p.name] || {}).games || 0);
 
         const assigned = [];
-        const _rrOverrides = _nmo ? _nmo.slice() : [];
-        _nmo = null;
         emptyCourts.forEach((c, courtIdx) => {
             const globalIdx = state.courts.indexOf(c);
             const ov = _rrOverrides[globalIdx !== -1 ? globalIdx : courtIdx];
@@ -5775,8 +5786,14 @@
 
     // ── Snake Draft ───────────────────────────────────────────────────────
     function fillSnakeDraft(emptyCourts) {
-        // Sort only "in" players by rating DESC, default 3.0 if unrated
-        const pool = [...state.queue.filter(p => p.in)].sort((a, b) => {
+        // Save overrides FIRST so reserved players can be excluded from the pool.
+        const _snakeOverrides = _nmo ? _nmo.slice() : [];
+        _nmo = null;
+        const _snakeReserved = new Set();
+        _snakeOverrides.forEach(ov => { if (ov && Array.isArray(ov)) ov.forEach(n => _snakeReserved.add(n)); });
+
+        // Sort only "in" players by rating DESC, excluding players reserved for overrides.
+        const pool = [...state.queue.filter(p => p.in && !_snakeReserved.has(p.name))].sort((a, b) => {
             const ra = (state.playerRatings || {})[a.name] || 3.0;
             const rb = (state.playerRatings || {})[b.name] || 3.0;
             return rb - ra;
@@ -5806,9 +5823,6 @@
             const moved = pool.splice(hi, 1)[0];
             pool.splice(lo + 1, 0, moved); // place immediately after lo
         });
-
-        const _snakeOverrides = _nmo ? _nmo.slice() : [];
-        _nmo = null;
         emptyCourts.forEach((c, courtIdx) => {
             const globalIdx = state.courts.indexOf(c);
             const ov = _snakeOverrides[globalIdx !== -1 ? globalIdx : courtIdx];
