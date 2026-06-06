@@ -5535,7 +5535,6 @@
     }
 
     function larongKalyePickFour(candidatePool) {
-        const POOL_SIZE   = 8;
         const LOOKBACK_MS = 60 * 60 * 1000; // 60-minute history window
         const now         = Date.now();
 
@@ -5553,8 +5552,15 @@
         // Sort: longest wait first.
         enriched.sort((a, b) => b.waitMs - a.waitMs);
 
-        // Build pool from top POOL_SIZE players by wait time.
-        const pool = enriched.slice(0, Math.min(POOL_SIZE, enriched.length));
+        // Build pool from ALL checked-in players, but deprioritise those who just
+        // returned from a game. "Just returned" = has a lastGameTime within the last
+        // 5 minutes. They're only included when there aren't 4 rested players available.
+        const RECENT_COOLDOWN_MS = 5 * 60 * 1000; // 5-minute rest window after playing
+        const isJustReturned     = p => p.lastGameTime && p.waitMs < RECENT_COOLDOWN_MS;
+        const restedPlayers      = enriched.filter(p => !isJustReturned(p));
+        const pool = restedPlayers.length >= 4
+            ? restedPlayers          // all rested players — no artificial cap
+            : enriched;              // not enough rested → consider everyone
         if (pool.length < 4) return null;
 
         // Recent match history — most recent first (covers whole session)
