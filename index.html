@@ -2828,6 +2828,18 @@
     }
 
     function sync() {
+        // Auto-freeze: if _nmo is null but a preview is already displayed, lock it now.
+        // This keeps the NMP stable across ALL state mutations — player swaps, court edits,
+        // tag changes, drag-drops, custom matches, etc. — not just court-end events.
+        // buildNextMatchPreviews will validate each player is still in the queue in Pass 1;
+        // any who left (tagged OUT, moved to a court) are replaced by the algorithm in Pass 2.
+        if (!_nmo && window._nmpPreviews && window._nmpPreviews.length > 0) {
+            const q = window._nmpPreviews
+                .map(preview => preview.filter(Boolean).map(p => p.name))
+                .filter(arr => arr.length > 0);
+            if (q.length > 0) _nmo = q;
+        }
+
         // Run updateDisplay FIRST so window._nmpPreviews is fresh, then capture
         // it into state.nextMatchPreview BEFORE saving to localStorage.  Previously
         // localStorage was saved with a one-step-stale nextMatchPreview, causing the
