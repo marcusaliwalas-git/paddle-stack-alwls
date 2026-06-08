@@ -2639,18 +2639,16 @@
             timestamp: new Date().toISOString()
         });
 
-        // Freeze the current NMP for all OTHER courts into _nmo before the returning
-        // players re-enter the queue. Without this, buildNextMatchPreviews re-runs and
-        // the newly-returned players (who now rank high by wait time) can displace the
-        // players that were already shown in other courts' "On Deck" panels.
-        if (window._nmpPreviews) {
-            if (!_nmo) _nmo = [];
-            window._nmpPreviews.forEach((preview, idx) => {
-                if (idx === courtIdx) return; // this court gets a fresh algorithm pick
-                if (preview && preview.length > 0 && !_nmo[idx]) {
-                    _nmo[idx] = preview.filter(Boolean).map(p => p.name);
-                }
-            });
+        // Preserve the entire NMP queue before returning players to the queue.
+        // With court-agnostic assignment, every group in the queue may be consumed
+        // by ANY court that becomes available — we keep all of them so that
+        // buildNextMatchPreviews doesn't re-randomise after newly-returned players
+        // rank high by wait time.
+        if (window._nmpPreviews && !_nmo) {
+            const q = window._nmpPreviews
+                .map(preview => preview.filter(Boolean).map(p => p.name))
+                .filter(arr => arr.length > 0);
+            if (q.length > 0) _nmo = q;
         }
 
         // Return all players to queue, keep their IN status; stamp last-game time for wait display
@@ -2904,19 +2902,17 @@
                 return;
             }
             // Fill only this one court.
-            // Save _nmo first — fill functions clear it internally, which would
-            // destroy any freeze that was already in place for other courts.
-            const _savedNmoEmpty = _nmo ? _nmo.slice() : null;
+            // Freeze the NMP queue first (if not already frozen). The fill function
+            // will shift() group 0 for this court and restore the remainder into _nmo.
+            if (window._nmpPreviews && !_nmo) {
+                const q = window._nmpPreviews
+                    .map(preview => preview.filter(Boolean).map(p => p.name))
+                    .filter(arr => arr.length > 0);
+                if (q.length > 0) _nmo = q;
+            }
             if (state.matchingMode === 'roundrobin') fillRoundRobin([c]);
             else if (state.matchingMode === 'snake')  fillSnakeDraft([c]);
             else                                       fillLarongKalye([c]);
-            // Restore frozen NMO for courts that weren't just filled
-            if (_savedNmoEmpty) {
-                if (!_nmo) _nmo = [];
-                _savedNmoEmpty.forEach((val, pi) => {
-                    if (pi !== idx && val) _nmo[pi] = _nmo[pi] || val;
-                });
-            }
             sync();
             return;
         }
@@ -2959,26 +2955,20 @@
             });
         }
 
-        // Freeze NMP for all other courts before returning players to queue
-        if (window._nmpPreviews) {
-            if (!_nmo) _nmo = [];
-            window._nmpPreviews.forEach((preview, pi) => {
-                if (pi === idx) return;
-                if (preview && preview.length > 0 && !_nmo[pi]) {
-                    _nmo[pi] = preview.filter(Boolean).map(p => p.name);
-                }
-            });
+        // Preserve the entire NMP queue before returning players.
+        // Court-agnostic: the fill function will shift() group 0 for this court
+        // and restore the remainder into _nmo automatically.
+        if (window._nmpPreviews && !_nmo) {
+            const q = window._nmpPreviews
+                .map(preview => preview.filter(Boolean).map(p => p.name))
+                .filter(arr => arr.length > 0);
+            if (q.length > 0) _nmo = q;
         }
 
         // Return all players to queue — keep their IN status; stamp last-game time for wait display
         const _rotTs = Date.now();
         c.players.forEach(p => { if(p) state.queue.push({ name: p.name, in: p.in !== undefined ? p.in : true, lastGameTime: _rotTs }); });
         c.players = [null, null, null, null];
-
-        // Snapshot _nmo AFTER the freeze (above) but BEFORE calling fill functions.
-        // Fill functions clear _nmo internally; without this snapshot the frozen
-        // values for other courts would be lost and their NMP would re-randomize.
-        const _frozenNmoRotate = _nmo ? _nmo.slice() : null;
 
         if (state.queue.filter(p => p.in).length >= 4) {
             if (state.matchingMode === 'roundrobin') {
@@ -2992,14 +2982,6 @@
         } else {
             // Not enough for a full court — leave empty
             c.startTime = null; c.alerted = false;
-        }
-
-        // Restore frozen NMO for courts OTHER than the one just rotated.
-        if (_frozenNmoRotate) {
-            if (!_nmo) _nmo = [];
-            _frozenNmoRotate.forEach((val, pi) => {
-                if (pi !== idx && val) _nmo[pi] = _nmo[pi] || val;
-            });
         }
 
         sync();
@@ -3340,29 +3322,19 @@
             // Cache for drag/edit lookups
             window._nmpPreviews = previews;
 
-            // Always show one preview block per court regardless of whether the court is busy or empty
+            // Court-agnostic: previews are positional queues, not court-specific.
+            // The first group goes to whichever court finishes next.
             previews.forEach((upcoming, ei) => {
-                const court    = state.courts[ei];
-                const isBusy   = court && court.players.some(p => p !== null);
-                const courtId  = court ? court.id : (ei + 1);
-                const label    = isBusy
-                    ? '&#9197; On Deck &mdash; Court ' + courtId
-                    : 'Court ' + courtId;
-
+                const label = ei === 0 ? '&#9654; Next Up' : '&#9200; On Deck';
                 if (ei > 0) nmpHtml += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:8px 0">';
                 nmpHtml += '<div class="nmb-court-label">' + label + '</div>';
                 nmpHtml += buildTeamGrid(upcoming, ei);
                 if (upcoming.length < 4) nmpHtml += '<div class="nmp-waiting">&#9650; ' + (4 - upcoming.length) + ' more IN needed</div>';
             });
 
-            // If there are more courts than available foursomes, show a placeholder for the remainder
+            // Placeholder rows when we can't form a full foursome
             for (let ei = previews.length; ei < numCourts; ei++) {
-                const court   = state.courts[ei];
-                const courtId = court ? court.id : (ei + 1);
-                const isBusy  = court && court.players.some(p => p !== null);
-                const label   = isBusy
-                    ? '&#9197; On Deck &mdash; Court ' + courtId
-                    : 'Court ' + courtId;
+                const label = ei === 0 ? '&#9654; Next Up' : '&#9200; On Deck';
                 if (ei > 0) nmpHtml += '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:8px 0">';
                 nmpHtml += '<div class="nmb-court-label">' + label + '</div>';
                 nmpHtml += '<div class="nmp-waiting" style="padding:10px 0;">&#9650; Need more players tagged IN</div>';
@@ -3838,7 +3810,7 @@
             return `<select id="${fieldId}" style="${selStyle}">${opts}</select>`;
         }
 
-        let body = '<p style="font-size:12px;color:#78909c;margin:0 0 14px">Pin specific players for each court. Only checked-in players appear. Saves override the algorithm.</p>';
+        let body = '<p style="font-size:12px;color:#78909c;margin:0 0 14px">Pin specific players for each group. "Next Up" goes to the first court that finishes. Only checked-in players appear.</p>';
 
         // Track which IN players are already pinned to earlier courts in the modal
         const globalUsed = new Set();
@@ -3848,10 +3820,7 @@
             const overrideNames = (_nmo && _nmo[ci]) ? _nmo[ci].slice() : cachedPreview.slice();
             while (overrideNames.length < 4) overrideNames.push('');
 
-            const court   = state.courts[ci];
-            const courtId = court ? court.id : (ci + 1);
-            const isBusy  = court && court.players.some(p => p !== null);
-            const courtLabel = isBusy ? `⏭ On Deck — Court ${courtId}` : `Court ${courtId}`;
+            const courtLabel = ci === 0 ? '▶ Next Up' : '⏱ On Deck';
 
             // Pool of IN players not already assigned to a previous court in the modal
             const basePool = inQueued.filter(n => !globalUsed.has(n));
@@ -5102,7 +5071,8 @@
     */
     function buildNextMatchPreviews(numCourts) {
         const usedNames = new Set();
-        // Indexed by court position so display mapping (ei → courts[ei]) is preserved.
+        // results[0] = next group to play (whichever court finishes first gets it),
+        // results[1] = group after that, etc.  No court-specific binding.
         const results   = new Array(numCourts).fill(null);
 
         // ── Pass 1: claim _nmo-override players first ─────────────────────
@@ -5398,29 +5368,14 @@
 
         // ── Step 2: Normal algorithm on remaining empty courts ───────────────
         if (emptyCourts.length > 0 && getInQueue().length >= 4) {
-            // Save _nmo before fill functions clear it. Courts that are still BUSY
-            // (not in emptyCourts) have frozen NMP entries that must survive the fill.
-            const _savedNmoFill = _nmo ? _nmo.slice() : null;
-            const _emptyCourtSet = new Set(emptyCourts);
-
+            // Fill functions shift() groups from _nmo in FIFO order and restore
+            // any remaining groups back into _nmo — no manual save/restore needed.
             if (state.matchingMode === 'roundrobin') {
                 fillRoundRobin(emptyCourts);
             } else if (state.matchingMode === 'snake') {
                 fillSnakeDraft(emptyCourts);
             } else {
                 fillLarongKalye(emptyCourts);
-            }
-
-            // Restore _nmo for courts that were NOT just filled (still playing).
-            // Fill functions do `_nmo = null` internally; without this restore
-            // their frozen On Deck entries are lost and Court 2 rerandomises.
-            if (_savedNmoFill) {
-                if (!_nmo) _nmo = [];
-                state.courts.forEach((c, pi) => {
-                    if (!_emptyCourtSet.has(c) && _savedNmoFill[pi]) {
-                        _nmo[pi] = _nmo[pi] || _savedNmoFill[pi];
-                    }
-                });
             }
         }
         sync();
@@ -5646,13 +5601,14 @@
     }
 
     function fillLarongKalye(emptyCourts) {
-        const overrides = _nmo ? _nmo.slice() : [];
+        // Court-agnostic queue: index 0 = next group to play, index 1 = group after that.
+        // shift() consumes group 0 for the first available court; remaining groups are
+        // restored into _nmo at the end so subsequent calls (or buildNextMatchPreviews)
+        // continue from where we left off.
+        const overrides = _nmo ? _nmo.filter(Boolean) : [];
         _nmo = null;
-        emptyCourts.forEach((c, courtIdx) => {
-            // Use the GLOBAL court index so we read the correct _nmo entry.
-            const globalIdx = state.courts.indexOf(c);
-            const effIdx    = globalIdx !== -1 ? globalIdx : courtIdx;
-            const ov = overrides[effIdx];
+        emptyCourts.forEach(c => {
+            const ov = overrides.shift(); // take the next queued group
             if (ov && Array.isArray(ov) && ov.length >= 4) {
                 const chosen = ov.map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; }).filter(Boolean);
                 if (chosen.length >= 4) {
@@ -5660,12 +5616,10 @@
                     return;
                 }
             }
-            // Exclude players reserved for OTHER courts' overrides — they must not be
-            // stolen by this court's algorithm (e.g. Joyce reserved for Court 2 _nmo).
+            // Exclude players reserved for later groups in the queue.
             const _lkReserved = new Set();
-            overrides.forEach((otherOv, otherIdx) => {
-                if (otherIdx !== effIdx && otherOv && Array.isArray(otherOv))
-                    otherOv.forEach(name => _lkReserved.add(name));
+            overrides.forEach(otherOv => {
+                if (otherOv && Array.isArray(otherOv)) otherOv.forEach(name => _lkReserved.add(name));
             });
             const available = state.queue.filter(p => p.in && !_lkReserved.has(p.name));
             if (available.length < 4) return;
@@ -5674,6 +5628,9 @@
             chosen.forEach(p => { const idx = state.queue.findIndex(q => q.name === p.name); if (idx !== -1) state.queue.splice(idx, 1); });
             c.players = chosen; c.startTime = Date.now(); c.alerted = false;
         });
+        // Restore any unconsumed groups back into _nmo for subsequent courts/previews.
+        const remaining = overrides.filter(ov => ov && Array.isArray(ov) && ov.length > 0);
+        if (remaining.length > 0) _nmo = remaining;
     }
 
     function previewLarongKalye() {
@@ -5686,14 +5643,15 @@
     function fillRoundRobin(emptyCourts) {
         if (!state.partnerHistory) state.partnerHistory = {};
 
-        // Save overrides FIRST so reserved players can be excluded from the algorithm pool.
-        const _rrOverrides = _nmo ? _nmo.slice() : [];
+        // Court-agnostic queue: consume groups in FIFO order.
+        // Build reserved set from ALL queued groups so the algorithm pool
+        // never steals players that are already assigned to later groups.
+        const _rrOverrides = _nmo ? _nmo.filter(Boolean) : [];
         _nmo = null;
-        // Players committed to any court's override must not be taken by the algorithm.
         const _rrReserved = new Set();
-        _rrOverrides.forEach(ov => { if (ov && Array.isArray(ov)) ov.forEach(n => _rrReserved.add(n)); });
+        _rrOverrides.forEach(ov => { if (Array.isArray(ov)) ov.forEach(n => _rrReserved.add(n)); });
 
-        // Only use "in" players that are NOT reserved for an override court.
+        // Only use "in" players that are NOT reserved for a queued group.
         const pool = [...state.queue.filter(p => p.in && !_rrReserved.has(p.name))].sort((a, b) => {
             const ga = (state.stats[a.name] || {}).games || 0;
             const gb = (state.stats[b.name] || {}).games || 0;
@@ -5701,13 +5659,11 @@
         });
 
         // Sit-outs: remove players with most games until pool is a multiple of 4.
-        // Treats locked pairs as a unit when both are more overdue than any unlocked player.
         _sitOutToFourDivisible(pool, p => (state.stats[p.name] || {}).games || 0);
 
         const assigned = [];
-        emptyCourts.forEach((c, courtIdx) => {
-            const globalIdx = state.courts.indexOf(c);
-            const ov = _rrOverrides[globalIdx !== -1 ? globalIdx : courtIdx];
+        emptyCourts.forEach(c => {
+            const ov = _rrOverrides.shift(); // queue-based: next group for next available court
             if (ov && Array.isArray(ov) && ov.length >= 4) {
                 const chosen = ov.map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; }).filter(Boolean);
                 if (chosen.length >= 4) {
@@ -5721,7 +5677,6 @@
             const foursome = pickFreshFoursome(pool, assigned);
             if (foursome) {
                 foursome.forEach(p => assigned.push(p.name));
-                // Update partner history
                 [[0,1],[2,3]].forEach(pair => {
                     const [a, b] = [foursome[pair[0]].name, foursome[pair[1]].name];
                     if (!state.partnerHistory[a]) state.partnerHistory[a] = [];
@@ -5731,13 +5686,15 @@
                 });
                 c.players = foursome;
                 c.startTime = Date.now(); c.alerted = false;
-                // Remove from queue
                 foursome.forEach(p => {
                     const idx = state.queue.findIndex(q => q.name === p.name);
                     if (idx !== -1) state.queue.splice(idx, 1);
                 });
             }
         });
+        // Restore unconsumed groups back into _nmo.
+        const remaining = _rrOverrides.filter(ov => ov && Array.isArray(ov) && ov.length > 0);
+        if (remaining.length > 0) _nmo = remaining;
     }
 
     function pickFreshFoursome(pool, alreadyAssigned) {
@@ -5786,11 +5743,11 @@
 
     // ── Snake Draft ───────────────────────────────────────────────────────
     function fillSnakeDraft(emptyCourts) {
-        // Save overrides FIRST so reserved players can be excluded from the pool.
-        const _snakeOverrides = _nmo ? _nmo.slice() : [];
+        // Court-agnostic queue: consume groups in FIFO order.
+        const _snakeOverrides = _nmo ? _nmo.filter(Boolean) : [];
         _nmo = null;
         const _snakeReserved = new Set();
-        _snakeOverrides.forEach(ov => { if (ov && Array.isArray(ov)) ov.forEach(n => _snakeReserved.add(n)); });
+        _snakeOverrides.forEach(ov => { if (Array.isArray(ov)) ov.forEach(n => _snakeReserved.add(n)); });
 
         // Sort only "in" players by rating DESC, excluding players reserved for overrides.
         const pool = [...state.queue.filter(p => p.in && !_snakeReserved.has(p.name))].sort((a, b) => {
@@ -5823,9 +5780,8 @@
             const moved = pool.splice(hi, 1)[0];
             pool.splice(lo + 1, 0, moved); // place immediately after lo
         });
-        emptyCourts.forEach((c, courtIdx) => {
-            const globalIdx = state.courts.indexOf(c);
-            const ov = _snakeOverrides[globalIdx !== -1 ? globalIdx : courtIdx];
+        emptyCourts.forEach(c => {
+            const ov = _snakeOverrides.shift(); // queue-based: next group for next available court
             if (ov && Array.isArray(ov) && ov.length >= 4) {
                 const chosen = ov.map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; }).filter(Boolean);
                 if (chosen.length >= 4) {
@@ -5838,8 +5794,6 @@
             // Normal snake algorithm
             if (pool.length < 4) return;
             const group = pool.splice(0, 4);
-            // Apply lock-aware team split (also minimises teammate repetition).
-            // Falls back to classic snake order [0,3 vs 1,2] when no locks or history.
             const _snakeNow = Date.now();
             const _snakeCutoff = _snakeNow - 60 * 60 * 1000;
             const _snakeGames = [...(state.gameLog || [])]
@@ -5847,12 +5801,14 @@
                 .reverse();
             c.players = _bestTeamSplit(group, _snakeGames);
             c.startTime = Date.now(); c.alerted = false;
-            // Remove from queue
             c.players.forEach(p => {
                 const idx = state.queue.findIndex(q => q.name === p.name);
                 if (idx !== -1) state.queue.splice(idx, 1);
             });
         });
+        // Restore unconsumed groups back into _nmo.
+        const _snakeRemaining = _snakeOverrides.filter(ov => ov && Array.isArray(ov) && ov.length > 0);
+        if (_snakeRemaining.length > 0) _nmo = _snakeRemaining;
     }
 
     function setPlayerRating(playerName, rating) {
@@ -6929,8 +6885,9 @@
                 projOnDeckEl.innerHTML = nmpPreviews.map((courtNames, ci) => {
                     const names = Array.isArray(courtNames) ? courtNames : Object.values(courtNames || {});
                     if (!names || names.length === 0) return '';
+                    const _projGroupLabel = ci === 0 ? '▶ Next Up' : '⏱ On Deck';
                     return '<div class="proj-ondeck-court-block">'
-                        + (numCourts > 1 ? '<div class="proj-ondeck-court-label">Court ' + (ci+1) + '</div>' : '')
+                        + (numCourts > 1 ? '<div class="proj-ondeck-court-label">' + _projGroupLabel + '</div>' : '')
                         + [0,1].map(j => names[j]
                             ? '<div class="proj-ondeck-player proj-ondeck-a">' + names[j] + '</div>' : '').join('')
                         + [2,3].map(j => names[j]
@@ -7188,14 +7145,11 @@
         html += '<div style="font-size:11px;font-weight:bold;color:#81c784;margin-bottom:8px;">&#9654; On Deck</div>';
 
         if (nmpPreviews && nmpPreviews.length > 0) {
-            // Render one card per court using the organizer's algorithm result
             nmpPreviews.forEach((courtNames, ci) => {
                 const names = Array.isArray(courtNames) ? courtNames : Object.values(courtNames || {});
                 if (!names || names.length === 0) return;
-                const numCourts = (liveState.courts || []).length;
-                if (numCourts > 1) {
-                    html += '<div style="font-size:10px;font-weight:bold;color:#aaa;margin-bottom:4px;">Court ' + (ci + 1) + '</div>';
-                }
+                const groupLabel = ci === 0 ? '▶ Next Up' : '⏱ On Deck';
+                html += '<div style="font-size:10px;font-weight:bold;color:#aaa;margin-bottom:4px;">' + groupLabel + '</div>';
                 html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:12px;">';
                 html += '<div style="font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
                 [0, 1].forEach(j => {
