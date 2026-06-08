@@ -2828,11 +2828,10 @@
     }
 
     function sync() {
-        // Auto-freeze: if _nmo is null but a preview is already displayed, lock it now.
-        // This keeps the NMP stable across ALL state mutations — player swaps, court edits,
-        // tag changes, drag-drops, custom matches, etc. — not just court-end events.
-        // buildNextMatchPreviews will validate each player is still in the queue in Pass 1;
-        // any who left (tagged OUT, moved to a court) are replaced by the algorithm in Pass 2.
+        // ── Pre-freeze ───────────────────────────────────────────────────
+        // If _nmo is null but a preview is already displayed, lock it before
+        // updateDisplay() re-runs.  This handles first-session startup and any
+        // edge case where _nmo was cleared unexpectedly.
         if (!_nmo && window._nmpPreviews && window._nmpPreviews.length > 0) {
             const q = window._nmpPreviews
                 .map(preview => preview.filter(Boolean).map(p => p.name))
@@ -2845,6 +2844,20 @@
         // localStorage was saved with a one-step-stale nextMatchPreview, causing the
         // NMP to re-randomise on page refresh.
         updateDisplay();
+
+        // ── Post-freeze ──────────────────────────────────────────────────
+        // After computing the full display, lock BOTH slots into _nmo.
+        // Fill functions only restore _nmo[0] (the remaining "next" group);
+        // without this step _nmo[1] (the algorithm-computed "On Deck" group)
+        // is never recorded, so the next sync() — triggered by a player swap,
+        // court edit, or tag change — re-rolls it from scratch.
+        if (window._nmpPreviews && window._nmpPreviews.length > 0) {
+            const q = window._nmpPreviews
+                .map(preview => preview.filter(Boolean).map(p => p.name))
+                .filter(arr => arr.length > 0);
+            if (q.length > 0) _nmo = q;
+        }
+
         if (window._nmpPreviews) {
             state.nextMatchPreview = window._nmpPreviews.map(foursome =>
                 (foursome || []).map(p => p ? p.name : null).filter(Boolean)
