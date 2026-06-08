@@ -2639,16 +2639,16 @@
             timestamp: new Date().toISOString()
         });
 
-        // Preserve the entire NMP queue before returning players to the queue.
-        // With court-agnostic assignment, every group in the queue may be consumed
-        // by ANY court that becomes available — we keep all of them so that
-        // buildNextMatchPreviews doesn't re-randomise after newly-returned players
-        // rank high by wait time.
-        if (window._nmpPreviews && !_nmo) {
+        // Snapshot the FULL current preview queue into _nmo — unconditionally.
+        // This locks BOTH "Next Up" and "On Deck" before returning players so that
+        // newly-returned players (high wait time) can't displace either group.
+        // We overwrite any stale _nmo so the algorithm-computed "On Deck" slot is
+        // captured too, not just the position that was previously consumed.
+        if (window._nmpPreviews) {
             const q = window._nmpPreviews
                 .map(preview => preview.filter(Boolean).map(p => p.name))
                 .filter(arr => arr.length > 0);
-            if (q.length > 0) _nmo = q;
+            _nmo = q.length > 0 ? q : null;
         }
 
         // Return all players to queue, keep their IN status; stamp last-game time for wait display
@@ -2828,15 +2828,17 @@
     }
 
     function sync() {
-        localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
+        // Run updateDisplay FIRST so window._nmpPreviews is fresh, then capture
+        // it into state.nextMatchPreview BEFORE saving to localStorage.  Previously
+        // localStorage was saved with a one-step-stale nextMatchPreview, causing the
+        // NMP to re-randomise on page refresh.
         updateDisplay();
-        // Capture the freshly-computed NMP previews (set by updateDisplay → buildNextMatchPreviews)
-        // into state so they get written to Firebase and are visible to spectators.
         if (window._nmpPreviews) {
             state.nextMatchPreview = window._nmpPreviews.map(foursome =>
                 (foursome || []).map(p => p ? p.name : null).filter(Boolean)
             );
         }
+        localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
         if (window.fbWrite) {
             window.fbWrite(state);
         } else {
@@ -2955,14 +2957,14 @@
             });
         }
 
-        // Preserve the entire NMP queue before returning players.
-        // Court-agnostic: the fill function will shift() group 0 for this court
-        // and restore the remainder into _nmo automatically.
-        if (window._nmpPreviews && !_nmo) {
+        // Snapshot the FULL current preview queue into _nmo — unconditionally.
+        // This locks BOTH slots before the fill runs so the algorithm-computed
+        // "On Deck" group doesn't re-roll after players return to the queue.
+        if (window._nmpPreviews) {
             const q = window._nmpPreviews
                 .map(preview => preview.filter(Boolean).map(p => p.name))
                 .filter(arr => arr.length > 0);
-            if (q.length > 0) _nmo = q;
+            _nmo = q.length > 0 ? q : null;
         }
 
         // Return all players to queue — keep their IN status; stamp last-game time for wait display
