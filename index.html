@@ -2915,6 +2915,22 @@
         }
     }
 
+    // Tries to fill court `c` with the next eligible pending custom match.
+    // Returns true if a custom match was consumed (court is now filled).
+    function _tryCustomMatchFill(c) {
+        if (!state.customMatches || state.customMatches.length === 0) return false;
+        const cmIdx = state.customMatches.findIndex(cm => cm && [cm.a1, cm.a2, cm.b1, cm.b2].every(
+            name => state.queue.some(p => p.name === name && p.in !== false)
+        ));
+        if (cmIdx === -1) return false;
+        const cm = state.customMatches.splice(cmIdx, 1)[0];
+        const pick = n => { const i = state.queue.findIndex(q => q.name === n); return i !== -1 ? state.queue.splice(i, 1)[0] : null; };
+        c.players = [pick(cm.a1), pick(cm.a2), pick(cm.b1), pick(cm.b2)];
+        c.startTime = Date.now(); c.alerted = false;
+        showToast('📋 Custom match started: ' + cm.a1 + ' & ' + cm.a2 + ' vs ' + cm.b1 + ' & ' + cm.b2);
+        return true;
+    }
+
     function rotateCourt(idx, winningTeam, scoreA, scoreB) {
         const c = state.courts[idx];
 
@@ -2933,6 +2949,8 @@
                 if (snInput) { snInput.focus(); snInput.style.outline = '2px solid var(--warning)'; setTimeout(() => snInput.style.outline = '', 2000); }
                 return;
             }
+            // Custom matches take priority over the normal algorithm.
+            if (_tryCustomMatchFill(c)) { sync(); return; }
             // Fill only this one court.
             // Freeze the NMP queue first (if not already frozen). The fill function
             // will shift() group 0 for this court and restore the remainder into _nmo.
@@ -3003,13 +3021,14 @@
         c.players = [null, null, null, null];
 
         if (state.queue.filter(p => p.in).length >= 4) {
-            if (state.matchingMode === 'roundrobin') {
-                fillRoundRobin([c]);
-            } else if (state.matchingMode === 'snake') {
-                fillSnakeDraft([c]);
-            } else {
-                // Larong Kalye: FIFO + anti-staleness algorithm
-                fillLarongKalye([c]);
+            if (!_tryCustomMatchFill(c)) {
+                if (state.matchingMode === 'roundrobin') {
+                    fillRoundRobin([c]);
+                } else if (state.matchingMode === 'snake') {
+                    fillSnakeDraft([c]);
+                } else {
+                    fillLarongKalye([c]);
+                }
             }
         } else {
             // Not enough for a full court — leave empty
