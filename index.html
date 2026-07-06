@@ -2358,6 +2358,11 @@
             ).filter(arr => arr.length > 0);
             if (restored.length > 0) _nmo = restored;
         }
+        // Snake mode: don't seed _nmo from localStorage. The persisted preview was
+        // computed by a previous render (possibly with stale ratings or wrong sort order).
+        // Clear it so buildNextMatchPreviews runs the algorithm fresh on first render,
+        // selecting players by actual wait time instead of replaying old data.
+        if (state.matchingMode === 'snake') _nmo = null;
         updateDisplay();
         setInterval(checkTimers, 1000);
     };
