@@ -5268,7 +5268,7 @@
                             .reverse();
                         picks = _bestTeamSplit(g.slice(0, 4), _pvGames);
                     } else {
-                        picks = pool.slice(0, pool.length);
+                        picks = []; // no rated players — don't fall back to unrated pool
                     }
                 } else {
                     picks = pool.slice(0, 4);
