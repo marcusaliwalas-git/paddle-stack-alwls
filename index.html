@@ -5169,21 +5169,26 @@
             const _snakeUnfilled = results.filter(r => r === null).length;
             if (_snakeUnfilled > 0) {
                 const _snakeNow = Date.now();
-                const _snakeFull = [...state.queue
-                    .filter(p => p.in && !usedNames.has(p.name))]
-                    .sort((a, b) =>
-                        ((state.playerRatings||{})[b.name]||3.0) -
-                        ((state.playerRatings||{})[a.name]||3.0));
-                // games * 1000 = 1 virtual second per game — small tiebreaker only,
-                // can't overwhelm a meaningful wait-time difference.
-                _sitOutToFourDivisible(_snakeFull, p => {
+                // Step 1: sort by wait time DESC — determines WHO gets to play (fairness).
+                const _snakeByWait = [...state.queue.filter(p => p.in && !usedNames.has(p.name))].sort((a, b) => {
+                    const wa = a.lastGameTime ? (_snakeNow - a.lastGameTime) : Infinity;
+                    const wb = b.lastGameTime ? (_snakeNow - b.lastGameTime) : Infinity;
+                    if (wa === Infinity && wb === Infinity) return 0;
+                    if (wa === Infinity) return -1;
+                    if (wb === Infinity) return 1;
+                    return wb - wa;
+                });
+                _sitOutToFourDivisible(_snakeByWait, p => {
                     const wMs = p.lastGameTime ? (_snakeNow - p.lastGameTime) : Infinity;
                     const g   = (state.stats[p.name] || {}).games || 0;
                     return wMs === Infinity ? -Infinity : -wMs + g * 1000;
                 });
-                const _sgCount = Math.min(_snakeUnfilled, Math.floor(_snakeFull.length / 4));
+                const _sgCount = Math.min(_snakeUnfilled, Math.floor(_snakeByWait.length / 4));
                 _snakeGroups = Array.from({length: _sgCount}, () => []);
-                const _sgSlice = _snakeFull.slice(0, _sgCount * 4);
+                // Step 2: re-sort selected players by rating DESC for balanced snake distribution.
+                const _snakeFull = [..._snakeByWait.slice(0, _sgCount * 4)].sort((a, b) =>
+                    ((state.playerRatings||{})[b.name]||3.0) - ((state.playerRatings||{})[a.name]||3.0));
+                const _sgSlice = _snakeFull;
                 for (let si = 0; si < _sgSlice.length; si++) {
                     const round = Math.floor(si / _sgCount);
                     const pos   = si % _sgCount;
@@ -5887,33 +5892,30 @@
         const _snakeReserved = new Set();
         _snakeOverrides.forEach(ov => { if (Array.isArray(ov)) ov.forEach(n => _snakeReserved.add(n)); });
 
-        // Sort non-reserved in-players by rating DESC.
-        const pool = [...state.queue.filter(p => p.in && !_snakeReserved.has(p.name))].sort((a, b) => {
-            const ra = (state.playerRatings || {})[a.name] || 3.0;
-            const rb = (state.playerRatings || {})[b.name] || 3.0;
-            return rb - ra;
+        // Step 1: sort by wait time DESC — determines WHO gets to play (fairness).
+        // Low-rated players with long wait times were previously stuck because the old
+        // rating-first sort pushed them to the tail and pool.slice cut them out entirely.
+        const _sNow = Date.now();
+        const _byWait = [...state.queue.filter(p => p.in && !_snakeReserved.has(p.name))].sort((a, b) => {
+            const wa = a.lastGameTime ? (_sNow - a.lastGameTime) : Infinity;
+            const wb = b.lastGameTime ? (_sNow - b.lastGameTime) : Infinity;
+            if (wa === Infinity && wb === Infinity) return 0;
+            if (wa === Infinity) return -1;
+            if (wb === Infinity) return 1;
+            return wb - wa;
+        });
+        _sitOutToFourDivisible(_byWait, p => {
+            const waitMs = p.lastGameTime ? (_sNow - p.lastGameTime) : Infinity;
+            const games  = (state.stats[p.name] || {}).games || 0;
+            return waitMs === Infinity ? -Infinity : -waitMs + games * 1000;
         });
 
-        // Sit-out: most-recently-played player sits first.
-        // games * 1000 = 1 virtual second per game — a small tiebreaker that
-        // can't overwhelm a meaningful wait-time difference (old code used 60000,
-        // which let game count dominate wait time for experienced players).
-        {
-            const _sNow = Date.now();
-            _sitOutToFourDivisible(pool, p => {
-                const waitMs = p.lastGameTime ? (_sNow - p.lastGameTime) : Infinity;
-                const games  = (state.stats[p.name] || {}).games || 0;
-                return waitMs === Infinity ? -Infinity : -waitMs + games * 1000;
-            });
-        }
-
-        // True snake draft: assign players to courts in alternating-direction rounds
-        // so each court gets one top player, one upper-mid, one lower-mid, one bottom.
-        // Old code used pool.splice(0,4) per court — a sequential slice that gave
-        // Court 1 all the best players.
-        const numGroups = Math.min(emptyCourts.length, Math.floor(pool.length / 4));
+        const numGroups = Math.min(emptyCourts.length, Math.floor(_byWait.length / 4));
         const groups = Array.from({length: numGroups}, () => []);
-        const snakeSlice = pool.slice(0, numGroups * 4);
+        // Step 2: re-sort selected players by rating DESC for balanced snake distribution.
+        const pool = [..._byWait.slice(0, numGroups * 4)].sort((a, b) =>
+            ((state.playerRatings||{})[b.name]||3.0) - ((state.playerRatings||{})[a.name]||3.0));
+        const snakeSlice = pool;
         for (let si = 0; si < snakeSlice.length; si++) {
             const round = Math.floor(si / numGroups);
             const pos   = si % numGroups;
