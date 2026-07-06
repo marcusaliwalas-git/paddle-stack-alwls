@@ -5623,9 +5623,22 @@
             }
 
             if (!satPair) {
-                // Normal single sit-out: highest-score player, no lock protection
+                // Prefer to sit a player whose lock partner is NOT in the pool so
+                // locked pairs stay together in the same court group.  Only fall back
+                // to separating a pair when every remaining player has their partner
+                // present (i.e. no unlocked alternative exists).
+                const hasAnyUnlocked = pool.some(p => {
+                    const lk = getLockFor(p.name);
+                    return !lk || !pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
+                });
                 let bestScore = -Infinity, sitIdx = pool.length - 1;
-                pool.forEach((p, i) => { const s = scoreFn(p); if (s > bestScore) { bestScore = s; sitIdx = i; } });
+                pool.forEach((p, i) => {
+                    const lk = getLockFor(p.name);
+                    const hasPartner = lk && pool.some(q => q !== p && (q.name === lk.a || q.name === lk.b));
+                    if (hasAnyUnlocked && hasPartner) return; // keep pair intact when alternatives exist
+                    const s = scoreFn(p);
+                    if (s > bestScore) { bestScore = s; sitIdx = i; }
+                });
                 pool.splice(sitIdx, 1);
             }
         }
