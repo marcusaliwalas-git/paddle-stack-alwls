@@ -3288,9 +3288,12 @@
                     ? 'border-left:3px solid ' + _plkColor + ';box-shadow:inset 2px 0 0 ' + _plkColor + '22;'
                     : 'border-left:3px solid ' + color + ';';
                 const _lockMark = _plkColor ? ' 🔗' : '';
+                const _snkRtg = state.matchingMode === 'snake'
+                    ? ' <span style="font-size:10px;background:rgba(255,193,7,0.2);color:#ffd54f;border-radius:3px;padding:1px 4px;font-weight:bold;border:1px solid rgba(255,193,7,0.3);">★' + ((state.playerRatings||{})[p.name] || '?') + '</span>'
+                    : '';
                 return '<div class="nmp-player" draggable="true" ' + dropAttrs + ' '
                     + 'ondragstart="nmpDragStart(event,&quot;' + safeName + '&quot;,' + pi + ',' + slotIdx + ')" '
-                    + 'style="' + _border + 'cursor:grab;">' + p.name + _lockMark + '</div>';
+                    + 'style="' + _border + 'cursor:grab;">' + p.name + _lockMark + _snkRtg + '</div>';
             };
             const ta = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:#90caf9;text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
                 + '<div class="nmp-players-grid" style="margin-bottom:8px;">'
@@ -3379,10 +3382,13 @@
                 const lkColor = p ? getLockColor(p.name) : null;
                 const lkStyle = lkColor ? `box-shadow:inset 3px 0 0 ${lkColor};` : '';
                 const lkMark  = lkColor ? ' 🔗' : '';
-                return `<div class="slot ${teamClass}" style="${lkStyle}"
+                const _rtg = (state.matchingMode === 'snake' && p)
+                    ? `<span style="display:block;font-size:10px;background:rgba(255,193,7,0.18);color:#ffd54f;border-radius:3px;padding:0 4px;font-weight:bold;border:1px solid rgba(255,193,7,0.25);margin-top:2px;text-align:center;">★${(state.playerRatings||{})[p.name] || '?'}</span>`
+                    : '';
+                return `<div class="slot ${teamClass}" style="${lkStyle}${state.matchingMode === 'snake' && p ? 'flex-direction:column;' : ''}"
                      ondragover="allowDrop(event)" ondragleave="leaveDrop(event)" ondrop="dropToSlot(event,${i},${j})"
                      draggable="${p ? 'true' : 'false'}" ondragstart="dragStart(event,'court',${j},${i})">
-                     ${p ? p.name + lkMark : '--'}</div>`;
+                     ${p ? `<span>${p.name}${lkMark}</span>${_rtg}` : '--'}</div>`;
             };
 
             // Team A = slots 0,1 | Team B = slots 2,3
@@ -3416,7 +3422,10 @@
             return `
             <div class="court-card ${c.alerted ? 'overtime-active' : ''}">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <strong onclick="const n=prompt('Name:','${c.id}'); if(n){state.courts[${i}].id=n;sync();}" style="cursor:pointer;font-size:15px;">Court ${c.id}</strong>
+                    <div style="display:flex;align-items:center;gap:4px;">
+                        <strong style="font-size:15px;">Court ${c.id}</strong>
+                        <button onclick="openCourtRename(${i})" style="background:none;color:rgba(255,255,255,0.35);border:none;font-size:12px;padding:1px 3px;cursor:pointer;border-radius:3px;line-height:1;" title="Rename court">✏</button>
+                    </div>
                     <div style="display:flex;align-items:center;gap:5px;">
                         <span id="t-${i}" class="timer">0:00</span>
                         ${c.startTime ? `<button class="btn-pause ${c.pausedAt ? 'paused' : ''}" onclick="togglePause(${i})">${c.pausedAt ? '▶' : '⏸'}</button>` : ''}
@@ -3894,6 +3903,13 @@
         });
         if (!currentName && !includeEmpty) opts = '<option value="">— Select from queue —</option>' + opts;
         return `<select id="${fieldId}" style="flex:1;padding:9px 12px;border-radius:8px;background:#1e2a32;border:1px solid rgba(255,255,255,0.15);color:white;font-size:14px;">${opts}</select>`;
+    }
+
+    function openCourtRename(i) {
+        const c = state.courts[i];
+        if (!c) return;
+        const n = prompt('Court name:', c.id);
+        if (n && n.trim()) { c.id = n.trim(); sync(); }
     }
 
     function openCourtEdit(courtIdx) {
@@ -5117,6 +5133,64 @@
             }
         }
 
+        // Pre-compute true snake draft groups for all unfilled slots at once.
+        // Old code sorted per-slot independently, giving Court 1 all the top players
+        // (a sequential slice, not a real snake). Real snake alternates direction each
+        // round so every court gets one top, one upper-mid, one lower-mid, one bottom.
+        let _snakeGroups = null, _snakeGroupIdx = 0;
+        if (state.matchingMode === 'snake') {
+            const _snakeUnfilled = results.filter(r => r === null).length;
+            if (_snakeUnfilled > 0) {
+                const _snakeNow = Date.now();
+                const _snakeFull = [...state.queue
+                    .filter(p => p.in && !usedNames.has(p.name))]
+                    .sort((a, b) =>
+                        ((state.playerRatings||{})[b.name]||3.0) -
+                        ((state.playerRatings||{})[a.name]||3.0));
+                // games * 1000 = 1 virtual second per game — small tiebreaker only,
+                // can't overwhelm a meaningful wait-time difference.
+                _sitOutToFourDivisible(_snakeFull, p => {
+                    const wMs = p.lastGameTime ? (_snakeNow - p.lastGameTime) : Infinity;
+                    const g   = (state.stats[p.name] || {}).games || 0;
+                    return wMs === Infinity ? -Infinity : -wMs + g * 1000;
+                });
+                const _sgCount = Math.min(_snakeUnfilled, Math.floor(_snakeFull.length / 4));
+                _snakeGroups = Array.from({length: _sgCount}, () => []);
+                const _sgSlice = _snakeFull.slice(0, _sgCount * 4);
+                for (let si = 0; si < _sgSlice.length; si++) {
+                    const round = Math.floor(si / _sgCount);
+                    const pos   = si % _sgCount;
+                    const gi    = round % 2 === 0 ? pos : _sgCount - 1 - pos;
+                    _snakeGroups[gi].push(_sgSlice[si]);
+                }
+                // Colocate locked pairs: if partners landed in different snake groups,
+                // swap one across (replacing the lowest-rated non-locked player in the
+                // target group). Old flat-array splice had a boundary bug when lo%4===3.
+                (state.pairedLocks || []).forEach(lk => {
+                    if (!lk) return;
+                    let gA = -1, gB = -1;
+                    _snakeGroups.forEach((g, gi) => {
+                        if (g.some(p => p.name === lk.a)) gA = gi;
+                        if (g.some(p => p.name === lk.b)) gB = gi;
+                    });
+                    if (gA < 0 || gB < 0 || gA === gB) return;
+                    const movingIn = _snakeGroups[gB].find(p => p.name === lk.b);
+                    if (!movingIn) return;
+                    const swapOut = [..._snakeGroups[gA]].reverse().find(p => {
+                        if (p.name === lk.a) return false;
+                        const lk2 = getLockFor(p.name);
+                        return !lk2 || !_snakeGroups[gA].some(q =>
+                            q !== p && (q.name === lk2.a || q.name === lk2.b));
+                    });
+                    if (!swapOut) return;
+                    _snakeGroups[gB].splice(_snakeGroups[gB].indexOf(movingIn), 1);
+                    _snakeGroups[gA].splice(_snakeGroups[gA].indexOf(swapOut), 1);
+                    _snakeGroups[gA].push(movingIn);
+                    _snakeGroups[gB].push(swapOut);
+                });
+            }
+        }
+
         // ── Pass 2: fill or complete each court ───────────────────────────
         for (let i = 0; i < numCourts; i++) {
             const existing   = results[i] || [];
@@ -5149,37 +5223,13 @@
                         : pool.slice(0, pool.length);
 
                 } else if (state.matchingMode === 'snake') {
-                    const sorted = [...pool].sort((a, b) => {
-                        const ra = (state.playerRatings || {})[a.name] || 3.0;
-                        const rb = (state.playerRatings || {})[b.name] || 3.0;
-                        return rb - ra;
-                    });
-                    const trimmed = [...sorted];
-                    {
-                        const _pvNow2 = Date.now();
-                        _sitOutToFourDivisible(trimmed, p => {
-                            const waitMs = p.lastGameTime ? (_pvNow2 - p.lastGameTime) : Infinity;
-                            const games  = (state.stats[p.name] || {}).games || 0;
-                            return waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
-                        });
-                        (state.pairedLocks || []).forEach(lk => {
-                            if (!lk) return;
-                            const idxA = trimmed.findIndex(p => p.name === lk.a);
-                            const idxB = trimmed.findIndex(p => p.name === lk.b);
-                            if (idxA < 0 || idxB < 0) return;
-                            const [lo, hi] = idxA < idxB ? [idxA, idxB] : [idxB, idxA];
-                            if (Math.floor(lo / 4) === Math.floor(hi / 4)) return;
-                            const moved = trimmed.splice(hi, 1)[0];
-                            trimmed.splice(lo + 1, 0, moved);
-                        });
-                    }
-                    if (trimmed.length >= 4) {
-                        const g = trimmed.slice(0, 4);
+                    const g = (_snakeGroups || [])[_snakeGroupIdx++];
+                    if (g && g.length >= 4) {
                         const _pvNow = Date.now();
                         const _pvGames = [...(state.gameLog || [])]
                             .filter(gl => gl.timestamp && new Date(gl.timestamp).getTime() > _pvNow - 3600000)
                             .reverse();
-                        picks = _bestTeamSplit(g, _pvGames);
+                        picks = _bestTeamSplit(g.slice(0, 4), _pvGames);
                     } else {
                         picks = pool.slice(0, pool.length);
                     }
@@ -5770,70 +5820,97 @@
 
     // ── Snake Draft ───────────────────────────────────────────────────────
     function fillSnakeDraft(emptyCourts) {
-        // Court-agnostic queue: consume groups in FIFO order.
         const _snakeOverrides = _nmo ? _nmo.filter(Boolean) : [];
         _nmo = null;
         const _snakeReserved = new Set();
         _snakeOverrides.forEach(ov => { if (Array.isArray(ov)) ov.forEach(n => _snakeReserved.add(n)); });
 
-        // Sort only "in" players by rating DESC, excluding players reserved for overrides.
+        // Sort non-reserved in-players by rating DESC.
         const pool = [...state.queue.filter(p => p.in && !_snakeReserved.has(p.name))].sort((a, b) => {
             const ra = (state.playerRatings || {})[a.name] || 3.0;
             const rb = (state.playerRatings || {})[b.name] || 3.0;
             return rb - ra;
         });
 
-        // Sit-out priority: player with shortest wait time (played most recently) sits first.
-        // Treats locked pairs as a unit when both are more overdue than any unlocked player.
+        // Sit-out: most-recently-played player sits first.
+        // games * 1000 = 1 virtual second per game — a small tiebreaker that
+        // can't overwhelm a meaningful wait-time difference (old code used 60000,
+        // which let game count dominate wait time for experienced players).
         {
             const _sNow = Date.now();
-            const _sitScore = p => {
+            _sitOutToFourDivisible(pool, p => {
                 const waitMs = p.lastGameTime ? (_sNow - p.lastGameTime) : Infinity;
                 const games  = (state.stats[p.name] || {}).games || 0;
-                return waitMs === Infinity ? -Infinity : -waitMs + games * 60000;
-            };
-            _sitOutToFourDivisible(pool, _sitScore);
+                return waitMs === Infinity ? -Infinity : -waitMs + games * 1000;
+            });
         }
 
-        // Colocate locked pairs so both partners always land in the same group of 4.
-        // Rating sort may have placed them at indices 1 and 6 — move them adjacent.
+        // True snake draft: assign players to courts in alternating-direction rounds
+        // so each court gets one top player, one upper-mid, one lower-mid, one bottom.
+        // Old code used pool.splice(0,4) per court — a sequential slice that gave
+        // Court 1 all the best players.
+        const numGroups = Math.min(emptyCourts.length, Math.floor(pool.length / 4));
+        const groups = Array.from({length: numGroups}, () => []);
+        const snakeSlice = pool.slice(0, numGroups * 4);
+        for (let si = 0; si < snakeSlice.length; si++) {
+            const round = Math.floor(si / numGroups);
+            const pos   = si % numGroups;
+            const gi    = round % 2 === 0 ? pos : numGroups - 1 - pos;
+            groups[gi].push(snakeSlice[si]);
+        }
+
+        // Colocate locked pairs: if partners landed in different snake groups, swap
+        // one across (replacing the lowest-rated non-locked player in the target group).
+        // Old approach used flat-array splice which broke when lo % 4 === 3.
         (state.pairedLocks || []).forEach(lk => {
             if (!lk) return;
-            const idxA = pool.findIndex(p => p.name === lk.a);
-            const idxB = pool.findIndex(p => p.name === lk.b);
-            if (idxA < 0 || idxB < 0) return;
-            const [lo, hi] = idxA < idxB ? [idxA, idxB] : [idxB, idxA];
-            if (Math.floor(lo / 4) === Math.floor(hi / 4)) return; // already same group
-            const moved = pool.splice(hi, 1)[0];
-            pool.splice(lo + 1, 0, moved); // place immediately after lo
+            let gA = -1, gB = -1;
+            groups.forEach((g, gi) => {
+                if (g.some(p => p.name === lk.a)) gA = gi;
+                if (g.some(p => p.name === lk.b)) gB = gi;
+            });
+            if (gA < 0 || gB < 0 || gA === gB) return;
+            const movingIn = groups[gB].find(p => p.name === lk.b);
+            if (!movingIn) return;
+            const swapOut = [...groups[gA]].reverse().find(p => {
+                if (p.name === lk.a) return false;
+                const lk2 = getLockFor(p.name);
+                return !lk2 || !groups[gA].some(q => q !== p && (q.name === lk2.a || q.name === lk2.b));
+            });
+            if (!swapOut) return;
+            groups[gB].splice(groups[gB].indexOf(movingIn), 1);
+            groups[gA].splice(groups[gA].indexOf(swapOut), 1);
+            groups[gA].push(movingIn);
+            groups[gB].push(swapOut);
         });
-        emptyCourts.forEach(c => {
-            const ov = _snakeOverrides.shift(); // queue-based: next group for next available court
+
+        const _snakeNow = Date.now();
+        const _snakeGames = [...(state.gameLog || [])]
+            .filter(g => g.timestamp && new Date(g.timestamp).getTime() > _snakeNow - 3600000)
+            .reverse();
+
+        emptyCourts.forEach((c, ci) => {
+            const ov = _snakeOverrides.shift();
             if (ov && Array.isArray(ov) && ov.length >= 4) {
-                const chosen = ov.map(name => { const i = state.queue.findIndex(q => q.name === name); return i !== -1 ? state.queue.splice(i, 1)[0] : null; }).filter(Boolean);
+                const chosen = ov.map(name => {
+                    const i = state.queue.findIndex(q => q.name === name);
+                    return i !== -1 ? state.queue.splice(i, 1)[0] : null;
+                }).filter(Boolean);
                 if (chosen.length >= 4) {
                     c.players = chosen.slice(0, 4); c.startTime = Date.now(); c.alerted = false;
-                    // Also remove from snake pool
-                    chosen.forEach(p => { const pi = pool.findIndex(q => q.name === p.name); if (pi !== -1) pool.splice(pi, 1); });
                     return;
                 }
             }
-            // Normal snake algorithm
-            if (pool.length < 4) return;
-            const group = pool.splice(0, 4);
-            const _snakeNow = Date.now();
-            const _snakeCutoff = _snakeNow - 60 * 60 * 1000;
-            const _snakeGames = [...(state.gameLog || [])]
-                .filter(g => g.timestamp && new Date(g.timestamp).getTime() > _snakeCutoff)
-                .reverse();
-            c.players = _bestTeamSplit(group, _snakeGames);
+            const group = groups[ci] || [];
+            if (group.length < 4) return;
+            c.players = _bestTeamSplit(group.slice(0, 4), _snakeGames);
             c.startTime = Date.now(); c.alerted = false;
             c.players.forEach(p => {
                 const idx = state.queue.findIndex(q => q.name === p.name);
                 if (idx !== -1) state.queue.splice(idx, 1);
             });
         });
-        // Restore unconsumed groups back into _nmo.
+
         const _snakeRemaining = _snakeOverrides.filter(ov => ov && Array.isArray(ov) && ov.length > 0);
         if (_snakeRemaining.length > 0) _nmo = _snakeRemaining;
     }
