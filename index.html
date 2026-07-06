@@ -2938,19 +2938,19 @@
         if (c.players.every(p => p === null)) {
             if (state.queue.filter(p => p.in).length < 4) { alert('Need at least 4 players tagged IN to start a court!'); return; }
             if (!state.matchingMode) { showMatchingModal(); return; }
-            if (state.matchingMode === 'snake') {
-                const inPlayers = state.queue.filter(p => p.in);
-                const missingRatings = inPlayers.some(p => (state.playerRatings || {})[p.name] === undefined);
-                if (missingRatings) { openRatingInput(); return; }
-            }
             if (!state.sessionName || !state.sessionName.trim()) {
                 showToast('⚠️ Please enter a Session / OP Name before filling courts.', true);
                 const snInput = document.getElementById('sessionNameInput');
                 if (snInput) { snInput.focus(); snInput.style.outline = '2px solid var(--warning)'; setTimeout(() => snInput.style.outline = '', 2000); }
                 return;
             }
-            // Custom matches take priority over the normal algorithm.
+            // Custom matches bypass the algorithm entirely — check before rating guard.
             if (_tryCustomMatchFill(c)) { sync(); return; }
+            if (state.matchingMode === 'snake') {
+                const inPlayers = state.queue.filter(p => p.in);
+                const missingRatings = inPlayers.some(p => (state.playerRatings || {})[p.name] === undefined);
+                if (missingRatings) { openRatingInput(); return; }
+            }
             // Fill only this one court.
             // Freeze the NMP queue first (if not already frozen). The fill function
             // will shift() group 0 for this court and restore the remainder into _nmo.
@@ -5452,11 +5452,6 @@
     }
 
     function fillAllCourts() {
-        // In snake mode, block fill if any IN player has no rating set yet.
-        if (state.matchingMode === 'snake') {
-            const _unrated = state.queue.filter(p => p.in && (state.playerRatings||{})[p.name] === undefined);
-            if (_unrated.length > 0) { openRatingInput(); return; }
-        }
         // Require a session name before play begins
         if (!state.sessionName || !state.sessionName.trim()) {
             showToast('⚠️ Please enter a Session / OP Name before filling courts.', true);
@@ -5505,6 +5500,11 @@
         }
 
         // ── Step 2: Normal algorithm on remaining empty courts ───────────────
+        // Rating guard applies only to the algorithm, not to custom matches above.
+        if (state.matchingMode === 'snake' && emptyCourts.length > 0) {
+            const _unrated = state.queue.filter(p => p.in && (state.playerRatings||{})[p.name] === undefined);
+            if (_unrated.length > 0) { openRatingInput(); sync(); return; }
+        }
         if (emptyCourts.length > 0 && getInQueue().length >= 4) {
             // Fill functions shift() groups from _nmo in FIFO order and restore
             // any remaining groups back into _nmo — no manual save/restore needed.
