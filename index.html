@@ -3093,6 +3093,7 @@
             if (getLockFor(a)) { showToast(a + ' is already in a lock. Break it first.', true); updateDisplay(); return; }
             if (getLockFor(b)) { showToast(b + ' is already in a lock. Break it first.', true); updateDisplay(); return; }
             state.pairedLocks.push({ a, b });
+            _nmo = null; // force NMP to recompute with the new lock applied
             sync();
             showToast('🔗 ' + a + ' & ' + b + ' locked as partners!', false);
         }
@@ -3161,6 +3162,7 @@
         if (idx !== -1) {
             const lock = state.pairedLocks[idx];
             state.pairedLocks.splice(idx, 1);
+            _nmo = null; // force NMP to recompute without the removed lock
             sync();
             showToast('🔓 ' + lock.a + ' & ' + lock.b + ' partner lock removed.', false);
         }
