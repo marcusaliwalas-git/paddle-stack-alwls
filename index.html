@@ -5175,7 +5175,7 @@
             if (_snakeUnfilled > 0) {
                 const _snakeNow = Date.now();
                 // Step 1: sort by wait time DESC — determines WHO gets to play (fairness).
-                const _snakeByWait = [...state.queue.filter(p => p.in && !usedNames.has(p.name))].sort((a, b) => {
+                const _snakeByWait = [...state.queue.filter(p => p.in && !usedNames.has(p.name) && (state.playerRatings||{})[p.name] !== undefined)].sort((a, b) => {
                     const wa = a.lastGameTime ? (_snakeNow - a.lastGameTime) : Infinity;
                     const wb = b.lastGameTime ? (_snakeNow - b.lastGameTime) : Infinity;
                     if (wa === Infinity && wb === Infinity) return 0;
@@ -5901,7 +5901,7 @@
         // Low-rated players with long wait times were previously stuck because the old
         // rating-first sort pushed them to the tail and pool.slice cut them out entirely.
         const _sNow = Date.now();
-        const _byWait = [...state.queue.filter(p => p.in && !_snakeReserved.has(p.name))].sort((a, b) => {
+        const _byWait = [...state.queue.filter(p => p.in && !_snakeReserved.has(p.name) && (state.playerRatings||{})[p.name] !== undefined)].sort((a, b) => {
             const wa = a.lastGameTime ? (_sNow - a.lastGameTime) : Infinity;
             const wb = b.lastGameTime ? (_sNow - b.lastGameTime) : Infinity;
             if (wa === Infinity && wb === Infinity) return 0;
