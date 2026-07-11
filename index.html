@@ -2760,28 +2760,36 @@
         const inactiveA = 'background:rgba(255,255,255,0.07);border-color:rgba(144,202,249,0.25);';
         const activeB = 'background:#ad1457;border-color:rgba(244,143,177,0.6);';
         const inactiveB = 'background:rgba(255,255,255,0.07);border-color:rgba(244,143,177,0.25);';
+        const teamANames = (g.teamA || []).map(n => '<div style="font-size:14px;font-weight:600;color:#e3f2fd;padding:2px 0;">' + n + '</div>').join('');
+        const teamBNames = (g.teamB || []).map(n => '<div style="font-size:14px;font-weight:600;color:#fce4ec;padding:2px 0;">' + n + '</div>').join('');
+        const cardA = 'border-radius:12px;padding:14px 12px;cursor:pointer;border:2px solid;transition:all 0.15s;text-align:center;flex:1;'
+            + (isA ? 'background:rgba(21,101,192,0.35);border-color:#90caf9;' : 'background:rgba(255,255,255,0.05);border-color:rgba(144,202,249,0.2);');
+        const cardB = 'border-radius:12px;padding:14px 12px;cursor:pointer;border:2px solid;transition:all 0.15s;text-align:center;flex:1;'
+            + (!isA ? 'background:rgba(173,20,87,0.35);border-color:#f48fb1;' : 'background:rgba(255,255,255,0.05);border-color:rgba(244,143,177,0.2);');
         document.getElementById('editModalBody').innerHTML =
-            '<div style="text-align:center;font-size:12px;color:#78909c;margin-bottom:14px;">'
-            + 'Court ' + g.court + ' &nbsp;·&nbsp; '
-            + '<span style="color:#90caf9;font-weight:bold;">' + (g.teamA||[]).join(' &amp; ') + '</span>'
-            + ' <span>vs</span> '
-            + '<span style="color:#f48fb1;font-weight:bold;">' + (g.teamB||[]).join(' &amp; ') + '</span>'
+            '<div style="font-size:11px;color:#546e7a;text-align:center;margin-bottom:12px;letter-spacing:0.3px;">Court ' + g.court + (g.sessionName ? ' &nbsp;·&nbsp; ' + g.sessionName : '') + '</div>'
+            + '<div style="display:flex;gap:10px;margin-bottom:4px;">'
+
+            // Team A card
+            + '<div id="gl_cardA" onclick="glSetWinner(\'A\')" style="' + cardA + '">'
+            + '<div style="font-size:9px;font-weight:800;color:#90caf9;letter-spacing:1px;margin-bottom:8px;">TEAM A</div>'
+            + teamANames
+            + '<div style="margin:10px 0 4px;font-size:9px;font-weight:700;color:#78909c;letter-spacing:0.5px;">SCORE</div>'
+            + '<input type="number" id="gl_sA" min="0" max="99" value="' + saA + '" placeholder="—" onclick="event.stopPropagation()" style="width:80%;padding:8px 4px;border-radius:8px;background:rgba(0,0,0,0.25);border:1px solid rgba(144,202,249,0.3);color:white;font-size:24px;font-weight:bold;text-align:center;box-sizing:border-box;">'
+            + '<div id="gl_trophyA" style="margin-top:10px;font-size:18px;' + (isA ? '' : 'opacity:0;') + '">🏆</div>'
             + '</div>'
-            + '<div style="display:flex;gap:10px;margin-bottom:14px;">'
-            + '<div style="flex:1;text-align:center;">'
-            + '<div style="font-size:10px;font-weight:bold;color:#90caf9;letter-spacing:0.5px;margin-bottom:5px;">TEAM A SCORE</div>'
-            + '<input type="number" id="gl_sA" min="0" max="99" value="' + saA + '" placeholder="—" style="width:100%;padding:10px;border-radius:8px;background:#1e2a32;border:1px solid rgba(144,202,249,0.3);color:white;font-size:22px;text-align:center;box-sizing:border-box;">'
+
+            // Team B card
+            + '<div id="gl_cardB" onclick="glSetWinner(\'B\')" style="' + cardB + '">'
+            + '<div style="font-size:9px;font-weight:800;color:#f48fb1;letter-spacing:1px;margin-bottom:8px;">TEAM B</div>'
+            + teamBNames
+            + '<div style="margin:10px 0 4px;font-size:9px;font-weight:700;color:#78909c;letter-spacing:0.5px;">SCORE</div>'
+            + '<input type="number" id="gl_sB" min="0" max="99" value="' + saB + '" placeholder="—" onclick="event.stopPropagation()" style="width:80%;padding:8px 4px;border-radius:8px;background:rgba(0,0,0,0.25);border:1px solid rgba(244,143,177,0.3);color:white;font-size:24px;font-weight:bold;text-align:center;box-sizing:border-box;">'
+            + '<div id="gl_trophyB" style="margin-top:10px;font-size:18px;' + (!isA ? '' : 'opacity:0;') + '">🏆</div>'
             + '</div>'
-            + '<div style="flex:1;text-align:center;">'
-            + '<div style="font-size:10px;font-weight:bold;color:#f48fb1;letter-spacing:0.5px;margin-bottom:5px;">TEAM B SCORE</div>'
-            + '<input type="number" id="gl_sB" min="0" max="99" value="' + saB + '" placeholder="—" style="width:100%;padding:10px;border-radius:8px;background:#1e2a32;border:1px solid rgba(244,202,169,0.3);color:white;font-size:22px;text-align:center;box-sizing:border-box;">'
+
             + '</div>'
-            + '</div>'
-            + '<div style="font-size:11px;color:#78909c;margin-bottom:8px;">Winner</div>'
-            + '<div style="display:flex;gap:8px;margin-bottom:16px;">'
-            + '<button id="gl_btnA" onclick="glSetWinner(\'A\')" style="flex:1;padding:10px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px;color:white;border:1px solid;' + (isA ? activeA : inactiveA) + '">🏆 Team A</button>'
-            + '<button id="gl_btnB" onclick="glSetWinner(\'B\')" style="flex:1;padding:10px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px;color:white;border:1px solid;' + (isA ? inactiveB : activeB) + '">🏆 Team B</button>'
-            + '</div>';
+            + '<div style="font-size:10px;color:#546e7a;text-align:center;margin-top:6px;">Tap a team card to set winner</div>';
         const saveBtn = document.querySelector('.edit-save-btn');
         if (saveBtn) { saveBtn.textContent = '✅ Save Changes'; saveBtn.onclick = function() { saveGameLogEdit(gi); }; }
         document.getElementById('editModalOverlay').classList.add('open');
@@ -2789,10 +2797,20 @@
 
     function glSetWinner(team) {
         _glWinner = team;
-        const bA = document.getElementById('gl_btnA');
-        const bB = document.getElementById('gl_btnB');
-        if (bA) bA.style.cssText = bA.style.cssText.replace(/background:[^;]+/, team === 'A' ? 'background:#1565c0' : 'background:rgba(255,255,255,0.07)');
-        if (bB) bB.style.cssText = bB.style.cssText.replace(/background:[^;]+/, team === 'B' ? 'background:#ad1457' : 'background:rgba(255,255,255,0.07)');
+        const cA = document.getElementById('gl_cardA');
+        const cB = document.getElementById('gl_cardB');
+        const tA = document.getElementById('gl_trophyA');
+        const tB = document.getElementById('gl_trophyB');
+        if (cA) {
+            cA.style.background = team === 'A' ? 'rgba(21,101,192,0.35)' : 'rgba(255,255,255,0.05)';
+            cA.style.borderColor = team === 'A' ? '#90caf9' : 'rgba(144,202,249,0.2)';
+        }
+        if (cB) {
+            cB.style.background = team === 'B' ? 'rgba(173,20,87,0.35)' : 'rgba(255,255,255,0.05)';
+            cB.style.borderColor = team === 'B' ? '#f48fb1' : 'rgba(244,143,177,0.2)';
+        }
+        if (tA) tA.style.opacity = team === 'A' ? '1' : '0';
+        if (tB) tB.style.opacity = team === 'B' ? '1' : '0';
     }
 
     function saveGameLogEdit(gi) {
