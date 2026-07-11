@@ -2150,7 +2150,7 @@
                         <th>#</th><th>Session</th><th>Court</th><th>Team A P1</th><th>Team A P2</th>
                         <th>Team B P1</th><th>Team B P2</th>
                         <th>A Score</th><th>B Score</th>
-                        <th>Winner</th><th>Duration</th><th>Date & Time</th>
+                        <th>Winner</th><th>Duration</th><th>Date & Time</th><th></th>
                     </tr>
                 </thead>
                 <tbody id="reportTableBody"></tbody>
@@ -2735,6 +2735,7 @@
                 + '<td style="font-weight:bold;color:' + (isA ? '#90caf9' : '#f48fb1') + '">' + (g.winner||'') + '</td>'
                 + '<td>' + fmtDuration(g.durationSec) + '</td>'
                 + '<td>' + fmtTimestamp(g.timestamp) + '</td>'
+                + '<td><button onclick="openGameLogEdit(' + gi + ')" style="background:none;color:rgba(255,255,255,0.35);border:none;font-size:13px;cursor:pointer;padding:2px 6px;border-radius:3px;" title="Edit result">✎</button></td>'
                 + '</tr>';
         }).join('');
         document.getElementById('reportOverlay').classList.add('open');
@@ -2742,6 +2743,94 @@
 
     function closeReport() {
         document.getElementById('reportOverlay').classList.remove('open');
+    }
+
+    let _glWinner = null; // tracks winner selection inside the game-log edit modal
+
+    function openGameLogEdit(gi) {
+        const g = (state.gameLog || [])[gi];
+        if (!g) return;
+        editContext = { type: 'gamelog', idx: gi };
+        _glWinner = g.winner === 'Team A' ? 'A' : 'B';
+        document.getElementById('editModalTitle').textContent = 'Edit Result — Game #' + (gi + 1);
+        const isA = _glWinner === 'A';
+        const saA = g.scoreA !== null && g.scoreA !== undefined ? g.scoreA : '';
+        const saB = g.scoreB !== null && g.scoreB !== undefined ? g.scoreB : '';
+        const activeA = 'background:#1565c0;border-color:rgba(144,202,249,0.6);';
+        const inactiveA = 'background:rgba(255,255,255,0.07);border-color:rgba(144,202,249,0.25);';
+        const activeB = 'background:#ad1457;border-color:rgba(244,143,177,0.6);';
+        const inactiveB = 'background:rgba(255,255,255,0.07);border-color:rgba(244,143,177,0.25);';
+        document.getElementById('editModalBody').innerHTML =
+            '<div style="text-align:center;font-size:12px;color:#78909c;margin-bottom:14px;">'
+            + 'Court ' + g.court + ' &nbsp;·&nbsp; '
+            + '<span style="color:#90caf9;font-weight:bold;">' + (g.teamA||[]).join(' &amp; ') + '</span>'
+            + ' <span>vs</span> '
+            + '<span style="color:#f48fb1;font-weight:bold;">' + (g.teamB||[]).join(' &amp; ') + '</span>'
+            + '</div>'
+            + '<div style="display:flex;gap:10px;margin-bottom:14px;">'
+            + '<div style="flex:1;text-align:center;">'
+            + '<div style="font-size:10px;font-weight:bold;color:#90caf9;letter-spacing:0.5px;margin-bottom:5px;">TEAM A SCORE</div>'
+            + '<input type="number" id="gl_sA" min="0" max="99" value="' + saA + '" placeholder="—" style="width:100%;padding:10px;border-radius:8px;background:#1e2a32;border:1px solid rgba(144,202,249,0.3);color:white;font-size:22px;text-align:center;box-sizing:border-box;">'
+            + '</div>'
+            + '<div style="flex:1;text-align:center;">'
+            + '<div style="font-size:10px;font-weight:bold;color:#f48fb1;letter-spacing:0.5px;margin-bottom:5px;">TEAM B SCORE</div>'
+            + '<input type="number" id="gl_sB" min="0" max="99" value="' + saB + '" placeholder="—" style="width:100%;padding:10px;border-radius:8px;background:#1e2a32;border:1px solid rgba(244,202,169,0.3);color:white;font-size:22px;text-align:center;box-sizing:border-box;">'
+            + '</div>'
+            + '</div>'
+            + '<div style="font-size:11px;color:#78909c;margin-bottom:8px;">Winner</div>'
+            + '<div style="display:flex;gap:8px;margin-bottom:16px;">'
+            + '<button id="gl_btnA" onclick="glSetWinner(\'A\')" style="flex:1;padding:10px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px;color:white;border:1px solid;' + (isA ? activeA : inactiveA) + '">🏆 Team A</button>'
+            + '<button id="gl_btnB" onclick="glSetWinner(\'B\')" style="flex:1;padding:10px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:12px;color:white;border:1px solid;' + (isA ? inactiveB : activeB) + '">🏆 Team B</button>'
+            + '</div>'
+            + '<button onclick="saveGameLogEdit(' + gi + ')" style="width:100%;padding:10px;border-radius:8px;font-size:13px;font-weight:bold;background:linear-gradient(135deg,#ff6d00,#ff8f00);color:white;border:none;cursor:pointer;">✅ Save Changes</button>';
+        document.getElementById('editModalOverlay').classList.add('open');
+    }
+
+    function glSetWinner(team) {
+        _glWinner = team;
+        const bA = document.getElementById('gl_btnA');
+        const bB = document.getElementById('gl_btnB');
+        if (bA) bA.style.cssText = bA.style.cssText.replace(/background:[^;]+/, team === 'A' ? 'background:#1565c0' : 'background:rgba(255,255,255,0.07)');
+        if (bB) bB.style.cssText = bB.style.cssText.replace(/background:[^;]+/, team === 'B' ? 'background:#ad1457' : 'background:rgba(255,255,255,0.07)');
+    }
+
+    function saveGameLogEdit(gi) {
+        const g = (state.gameLog || [])[gi];
+        if (!g) return;
+        const rawA = (document.getElementById('gl_sA') || {}).value || '';
+        const rawB = (document.getElementById('gl_sB') || {}).value || '';
+        const newScoreA = rawA !== '' ? parseInt(rawA) : null;
+        const newScoreB = rawB !== '' ? parseInt(rawB) : null;
+        const newWinner = _glWinner === 'A' ? 'Team A' : 'Team B';
+        const oldWinner = g.winner;
+
+        // Adjust win counts when winner changes
+        if (oldWinner !== newWinner) {
+            const oldW = oldWinner === 'Team A' ? (g.teamA || []) : (g.teamB || []);
+            const newW = newWinner === 'Team A' ? (g.teamA || []) : (g.teamB || []);
+            oldW.forEach(name => { if (state.stats[name]) state.stats[name].wins = Math.max(0, (state.stats[name].wins || 0) - 1); });
+            newW.forEach(name => { if (!state.stats[name]) state.stats[name] = { wins: 0, games: 0 }; state.stats[name].wins = (state.stats[name].wins || 0) + 1; });
+        }
+
+        g.scoreA = newScoreA;
+        g.scoreB = newScoreB;
+        g.winner = newWinner;
+
+        // Best-effort update of the recent history sidebar entry
+        const scoreStr = (newScoreA !== null && newScoreB !== null) ? ' [' + newScoreA + '-' + newScoreB + ']' : '';
+        const winNames = (newWinner === 'Team A' ? g.teamA : g.teamB) || [];
+        const newEntry = 'C' + g.court + ': ' + newWinner + ' won' + scoreStr + ' (' + winNames.join(' & ') + ')';
+        const hi = state.history.findIndex(h => {
+            const oldScore = (oldWinner === 'Team A' ? g.teamA : g.teamB) || [];
+            return h.startsWith('C' + g.court + ':') && oldScore.some(n => h.includes(n));
+        });
+        if (hi !== -1) state.history[hi] = newEntry;
+
+        _glWinner = null;
+        closeEditModal();
+        sync();
+        showToast('✅ Game #' + (gi + 1) + ' updated.');
+        openReport();
     }
 
     // Wipe report table content and clear the session name field —
