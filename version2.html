@@ -6542,6 +6542,17 @@
                     : Object.values(fbData.nextMatchPreview).map(court =>
                         Array.isArray(court) ? court : Object.values(court || {})))
                 : [];
+            // Adopt the Next Match preview that was just synced from Firebase as this
+            // device's own _nmo. Without this, a second device (e.g. a phone alongside
+            // the organizer's laptop) never seeds _nmo from remote updates — only
+            // sync() does that, and sync() only runs on the device making a local
+            // change — so its own buildNextMatchPreviews() call falls through to
+            // Pass 2 and recomputes a fresh (possibly randomly different) preview
+            // instead of showing what the other device already decided.
+            const _restoredNmo = state.nextMatchPreview
+                .map(courtNames => Array.isArray(courtNames) ? courtNames.filter(Boolean) : [])
+                .filter(arr => arr.length > 0);
+            _nmo = _restoredNmo.length > 0 ? _restoredNmo : null;
             // Keep IN players first, OUT players at the end (stable sort preserves relative order)
             state.queue.sort((a, b) => {
                 const aIn = a && (a.in === true || a.in === 'true') ? 0 : 1;
