@@ -454,7 +454,7 @@
         .qr-close { margin-top: 16px; background: var(--primary); color: white; padding: 9px 24px; border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; border: none; }
 
         /* Live View Page */
-        #liveView { display: none; min-height: 100vh; width: 100%; background: #1a1a2e; color: #eee; }
+        #liveView { display: none; min-height: 100vh; width: 100%; background: var(--bg); color: var(--body-c); }
         #liveView.active { display: block; }
 
         /* ── Spectator view 3-column layout ── */
@@ -505,15 +505,16 @@
             overflow: hidden;
         }
         .sponsor-banner-slot {
-            background: #0f3460;
-            border-radius: 10px;
+            background: var(--surface);
+            border-radius: var(--radius-md);
             overflow: hidden;
-            border: 1px solid rgba(255,109,0,0.15);
+            border: 1px solid var(--border-c);
+            box-shadow: var(--shadow-sm);
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
             position: relative;
         }
-        .sponsor-banner-slot:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+        .sponsor-banner-slot:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
         .sponsor-banner-slot img {
             width: 100%;
             display: block;
@@ -523,7 +524,7 @@
         }
         .sponsor-banner-slot .sponsor-label {
             font-size: 9px;
-            color: rgba(255,255,255,0.35);
+            color: var(--muted);
             text-align: center;
             padding: 4px 6px;
             text-transform: uppercase;
@@ -573,157 +574,157 @@
         .sponsor-del-btn:hover { background: var(--warning); }
         .sponsor-mgr-close { width: 100%; margin-top: 14px; padding: 11px; background: var(--surface-2); border: 1px solid var(--border-c); color: var(--body-c); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; }
         #mainApp { width: 100%; }
-        .live-header { background: #16213e; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #ff6d00; position: sticky; top: 0; z-index: 50; }
-        .live-header h1 { margin: 0; font-size: 1.1rem; color: white; }
-        .live-header h1 span { color: #ff6d00; }
-        .live-badge { background: #ff6d00; color: white; font-size: 10px; font-weight: bold; padding: 3px 8px; border-radius: 20px; animation: livepulse 1.5s infinite; }
+        .live-header { background: var(--surface); padding: var(--sp-4) var(--sp-5); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-c); position: sticky; top: 0; z-index: 50; }
+        .live-header h1 { margin: 0; font-size: 1.1rem; color: var(--ink); }
+        .live-header h1 span { color: var(--primary); }
+        .live-badge { background: var(--primary); color: white; font-size: 10px; font-weight: bold; padding: 4px 9px; border-radius: 20px; animation: livepulse 1.5s infinite; }
         @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-        .live-body { padding: 16px; max-width: 900px; margin: 0 auto; }
-        .live-section-title { font-size: 13px; font-weight: bold; color: #ff6d00; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 10px; }
-        .live-courts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .live-body { padding: var(--sp-5); max-width: 900px; margin: 0 auto; }
+        .live-section-title { font-size: 13px; font-weight: 700; color: var(--primary-dark); text-transform: uppercase; letter-spacing: 1px; margin: 28px 0 12px; }
+        .live-courts { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); }
         @media (max-width: 820px) { .live-courts { grid-template-columns: 1fr; } }
         @media (min-width: 821px) and (max-width: 1100px) { .live-courts { grid-template-columns: repeat(2, 1fr); } }
-        .live-court-card { background: #0f3460; border-radius: 12px; padding: 14px; border: 2px solid transparent; }
-        .live-court-card.ot { border-color: #ff6d00; animation: pulse 2s infinite; }
+        .live-court-card { background: var(--surface); border-radius: var(--radius-lg); padding: var(--sp-4); border: 1.5px solid var(--border-c); box-shadow: var(--shadow-sm); }
+        .live-court-card.ot { border-color: var(--warning); animation: pulse 2s infinite; }
         .live-court-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .live-court-name { font-weight: bold; font-size: 15px; color: #fff; }
-        .live-court-timer { font-family: monospace; font-size: 18px; color: #ff6d00; font-weight: bold; }
+        .live-court-name { font-weight: 700; font-size: 15px; color: var(--ink); }
+        .live-court-timer { font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 18px; color: var(--ink); font-weight: 700; }
         .live-players { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .live-player-slot { background: rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 8px; font-size: 13px; text-align: center; color: #eceff1; min-height: 40px; display: flex; align-items: center; justify-content: center; }
-        .live-player-slot.empty { color: #546e7a; font-style: italic; }
-        .live-queue { display: flex; flex-direction: column; gap: 6px; }
-        .live-queue-item { background: #0f3460; border-radius: 8px; padding: 10px 14px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
-        .live-queue-num { background: #ff6d00; color: white; font-size: 11px; font-weight: bold; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .live-next-badge { background: #2e7d32; color: white; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin-left: auto; }
-        .live-empty { color: #546e7a; font-size: 13px; font-style: italic; padding: 10px 0; }
-        .live-last-updated { text-align: center; font-size: 11px; color: #546e7a; margin-top: 24px; padding-bottom: 24px; }
+        .live-player-slot { background: var(--surface-2); border-radius: var(--radius-sm); padding: 10px 8px; font-size: 13px; text-align: center; color: var(--ink); min-height: 40px; display: flex; align-items: center; justify-content: center; font-weight: 500; }
+        .live-player-slot.empty { color: var(--muted); font-style: italic; font-weight: 400; }
+        .live-queue { display: flex; flex-direction: column; gap: 8px; }
+        .live-queue-item { background: var(--surface); border: 1px solid var(--border-c); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+        .live-queue-num { background: var(--primary); color: white; font-size: 11px; font-weight: bold; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .live-next-badge { background: var(--success); color: white; font-size: 10px; padding: 2px 7px; border-radius: 10px; margin-left: auto; }
+        .live-empty { color: var(--muted); font-size: 13px; font-style: italic; padding: 10px 0; }
+        .live-last-updated { text-align: center; font-size: 11px; color: var(--muted); margin-top: 24px; padding-bottom: 24px; }
 
         /* ── Projector / Big-Screen View ──────────────────────────────── */
         .proj-toggle-btn {
-            background: rgba(255,255,255,0.1); color: #eceff1;
-            border: 1px solid rgba(255,255,255,0.25); border-radius: 8px;
-            padding: 6px 14px; font-size: 12px; cursor: pointer;
+            background: var(--surface-2); color: var(--ink);
+            border: 1px solid var(--border-c); border-radius: var(--radius-sm);
+            padding: 7px 14px; font-size: 12px; cursor: pointer; font-weight: 600;
             transition: background 0.15s; white-space: nowrap; flex-shrink: 0;
         }
-        .proj-toggle-btn:hover { background: rgba(255,255,255,0.2); }
+        .proj-toggle-btn:not(:disabled):hover { border-color: var(--primary); color: var(--primary); filter: none; }
         #projectorView {
             position: fixed; inset: 0; z-index: 200;
-            background: #0d1117; color: #eceff1;
+            background: var(--bg); color: var(--body-c);
             display: none; flex-direction: column; font-family: inherit;
         }
         #projectorView.active { display: flex; }
         .proj-header {
-            background: #16213e; border-bottom: 4px solid #ff6d00;
-            padding: 12px 28px; display: flex; align-items: center; gap: 16px;
+            background: var(--surface); border-bottom: 1px solid var(--border-c);
+            padding: 14px 28px; display: flex; align-items: center; gap: 16px;
             flex-shrink: 0;
         }
         .proj-session-name {
-            font-size: 1.2rem; font-weight: bold; color: #eceff1; flex: 1;
+            font-size: 1.2rem; font-weight: 700; color: var(--ink); flex: 1;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .proj-live-badge {
-            background: #ff6d00; color: white; font-size: 12px; font-weight: bold;
+            background: var(--primary); color: white; font-size: 12px; font-weight: bold;
             padding: 4px 10px; border-radius: 20px; animation: livepulse 1.5s infinite; flex-shrink: 0;
         }
         .proj-exit-btn {
-            background: rgba(255,255,255,0.1); color: #eceff1;
-            border: 1px solid rgba(255,255,255,0.25); border-radius: 8px;
-            padding: 7px 16px; font-size: 13px; cursor: pointer; flex-shrink: 0;
+            background: var(--surface-2); color: var(--ink);
+            border: 1px solid var(--border-c); border-radius: var(--radius-sm);
+            padding: 8px 16px; font-size: 13px; cursor: pointer; flex-shrink: 0; font-weight: 600;
             transition: background 0.15s;
         }
-        .proj-exit-btn:hover { background: rgba(255,255,255,0.2); }
+        .proj-exit-btn:not(:disabled):hover { border-color: var(--warning); color: var(--warning); filter: none; }
         .proj-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
         .proj-main {
             flex: 1; display: flex; flex-direction: column;
-            padding: 20px 20px 16px; gap: 14px; overflow: hidden; min-width: 0;
+            padding: 24px 24px 18px; gap: 16px; overflow: hidden; min-width: 0;
         }
         .proj-courts-grid {
             flex: 1; display: grid; min-height: 0;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;
         }
         .proj-court-card {
-            background: #0f3460; border-radius: 16px;
-            border: 3px solid rgba(255,255,255,0.1);
-            padding: 18px 22px; display: flex; flex-direction: column; overflow: hidden;
+            background: var(--surface); border-radius: var(--radius-lg);
+            border: 1.5px solid var(--border-c); box-shadow: var(--shadow-sm);
+            padding: 20px 24px; display: flex; flex-direction: column; overflow: hidden;
         }
-        .proj-court-card.ot { border-color: #ff6d00; animation: pulse 2s infinite; }
+        .proj-court-card.ot { border-color: var(--warning); animation: pulse 2s infinite; }
         .proj-court-header {
             display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
         }
-        .proj-court-name { font-size: 1.2rem; font-weight: bold; color: #ff6d00; text-transform: uppercase; letter-spacing: 1px; }
-        .proj-court-timer { font-family: monospace; font-size: 1.44rem; color: #fff; font-weight: bold; }
+        .proj-court-name { font-size: 1.2rem; font-weight: 700; color: var(--primary-dark); text-transform: uppercase; letter-spacing: 1px; }
+        .proj-court-timer { font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 1.44rem; color: var(--ink); font-weight: 700; }
         .proj-team-label { font-size: 0.864rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin: 10px 0 4px; }
-        .proj-team-a-label { color: #ff8f4d; }
-        .proj-team-b-label { color: rgba(255,255,255,0.75); }
+        .proj-team-a-label { color: var(--primary-dark); }
+        .proj-team-b-label { color: var(--ink); }
         .proj-players-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 2px; }
         .proj-player-name {
-            font-size: 1.75rem; font-weight: bold; color: #fff; padding: 4px 6px;
+            font-size: 1.75rem; font-weight: 700; color: var(--ink); padding: 6px 6px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            background: rgba(255,255,255,0.05); border-radius: 8px; text-align: center;
+            background: var(--surface-2); border-radius: var(--radius-sm); text-align: center;
         }
-        .proj-vs { text-align: center; font-size: 0.96rem; color: #fff; letter-spacing: 5px; margin: 8px 0; font-weight: bold; }
+        .proj-vs { text-align: center; font-size: 0.96rem; color: var(--muted); letter-spacing: 5px; margin: 8px 0; font-weight: bold; }
         /* Sponsor bar above courts in projector view */
         .proj-sponsor-bar {
             display: flex; align-items: center; justify-content: center;
-            gap: 18px; padding: 7px 24px; flex-shrink: 0; flex-wrap: wrap;
-            background: rgba(0,0,0,0.35); border-bottom: 1px solid rgba(255,255,255,0.06);
+            gap: 18px; padding: 10px 24px; flex-shrink: 0; flex-wrap: wrap;
+            background: var(--surface); border-bottom: 1px solid var(--border-c);
         }
         .proj-sponsor-bar:empty { display: none; padding: 0; }
         .proj-sponsor-logo {
             height: 110px; width: auto; max-width: 325px;
             object-fit: contain; border-radius: 6px;
-            background: #fff; padding: 4px 8px;
+            background: #fff; padding: 4px 8px; border: 1px solid var(--border-c);
         }
         .proj-queue-strip {
-            background: rgba(255,255,255,0.04); border-radius: 12px;
-            padding: 10px 16px; display: flex; align-items: center;
+            background: var(--surface); border: 1px solid var(--border-c); border-radius: var(--radius-md);
+            padding: 12px 16px; display: flex; align-items: center;
             gap: 10px; flex-wrap: wrap; flex-shrink: 0;
         }
         .proj-queue-label {
-            font-size: 0.75rem; font-weight: bold; color: #ff6d00;
+            font-size: 0.75rem; font-weight: bold; color: var(--primary-dark);
             text-transform: uppercase; letter-spacing: 1px; flex-shrink: 0;
         }
         .proj-queue-chip {
             display: flex; align-items: center; gap: 5px;
-            background: rgba(15,52,96,0.9); border-radius: 8px; padding: 5px 12px;
+            background: var(--surface-2); border: 1px solid var(--border-c); border-radius: var(--radius-sm); padding: 5px 12px;
         }
         .proj-queue-chip-num {
-            background: #ff6d00; color: white; font-size: 0.68rem; font-weight: bold;
+            background: var(--primary); color: white; font-size: 0.68rem; font-weight: bold;
             border-radius: 50%; width: 18px; height: 18px;
             display: flex; align-items: center; justify-content: center; flex-shrink: 0;
         }
-        .proj-queue-chip-name { font-size: 1.05rem; color: #eceff1; font-weight: 500; }
+        .proj-queue-chip-name { font-size: 1.05rem; color: var(--ink); font-weight: 500; }
         .proj-sidebar {
-            width: 290px; flex-shrink: 0; background: #111827;
-            border-left: 2px solid rgba(255,255,255,0.07);
+            width: 290px; flex-shrink: 0; background: var(--surface);
+            border-left: 1px solid var(--border-c);
             display: flex; flex-direction: column; overflow-y: auto;
-            padding: 18px 16px; gap: 0;
+            padding: 20px 18px; gap: 0;
         }
         .proj-sidebar-section { margin-bottom: 22px; }
         .proj-sidebar-title {
-            font-size: 0.78rem; font-weight: bold; color: #ff6d00;
+            font-size: 0.78rem; font-weight: bold; color: var(--primary-dark);
             text-transform: uppercase; letter-spacing: 1px;
             margin-bottom: 10px; padding-bottom: 6px;
-            border-bottom: 1px solid rgba(255,109,0,0.3);
+            border-bottom: 1px solid var(--border-c);
         }
         .proj-ondeck-court-block { margin-bottom: 12px; }
         .proj-ondeck-court-label {
-            font-size: 0.72rem; color: #aaa; margin-bottom: 5px;
+            font-size: 0.72rem; color: var(--body-c); margin-bottom: 5px;
             font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;
         }
         .proj-ondeck-player {
             font-size: 1.3rem; font-weight: bold;
-            padding: 5px 10px; border-radius: 8px; margin-bottom: 4px;
+            padding: 6px 10px; border-radius: var(--radius-sm); margin-bottom: 4px;
         }
-        .proj-ondeck-a { background: rgba(255,109,0,0.18); color: #ff8f4d; }
-        .proj-ondeck-b { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.85); }
+        .proj-ondeck-a { background: rgba(255,109,0,0.1); color: var(--primary-dark); }
+        .proj-ondeck-b { background: var(--surface-2); color: var(--ink); border: 1px solid var(--border-c); }
         .proj-rank-item {
             display: flex; align-items: center; gap: 8px;
-            padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 8px 0; border-bottom: 1px solid var(--border-c);
         }
-        .proj-rank-pos { color: #ff6d00; font-weight: bold; font-size: 1rem; width: 22px; text-align: center; flex-shrink: 0; }
-        .proj-rank-name { font-size: 1.1rem; font-weight: bold; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .proj-rank-stat { font-size: 0.9rem; color: #90a4ae; flex-shrink: 0; }
+        .proj-rank-pos { color: var(--primary); font-weight: bold; font-size: 1rem; width: 22px; text-align: center; flex-shrink: 0; }
+        .proj-rank-name { font-size: 1.1rem; font-weight: bold; color: var(--ink); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .proj-rank-stat { font-size: 0.9rem; color: var(--body-c); flex-shrink: 0; }
         @media (max-width: 960px) {
             .proj-sidebar { width: 220px; }
             .proj-court-timer { font-size: 1.1rem; }
@@ -732,21 +733,21 @@
         }
 
         /* ── Spectator Check-In ───────────────────────────────────────── */
-        .live-checkin-list { display: flex; flex-direction: column; gap: 6px; }
+        .live-checkin-list { display: flex; flex-direction: column; gap: 8px; }
         .live-checkin-item {
             display: flex; align-items: center; justify-content: space-between;
-            background: rgba(255,255,255,0.04); border-radius: 9px;
-            padding: 9px 12px; border: 1px solid rgba(255,255,255,0.07);
+            background: var(--surface); border-radius: var(--radius-sm);
+            padding: 10px 12px; border: 1px solid var(--border-c);
             transition: background 0.15s;
         }
-        .live-checkin-name { font-size: 14px; color: #cfd8dc; font-weight: 500; }
+        .live-checkin-name { font-size: 14px; color: var(--ink); font-weight: 500; }
         .live-checkin-btn {
-            background: rgba(76,175,80,0.18); color: #81c784;
-            border: 1px solid rgba(76,175,80,0.38); border-radius: 7px;
-            padding: 5px 13px; font-size: 12px; font-weight: bold;
+            background: rgba(22,163,74,0.1); color: var(--success);
+            border: 1px solid rgba(22,163,74,0.35); border-radius: 7px;
+            padding: 6px 13px; font-size: 12px; font-weight: bold;
             cursor: pointer; transition: background 0.15s; white-space: nowrap;
         }
-        .live-checkin-btn:hover:not(:disabled) { background: rgba(76,175,80,0.34); }
+        .live-checkin-btn:hover:not(:disabled) { background: rgba(22,163,74,0.2); }
         .live-checkin-btn:disabled { opacity: 0.55; cursor: default; }
 
         /* ── Login / Auth Page ─────────────────────────────────────────── */
@@ -7491,9 +7492,9 @@
                     + '<span class="live-court-name">&#127955; Court ' + c.id + (isOT ? ' &#9888;' : '') + '</span>'
                     + '<span class="live-court-timer" id="lct-' + ci + '">' + timerStr + '</span>'
                     + '</div>'
-                    + '<div style="margin:6px 0 2px;font-size:10px;font-weight:bold;color:#ff8f4d;text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
+                    + '<div style="margin:6px 0 2px;font-size:10px;font-weight:bold;color:var(--primary-dark);text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
                     + '<div class="live-players">' + teamA + '</div>'
-                    + '<div style="margin:6px 0 2px;font-size:10px;font-weight:bold;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.5px;">Team B</div>'
+                    + '<div style="margin:6px 0 2px;font-size:10px;font-weight:bold;color:var(--ink);text-transform:uppercase;letter-spacing:0.5px;">Team B</div>'
                     + '<div class="live-players">' + teamB + '</div>'
                     + '</div>';
             }).join('');
@@ -7540,25 +7541,25 @@
                 const groupLabel = ci === 0 ? '▶ Next Up' : '⏱ On Deck';
                 html += '<div style="font-size:10px;font-weight:bold;color:#aaa;margin-bottom:4px;">' + groupLabel + '</div>';
                 html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:12px;">';
-                html += '<div style="font-size:10px;font-weight:bold;color:#ff8f4d;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
+                html += '<div style="font-size:10px;font-weight:bold;color:var(--primary-dark);text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
                 [0, 1].forEach(j => {
                     const name = names[j];
                     if (name) {
                         html += '<div class="live-queue-item" style="border-left:3px solid rgba(255,109,0,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
                             + '<span style="font-weight:bold;">' + name + '</span>'
-                            + '<span style="font-size:10px;color:#ff8f4d;">' + playerStat(name) + '</span>'
+                            + '<span style="font-size:10px;color:var(--primary-dark);">' + playerStat(name) + '</span>'
                             + '</div>';
                     } else {
                         html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
                     }
                 });
-                html += '<div style="font-size:10px;font-weight:bold;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
+                html += '<div style="font-size:10px;font-weight:bold;color:var(--ink);text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
                 [2, 3].forEach(j => {
                     const name = names[j];
                     if (name) {
                         html += '<div class="live-queue-item" style="border-left:3px solid rgba(26,26,30,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
                             + '<span style="font-weight:bold;">' + name + '</span>'
-                            + '<span style="font-size:10px;color:rgba(255,255,255,0.75);">' + playerStat(name) + '</span>'
+                            + '<span style="font-size:10px;color:var(--ink);">' + playerStat(name) + '</span>'
                             + '</div>';
                     } else {
                         html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
@@ -7570,23 +7571,23 @@
             // Fallback: first 4 IN players (shown when organizer hasn't synced NMP yet)
             const next4 = inQueue.slice(0, 4);
             html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:12px;">';
-            html += '<div style="font-size:10px;font-weight:bold;color:#ff8f4d;text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
+            html += '<div style="font-size:10px;font-weight:bold;color:var(--primary-dark);text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;">Team A</div>';
             [0, 1].forEach(j => {
                 if (next4[j]) {
                     html += '<div class="live-queue-item" style="border-left:3px solid rgba(255,109,0,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
                         + '<span style="font-weight:bold;">' + next4[j].name + '</span>'
-                        + '<span style="font-size:10px;color:#ff8f4d;">' + playerStat(next4[j].name) + '</span>'
+                        + '<span style="font-size:10px;color:var(--primary-dark);">' + playerStat(next4[j].name) + '</span>'
                         + '</div>';
                 } else {
                     html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
                 }
             });
-            html += '<div style="font-size:10px;font-weight:bold;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
+            html += '<div style="font-size:10px;font-weight:bold;color:var(--ink);text-transform:uppercase;letter-spacing:0.5px;grid-column:1/-1;margin-top:6px;">Team B</div>';
             [2, 3].forEach(j => {
                 if (next4[j]) {
                     html += '<div class="live-queue-item" style="border-left:3px solid rgba(26,26,30,0.6);flex-direction:column;align-items:flex-start;gap:2px;">'
                         + '<span style="font-weight:bold;">' + next4[j].name + '</span>'
-                        + '<span style="font-size:10px;color:rgba(255,255,255,0.75);">' + playerStat(next4[j].name) + '</span>'
+                        + '<span style="font-size:10px;color:var(--ink);">' + playerStat(next4[j].name) + '</span>'
                         + '</div>';
                 } else {
                     html += '<div class="live-queue-item" style="opacity:0.3;font-style:italic">Waiting...</div>';
