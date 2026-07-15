@@ -354,14 +354,28 @@
             overflow-y: auto;
         }
 
+        .queue-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: var(--sp-2) 2px; margin-top: var(--sp-2);
+            cursor: pointer; user-select: none;
+            font-size: 12px; font-weight: 700; color: var(--body-c);
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .queue-header:hover { color: var(--ink); }
+        .queue-header:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+        #queueHeaderCount { font-weight: 500; text-transform: none; letter-spacing: normal; color: var(--muted); margin-left: 4px; }
+        .queue-chevron { font-size: 10px; color: var(--muted); transition: transform 0.2s; }
+        .queue-chevron.collapsed { transform: rotate(-90deg); }
+
         .paddle-rack {
             display: flex; flex-direction: column; gap: var(--sp-2);
-            margin: var(--sp-3) 0; min-height: 60px;
+            margin: 0 0 var(--sp-3) 0; min-height: 60px;
             border: 1.5px dashed var(--border-c); padding: var(--sp-3);
             border-radius: var(--radius-md); background: var(--surface-2);
             transition: border-color 0.15s, background 0.15s;
         }
         .paddle-rack:empty { display: flex; align-items: center; justify-content: center; }
+        .paddle-rack.collapsed { display: none; }
 
         .paddle {
             background: var(--primary); color: #fff;
@@ -636,10 +650,15 @@
         .proj-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
         .proj-main {
             flex: 1; display: flex; flex-direction: column;
-            padding: 24px 24px 18px; gap: 16px; overflow: hidden; min-width: 0;
+            padding: 24px 24px 18px; gap: 16px; overflow-y: auto; overflow-x: hidden; min-width: 0;
         }
         .proj-courts-grid {
-            flex: 1; display: grid; min-height: 0;
+            /* flex-shrink:0 (the "0" in "1 0 auto") is the fix: previously this grid could
+               shrink below its cards' natural content height whenever there were enough
+               courts to need a 2nd row, and .proj-court-card's overflow:hidden silently
+               clipped Team B off the bottom. Now it only grows to fill space (nice full
+               look with 1-2 courts) and .proj-main scrolls instead of ever clipping. */
+            flex: 1 0 auto; display: grid; align-content: center;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;
         }
         .proj-court-card {
@@ -2105,6 +2124,10 @@
         </div>
 
         <!-- Queue -->
+        <div class="queue-header" id="queueHeader" onclick="toggleQueueCollapse()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleQueueCollapse();}">
+            <span>👥 Players in Queue<span id="queueHeaderCount"></span></span>
+            <span class="queue-chevron" id="queueChevron">▼</span>
+        </div>
         <div id="paddleRack" class="paddle-rack" ondrop="dropToRack(event)" ondragover="allowDrop(event)" ondragleave="leaveDrop(event)"></div>
 
         <!-- Add Players — moved to bottom -->
@@ -2446,6 +2469,13 @@
         // Clear it so buildNextMatchPreviews runs the algorithm fresh on first render,
         // selecting players by actual wait time instead of replaying old data.
         if (state.matchingMode === 'snake') _nmo = null;
+        // Restore the queue box's collapsed/expanded state from last visit
+        try {
+            if (localStorage.getItem('pb_queue_collapsed') === '1') {
+                document.getElementById('paddleRack').classList.add('collapsed');
+                document.getElementById('queueChevron').classList.add('collapsed');
+            }
+        } catch(e) {}
         updateDisplay();
         setInterval(checkTimers, 1000);
     };
@@ -2611,6 +2641,16 @@
         // Keep for backwards compat — now opens picker
         openThemePicker();
     }
+
+    // ── Collapsible queue ────────────────────────────────────────────────
+    window.toggleQueueCollapse = function() {
+        const rack = document.getElementById('paddleRack');
+        const chevron = document.getElementById('queueChevron');
+        if (!rack) return;
+        const collapsed = rack.classList.toggle('collapsed');
+        if (chevron) chevron.classList.toggle('collapsed', collapsed);
+        try { localStorage.setItem('pb_queue_collapsed', collapsed ? '1' : '0'); } catch(e) {}
+    };
 
     // ── Score Modal ─────────────────────────────────────────────────────
     let _scoreCtx = null; // { courtIdx, winningTeam }
@@ -3423,6 +3463,8 @@
         const countTotalEl = document.getElementById('countTotal');
         if (countInEl) countInEl.textContent = inCount;
         if (countTotalEl) countTotalEl.textContent = totalCount;
+        const queueHeaderCountEl = document.getElementById('queueHeaderCount');
+        if (queueHeaderCountEl) queueHeaderCountEl.textContent = ' (' + state.queue.length + ')';
 
         // Queue with in/out toggle + rating badge + edit button
         document.getElementById('paddleRack').innerHTML = state.queue.map((p, i) => {
