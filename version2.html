@@ -3113,6 +3113,15 @@
                 (foursome || []).map(p => p ? p.name : null).filter(Boolean)
             );
         }
+
+        // Stamp every sync with a monotonic "as of" time. applyFirebaseState() uses
+        // this to refuse to apply a Firebase update older than what's already loaded
+        // locally — see the comment there for why that matters (in short: fbWrite is
+        // fire-and-forget, so a fast refresh right after e.g. End OP can otherwise
+        // reload a stale pre-reset snapshot from Firebase and silently merge the just-
+        // ended session's games back into the brand-new one).
+        state._syncTs = Date.now();
+
         localStorage.setItem('pb_stacker_v12', JSON.stringify(state));
         if (window.fbWrite) {
             window.fbWrite(state);
@@ -6617,6 +6626,22 @@
     // Does NOT call fbWrite — avoids echo-writing data we just received.
     function applyFirebaseState(fbData) {
         if (!fbData || typeof state === 'undefined') return false;
+
+        // Reject a Firebase snapshot that's OLDER than what's already loaded locally.
+        // fbWrite() is fire-and-forget (no await, connection can drop on navigation
+        // before the write is acknowledged), so it's not guaranteed to have landed by
+        // the time this fires. Concretely: End OP resets state and syncs; if the user
+        // refreshes fast enough that the reset's write hasn't reached the server yet,
+        // this listener can fire with the pre-reset snapshot still sitting in Firebase
+        // — which would otherwise get applied as "source of truth" and silently merge
+        // the just-ended session's games back into the brand-new one. Only compare
+        // when both sides have a timestamp; data written before this field existed has
+        // no _syncTs and is accepted as before (can't tell its age, so don't guess).
+        if (typeof fbData._syncTs === 'number' && typeof state._syncTs === 'number'
+            && fbData._syncTs < state._syncTs) {
+            return false;
+        }
+
         try {
             Object.assign(state, fbData);
 
