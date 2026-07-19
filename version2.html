@@ -6014,12 +6014,38 @@
             .filter(g => g.timestamp && new Date(g.timestamp).getTime() > cutoff)
             .reverse();
 
-        // ── Combo picker: wait time + history penalties + split-lock penalty ────
-        // Score = pair_history_penalty − total_wait_minutes
+        // Games-played fairness baseline: the fewest games anyone currently eligible
+        // has played. Used below so combos are penalized for including players who
+        // are already ahead of their least-played peer — "waited a while since my
+        // LAST game" and "played fewer games OVERALL" are different things. A player
+        // who keeps winning fast, low-collision pairings could have short waitMs after
+        // every single game and never accumulate the wait-time priority a genuinely
+        // under-played peer (who checked in at the same time) deserves. This doesn't
+        // apply to players who simply checked in later — they start with 0 games same
+        // as everyone else at that later point, so this only measures imbalance among
+        // people who've actually had a chance to play.
+        const poolMinGames = Math.min(...pool.map(p => (state.stats[p.name] || {}).games || 0));
+
+        // ── Combo picker: wait time + games fairness + history penalties ────────
+        // Score = pair_history_penalty − total_wait_minutes + games_fairness_penalty
         //   • Lower is better (minimised).
         //   • Each minute a player has been waiting subtracts 1 from the score,
         //     so longer-waiting combos are always preferred over shorter-waiting
         //     ones with the same pair-history penalty.
+        //   • Each game a player has played beyond the pool's least-played member
+        //     adds GAMES_FAIRNESS_WEIGHT to the score, capped at GAMES_FAIRNESS_CAP
+        //     games worth — a strong pull toward equalizing games played, without
+        //     letting it become unbounded. Uncapped, a group that checks in hours
+        //     after everyone else starts at a 15-20 game deficit, which swamped every
+        //     other term: the newcomers got locked onto one court together every round
+        //     until they "caught up," while the group that had been playing all along
+        //     got squeezed onto the remaining court(s) — the opposite problem, and it
+        //     also reintroduced clique-like repeats among the newcomers themselves,
+        //     since among each other they never had anything to differentiate them.
+        //     Capping means a big tenure gap still gets newcomers strong, sustained
+        //     priority, but doesn't grind everyone else's playing time to a halt to
+        //     rush the catch-up — wait time (uncapped) keeps building for anyone
+        //     sitting out and still bounds how long they'd wait.
         //   • Scale: a +10 same-team penalty is overcome by ~10 extra wait-minutes
         //     across the foursome — so history matters but cannot strand a player
         //     who has been queuing for a long time.
@@ -6028,6 +6054,8 @@
         let bestCombos = [];
         let bestScore  = Infinity;
         const SCORE_EPS = 0.001; // treat scores within ~60 ms of wait time as tied
+        const GAMES_FAIRNESS_WEIGHT = 15;
+        const GAMES_FAIRNESS_CAP = 3; // games of deficit beyond which extra imbalance adds no more pressure
 
         for (let a = 0; a < pool.length - 3; a++) {
             for (let b = a + 1; b < pool.length - 2; b++) {
@@ -6043,6 +6071,13 @@
 
                         // Whole-group repeat penalty — see _lkGroupRepeatPenalty
                         score += _lkGroupRepeatPenalty(combo, recentGames);
+
+                        // Games-played fairness — see poolMinGames comment above
+                        score += combo.reduce((sum, p) => {
+                            const g = (state.stats[p.name] || {}).games || 0;
+                            const deficit = Math.min(g - poolMinGames, GAMES_FAIRNESS_CAP);
+                            return sum + deficit * GAMES_FAIRNESS_WEIGHT;
+                        }, 0);
 
                         // Split-lock penalty: prefer both-or-neither for each locked pair
                         (state.pairedLocks || []).forEach(lk => {
