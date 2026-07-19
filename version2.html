@@ -2097,6 +2097,16 @@
     <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;">
         <button class="theme-toggle" id="forceSyncBtn" onclick="forceSync()" title="Push current state to Firebase">🔄 Sync</button>
         <button class="theme-toggle" onclick="showQR()">📱 QR Live</button>
+        <div style="position:relative;" id="hrlWrapper">
+            <button class="theme-toggle" onclick="toggleHRLMenu()" style="display:flex;align-items:center;gap:5px;" title="History, Results &amp; Leaderboard">
+                📋 History <span id="hrlChevron" style="font-size:9px;transition:transform 0.2s;">▼</span>
+            </button>
+            <div id="hrlMenu" style="display:none;position:absolute;right:0;left:auto;top:calc(100% + 6px);min-width:230px;background:var(--surface);border:1px solid var(--border-c);border-radius:var(--radius-md);padding:6px;z-index:9999;box-shadow:var(--shadow-md);">
+                <button onclick="openReport();closeHRLMenu()" style="width:100%;background:none;border:none;color:var(--text-main);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;white-space:nowrap;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">📊 View &amp; Export Results</button>
+                <button onclick="window.location.hash='#history';closeHRLMenu()" style="width:100%;background:none;border:none;color:var(--text-main);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;white-space:nowrap;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">📚 Session History</button>
+                <button onclick="openEndOP();closeHRLMenu()" style="width:100%;background:none;border:none;color:var(--text-main);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;white-space:nowrap;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">🏆 View Leaderboard</button>
+            </div>
+        </div>
         <button class="btn-manage-access" id="manageAccessBtn" onclick="openAllowlist()" title="Manage who can sign in" style="display:none">🔒 Access</button>
         <button class="btn-manage-access" id="manageClubsBtn" onclick="openClubsManager()" title="Manage partner club logos in footer" style="display:none">🏢 Clubs</button>
         <button class="btn-manage-access" id="manageSponsorsBtn" onclick="openSponsorsManager()" title="Manage sponsor banners in spectator view" style="display:none">🎯 Sponsors</button>
@@ -2138,25 +2148,13 @@
         <!-- Add Players — moved to bottom -->
         <div class="add-players-section">
             <h3>Add Players Manually</h3>
-            <input type="text" id="nameInput" placeholder="Add Name">
-            <textarea id="bulkInput" rows="2" placeholder="Bulk (One per line)"></textarea>
+            <textarea id="bulkInput" rows="3" placeholder="Add player names, one per line"></textarea>
             <button id="btnAddToRack" class="btn-add" onclick="addPlayers()" disabled>Add to Rack</button>
             <input type="file" id="importFileInput" accept=".txt" onchange="importFromTxt(event)">
             <button id="btnImportPlayers" class="btn-import" onclick="document.getElementById('importFileInput').click()" disabled>📂 Import Players (Reclub)</button>
         </div>
 
-        <!-- History / Results / Leaderboard popup -->
-        <div style="position:relative;margin-top:15px;" id="hrlWrapper">
-            <button class="btn-export" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="toggleHRLMenu()">
-                📋 History, Results &amp; Leaderboard <span id="hrlChevron" style="font-size:10px;transition:transform 0.2s;">▼</span>
-            </button>
-            <div id="hrlMenu" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--border-c);border-radius:var(--radius-md);padding:6px;z-index:9999;box-shadow:var(--shadow-md);">
-                <button onclick="openReport();closeHRLMenu()" style="width:100%;background:none;border:none;color:var(--text-main);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">📊 View &amp; Export Results</button>
-                <button onclick="window.location.hash='#history';closeHRLMenu()" style="width:100%;background:none;border:none;color:var(--text-main);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">📚 Session History</button>
-                <button onclick="openEndOP();closeHRLMenu()" style="width:100%;background:none;border:none;color:var(--text-main);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">🏆 View Leaderboard</button>
-            </div>
-        </div>
-        <button class="btn-end-op" onclick="endAndReset()" style="margin-top:6px;">🏁 End OP</button>
+        <button class="btn-end-op" onclick="endAndReset()" style="margin-top:15px;">🏁 End OP</button>
         <button onclick="resetAll()" style="color:var(--warning); background:none; font-size:11px; margin-top:15px; width:100%; border:none; cursor:pointer;">⚠️ Full Reset</button>
     </div>
 
@@ -3131,8 +3129,7 @@
     }
 
     function addPlayers() {
-        const single = document.getElementById('nameInput').value.trim();
-        const bulk   = document.getElementById('bulkInput').value.trim();
+        const bulk = document.getElementById('bulkInput').value.trim();
 
         // Build a live set of all names already in roster (queue + courts), case-insensitive
         const existing = new Set([
@@ -3152,10 +3149,8 @@
             addedCount++;
         };
 
-        if (single) process(single);
         if (bulk) bulk.split('\n').forEach(n => process(n.trim()));
 
-        document.getElementById('nameInput').value = '';
         document.getElementById('bulkInput').value = '';
 
         if (addedCount > 0) { sync(); promptMatchingModeIfNeeded(); }
