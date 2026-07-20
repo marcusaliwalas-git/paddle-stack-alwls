@@ -2874,7 +2874,7 @@
         tbody.innerHTML = log.map((g, gi) => {
             const isA = g.winner === 'Team A';
             return '<tr>'
-                + '<td><button onclick="openGameLogEdit(' + gi + ')" style="background:none;color:rgba(255,255,255,0.35);border:none;font-size:13px;cursor:pointer;padding:2px 6px;border-radius:3px;" title="Edit result">✎</button></td>'
+                + '<td><button onclick="openGameLogEdit(' + gi + ')" style="background:none;color:var(--body-c);border:none;font-size:13px;cursor:pointer;padding:2px 6px;border-radius:3px;" title="Edit result">✎</button></td>'
                 + '<td style="color:#78909c;font-weight:bold;">' + (gi + 1) + '</td>'
                 + '<td>' + (g.sessionName || state.sessionName || '—') + '</td>'
                 + '<td>' + g.court + '</td>'
