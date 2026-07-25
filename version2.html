@@ -5822,17 +5822,31 @@
     //   5. Select the combination with the LOWEST total collision score.
 
     function _lkPairScore(a, b, recentGames) {
-        // Check last 8 games so pair history stays relevant long enough to prevent
-        // the same 4 players clustering together once their early-game penalties expire.
-        // Weights decay with recency: teammate 10/6/3/1/1/1/1/1, opponent 8/5/2/1/1/1/1/1.
-        // Opponent weight was raised from 5/3/1/0 to sit close to teammate weight: with a
-        // player count divisible by 4 (no queue slack — nobody ever sits out), a partner
-        // swap flips most of a foursome's 6 pairwise relationships from teammate to
-        // opponent, so under-weighting opponent repeats let the algorithm read "same 4
-        // people, different partners" as mostly-fresh. See also _lkGroupRepeatPenalty,
-        // which catches this case directly instead of relying on pairwise scoring alone.
+        // Check every game in the (already 60-minute-bounded) recentGames list so pair
+        // history stays relevant for the algorithm's full lookback window, not just a
+        // fixed game count — with multiple courts running concurrently, far more than a
+        // handful of games can complete within 60 minutes.
+        //
+        // Weight decays by ELAPSED TIME within that window, not by position in the list.
+        // A position-based decay (e.g. "10/6/3/1/1/1...") looks fine with 1 court, where
+        // the 4th-most-recent game really is old — but with 3 courts running, the 4th-most-
+        // recent game can be only ~20-30 minutes old, and a position-based curve would
+        // still flatten it to a token weight of 1, letting the same pair reform well
+        // within the "still feels recent" window because wait-time/fairness pressure
+        // trivially outweighs a lone point. Scaling by minutes elapsed instead keeps a
+        // 25-50-minute-old repeat meaningfully weighted regardless of how many other
+        // courts' games sit between it and now.
+        // Teammate repeats decay from 10 down to a floor of 1; opponent repeats from 8
+        // down to 1 — opponent weight sits close to teammate weight (not much lower)
+        // because with a player count divisible by 4 (no queue slack — nobody ever sits
+        // out), a partner swap flips most of a foursome's 6 pairwise relationships from
+        // teammate to opponent, so under-weighting opponent repeats would let the
+        // algorithm read "same 4 people, different partners" as mostly-fresh. See also
+        // _lkGroupRepeatPenalty, which catches that case directly instead of relying on
+        // pairwise scoring alone.
+        const now = Date.now();
         let score = 0;
-        for (let i = 0; i < Math.min(8, recentGames.length); i++) {
+        for (let i = 0; i < recentGames.length; i++) {
             const g = recentGames[i];
             const teamA = g.teamA || [];
             const teamB = g.teamB || [];
@@ -5840,8 +5854,10 @@
             const bInA = teamA.includes(b.name), bInB = teamB.includes(b.name);
             const sameTeam = (aInA && bInA) || (aInB && bInB);
             const opponents = (aInA && bInB) || (aInB && bInA);
-            if (sameTeam)        score += (i === 0 ? 10 : i === 1 ? 6 : i === 2 ? 3 : 1);
-            else if (opponents)  score += (i === 0 ? 8  : i === 1 ? 5 : i === 2 ? 2 : 1);
+            if (!sameTeam && !opponents) continue;
+            const elapsedMin = g.timestamp ? (now - new Date(g.timestamp).getTime()) / 60000 : 0;
+            if (sameTeam)       score += Math.max(1, 10 - elapsedMin / 6);
+            else                score += Math.max(1, 8 - elapsedMin / 6);
         }
         return score;
     }
@@ -5854,16 +5870,25 @@
        pairwise relationships to "new", making the group look mostly fresh even
        though it's the identical clique. This scores the group as a whole instead. */
     function _lkGroupRepeatPenalty(combo, recentGames) {
+        // See _lkPairScore comment above — iterate the full (already 60-minute-bounded)
+        // list rather than a fixed game count, so this doesn't lose track of a foursome
+        // that shared a court 30-50 minutes ago just because other courts kept the game
+        // log moving fast in between.
         const names = combo.map(p => p.name);
+        const now = Date.now();
         let penalty = 0;
-        for (let i = 0; i < Math.min(6, recentGames.length); i++) {
+        for (let i = 0; i < recentGames.length; i++) {
             const g = recentGames[i];
             const onCourt = [...(g.teamA || []), ...(g.teamB || [])];
             if (names.every(n => onCourt.includes(n))) {
                 // Deliberately heavier than any pairwise penalty so the algorithm
                 // actively avoids reforming this foursome rather than treating a
-                // partner swap as sufficient variety.
-                penalty += (i === 0 ? 30 : i === 1 ? 18 : i === 2 ? 9 : 4);
+                // partner swap as sufficient variety. Decays by elapsed minutes
+                // (not list position) for the same reason as _lkPairScore — with
+                // multiple courts running, a clique reforming 30-50 minutes later
+                // needs to stay meaningfully penalized, not flatten to the floor.
+                const elapsedMin = g.timestamp ? (now - new Date(g.timestamp).getTime()) / 60000 : 0;
+                penalty += Math.max(4, 30 - elapsedMin / 2);
             }
         }
         return penalty;
@@ -5893,16 +5918,22 @@
             // If locked pair ends up as opponents that's very bad
             if (areLocked(a, c) || areLocked(a, d) || areLocked(b, c) || areLocked(b, d)) score += 50;
 
-            // Same-team repetition penalty from last 8 games (matches _lkPairScore window)
-            for (let i = 0; i < Math.min(8, recentGames.length); i++) {
+            // Same-team repetition penalty — matches _lkPairScore's window and
+            // time-based decay (see its comment): weight scales by elapsed minutes,
+            // not list position, so it stays meaningful with multiple courts running.
+            const _btsNow = Date.now();
+            for (let i = 0; i < recentGames.length; i++) {
                 const g    = recentGames[i];
                 const tA   = g.teamA || [], tB = g.teamB || [];
                 const abSame = (tA.includes(foursome[a].name) && tA.includes(foursome[b].name)) ||
                                (tB.includes(foursome[a].name) && tB.includes(foursome[b].name));
                 const cdSame = (tA.includes(foursome[c].name) && tA.includes(foursome[d].name)) ||
                                (tB.includes(foursome[c].name) && tB.includes(foursome[d].name));
-                if (abSame) score += (i === 0 ? 10 : i === 1 ? 6 : i === 2 ? 3 : 1);
-                if (cdSame) score += (i === 0 ? 10 : i === 1 ? 6 : i === 2 ? 3 : 1);
+                if (!abSame && !cdSame) continue;
+                const elapsedMin = g.timestamp ? (_btsNow - new Date(g.timestamp).getTime()) / 60000 : 0;
+                const w = Math.max(1, 10 - elapsedMin / 6);
+                if (abSame) score += w;
+                if (cdSame) score += w;
             }
 
             // In snake mode, use rating balance as a secondary tiebreaker so teams
