@@ -6236,7 +6236,7 @@
                                (tB.includes(foursome[c].name) && tB.includes(foursome[d].name));
                 if (!abSame && !cdSame) continue;
                 const elapsedMin = g.timestamp ? (_btsNow - new Date(g.timestamp).getTime()) / 60000 : 0;
-                const w = Math.max(1, 10 - elapsedMin / 6);
+                const w = Math.max(1, 10 - elapsedMin / 6); // matches _lkPairScore's teammate weight
                 if (abSame) score += w;
                 if (cdSame) score += w;
             }
