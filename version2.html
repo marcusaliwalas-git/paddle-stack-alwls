@@ -4545,12 +4545,18 @@
                 const oldPlayer = c.players[j];
                 if (newName === (oldPlayer ? oldPlayer.name : '')) return; // no change
                 if (newName) {
-                    // Swap: put old court player into queue, take new from queue
+                    // Swap: put old court player into queue, take new from queue.
+                    // Reuse the ACTUAL queue object (not a bare {name} stand-in) so
+                    // `in`, checkInTime, lastGameTime, etc. survive the move — a bare
+                    // object here left `in` undefined, which made the player invisible
+                    // to buildNextMatchPreviews (and the matching algorithm generally)
+                    // once they were later returned to the queue by any other action.
                     const queueIdx = state.queue.findIndex(q => q.name === newName);
                     if (queueIdx !== -1) {
+                        const newPlayerObj = state.queue[queueIdx];
                         if (oldPlayer) state.queue.splice(queueIdx, 1, oldPlayer);
                         else state.queue.splice(queueIdx, 1);
-                        c.players[j] = { name: newName };
+                        c.players[j] = newPlayerObj;
                         if (!state.stats[newName]) state.stats[newName] = { wins: 0, games: 0 };
                     }
                 } else {
