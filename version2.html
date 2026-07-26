@@ -3368,6 +3368,30 @@
         return idx >= 0 ? LOCK_COLORS[idx % LOCK_COLORS.length] : null;
     }
 
+    /* Shared lock-separation guards for every manual player-move path (drag-and-drop
+       onto a court/rack/next-match slot, and the court/next-match edit modals) — used
+       so "block + toast when a move would separate a locked pair without moving both"
+       behaves identically everywhere, not just in the one drag path that used to check it.
+       `name` is ARRIVING at / STAYING IN a group whose other current members (excluding
+       `name` itself) are `groupOthers`; the two directions are distinct because a locked
+       player can be separated either by landing somewhere their partner isn't, or by
+       leaving somewhere their partner is staying. */
+    function _arrivalSeparatesLock(name, groupOthers) {
+        const lock = getLockFor(name);
+        if (!lock) return null;
+        const partner = lock.a === name ? lock.b : lock.a;
+        return groupOthers.includes(partner) ? null : partner;
+    }
+    function _departureSeparatesLock(name, remainingOthers) {
+        const lock = getLockFor(name);
+        if (!lock) return null;
+        const partner = lock.a === name ? lock.b : lock.a;
+        return remainingOthers.includes(partner) ? partner : null;
+    }
+    function _warnLockSeparation(name, partner) {
+        showToast('🔒 ' + name + ' is locked with ' + partner + ' — keep them together or remove the lock first.', true);
+    }
+
     /**
      * Two-tap UI handler: first tap marks first player, second tap creates the lock.
      * Tapping the same player a second time cancels the selection.
@@ -3601,17 +3625,27 @@
             // Warn when a pair shown here has already been teammates PARTNER_WARN_THRESHOLD+
             // times this session — an early heads-up for the organizer before confirming
             // a match that keeps reforming the same duo, independent of matching mode.
+            // Pairs with 2+ repeats also get a "💡 Try: X" suggestion — see _suggestPairSwap.
             const PARTNER_WARN_THRESHOLD = 2;
-            const warnBadge = (count) => count >= PARTNER_WARN_THRESHOLD
-                ? ' <span style="font-size:9px;font-weight:bold;color:var(--warning);background:rgba(224,57,43,0.12);border:1px solid rgba(224,57,43,0.3);border-radius:4px;padding:1px 5px;white-space:nowrap;" title="This pair has already partnered ' + count + ' time' + (count !== 1 ? 's' : '') + ' this session">&#9888; Partnered ' + count + 'x</span>'
-                : '';
+            const warnBadge = (count, teamStartSlot) => {
+                if (count < PARTNER_WARN_THRESHOLD) return '';
+                let html = ' <span style="font-size:9px;font-weight:bold;color:var(--warning);background:rgba(224,57,43,0.12);border:1px solid rgba(224,57,43,0.3);border-radius:4px;padding:1px 5px;white-space:nowrap;" title="This pair has already partnered ' + count + ' time' + (count !== 1 ? 's' : '') + ' this session">&#9888; Partnered ' + count + 'x</span>';
+                const suggestion = _suggestPairSwap(pi, teamStartSlot);
+                if (suggestion) {
+                    const safeAdd = suggestion.addName.replace(/'/g, "\\'");
+                    html += ' <span onclick="event.stopPropagation();applyNmpSuggestion(' + pi + ',' + suggestion.removeSlot + ',\'' + safeAdd + '\')" '
+                        + 'style="font-size:9px;font-weight:bold;color:var(--primary-dark);background:rgba(255,109,0,0.12);border:1px solid rgba(255,109,0,0.3);border-radius:4px;padding:1px 5px;cursor:pointer;white-space:nowrap;" '
+                        + 'title="Swap in ' + suggestion.addName + ' for ' + suggestion.removeName + '">&#128161; Try: ' + suggestion.addName + '</span>';
+                }
+                return html;
+            };
             const taCount = (players[0] && players[1]) ? _priorPartnerCount(players[0].name, players[1].name) : 0;
             const tbCount = (players[2] && players[3]) ? _priorPartnerCount(players[2].name, players[3].name) : 0;
 
-            const ta = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:var(--primary-dark);text-transform:uppercase;letter-spacing:0.5px;">Team A' + warnBadge(taCount) + '</div>'
+            const ta = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:var(--primary-dark);text-transform:uppercase;letter-spacing:0.5px;">Team A' + warnBadge(taCount, 0) + '</div>'
                 + '<div class="nmp-players-grid" style="margin-bottom:8px;">'
                 + [0,1].map(j => makeSlot(players[j], 'rgba(255,109,0,0.5)', j)).join('') + '</div>';
-            const tb = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:var(--ink);text-transform:uppercase;letter-spacing:0.5px;">Team B' + warnBadge(tbCount) + '</div>'
+            const tb = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:var(--ink);text-transform:uppercase;letter-spacing:0.5px;">Team B' + warnBadge(tbCount, 2) + '</div>'
                 + '<div class="nmp-players-grid">'
                 + [2,3].map(j => makeSlot(players[j], 'rgba(26,26,30,0.4)', j)).join('') + '</div>';
             return ta + tb;
@@ -3873,6 +3907,21 @@
     }
     function nmpLeaveDrop(ev) { ev.currentTarget.classList.remove('drag-over'); }
 
+    // Applies a "💡 Try: X" repeat-partner suggestion by simulating the same drag
+    // that a queue→slot drop would perform, so it goes through dropToNextMatchSlot's
+    // existing lock guards and override bookkeeping instead of duplicating them.
+    function applyNmpSuggestion(previewIdx, slotIndex, candidateName) {
+        const qIdx = state.queue.findIndex(p => p.name === candidateName && p.in !== false);
+        if (qIdx === -1) { showToast('That player is no longer available.', true); return; }
+        const fakeEvent = {
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            currentTarget: { style: {} },
+            dataTransfer: { getData: () => JSON.stringify({ type: 'rack', index: qIdx }) }
+        };
+        dropToNextMatchSlot(fakeEvent, previewIdx, slotIndex);
+    }
+
     // Drop onto a specific Next Match slot — updates the manual override for that court.
     // Accepts both 'rack' (queue sidebar) and 'nextmatch' (NMP slot) drag sources.
     function dropToNextMatchSlot(ev, previewIdx, slotIndex) {
@@ -3889,11 +3938,15 @@
             if (!incoming || incoming.in === false) return;
             if (!displaced || displaced.name === incoming.name) return;
 
-            // Don't displace a locked-in player
-            if (getLockFor(displaced.name)) {
-                showToast('🔒 ' + displaced.name + ' is locked in — remove their lock first.', true);
-                return;
-            }
+            const groupOthers = (currentPreview || []).filter((p, i) => i !== slotIndex && p).map(p => p.name);
+
+            // Incoming must already have their locked partner in this group
+            const incomingBlock = _arrivalSeparatesLock(incoming.name, groupOthers);
+            if (incomingBlock) { _warnLockSeparation(incoming.name, incomingBlock); return; }
+
+            // Don't displace a locked-in player whose partner is staying in this group
+            const displacedBlock = _departureSeparatesLock(displaced.name, groupOthers);
+            if (displacedBlock) { _warnLockSeparation(displaced.name, displacedBlock); return; }
 
             const base = (_nmo && _nmo[previewIdx])
                 ? _nmo[previewIdx].slice()
@@ -3951,10 +4004,24 @@
             if (!incomingName) return;
             if (displaced && displaced.name === incomingName) return; // same player, no-op
 
-            // Don't displace a locked-in player to a different court
-            if (displaced && fromPreviewIdx !== previewIdx && getLockFor(displaced.name)) {
-                showToast('🔒 ' + displaced.name + ' is locked in — remove their lock first.', true);
-                return;
+            const targetGroupOthers = (currentPreview || []).filter((p, i) => i !== slotIndex && p).map(p => p.name);
+
+            if (fromPreviewIdx !== previewIdx) {
+                // Incoming must already have their partner in the TARGET group
+                const incomingBlock = _arrivalSeparatesLock(incomingName, targetGroupOthers);
+                if (incomingBlock) { _warnLockSeparation(incomingName, incomingBlock); return; }
+
+                // Incoming must not strand a partner staying behind in the FROM group
+                const fromPreview = window._nmpPreviews && window._nmpPreviews[fromPreviewIdx];
+                const fromGroupOthers = (fromPreview || []).filter((p, i) => i !== fromSlotIdx && p).map(p => p.name);
+                const departBlock = _departureSeparatesLock(incomingName, fromGroupOthers);
+                if (departBlock) { _warnLockSeparation(incomingName, departBlock); return; }
+            }
+
+            // Don't displace a locked-in player whose partner is staying in the TARGET group
+            if (displaced) {
+                const displacedBlock = _departureSeparatesLock(displaced.name, targetGroupOthers);
+                if (displacedBlock) { _warnLockSeparation(displaced.name, displacedBlock); return; }
             }
 
             if (!_nmo) _nmo = [];
@@ -4044,7 +4111,11 @@
         const data = JSON.parse(ev.dataTransfer.getData("text"));
         if (data.type === 'court') {
             const p = state.courts[data.courtIdx].players[data.index];
-            if (p) { state.queue.push(p); state.courts[data.courtIdx].players[data.index] = null; sync(); }
+            if (!p) return;
+            const remaining = state.courts[data.courtIdx].players.filter((q, i) => i !== data.index && q).map(q => q.name);
+            const block = _departureSeparatesLock(p.name, remaining);
+            if (block) { _warnLockSeparation(p.name, block); return; }
+            state.queue.push(p); state.courts[data.courtIdx].players[data.index] = null; sync();
         }
     }
     function dropToSlot(ev, courtIdx, slotIdx) {
@@ -4059,24 +4130,58 @@
 
         const data = JSON.parse(ev.dataTransfer.getData("text"));
         const displaced = state.courts[courtIdx].players[slotIdx]; // player currently in target slot
+        const targetOthers = state.courts[courtIdx].players.filter((p, i) => i !== slotIdx && p).map(p => p.name);
 
         if (data.type === 'rack') {
             // Dragging from queue → court: block OUT players
             const _rackPlayer = state.queue[data.index];
             if (!_rackPlayer || _rackPlayer.in === false) return;
+
+            const incomingBlock = _arrivalSeparatesLock(_rackPlayer.name, targetOthers);
+            if (incomingBlock) { _warnLockSeparation(_rackPlayer.name, incomingBlock); return; }
+            if (displaced) {
+                const displacedBlock = _departureSeparatesLock(displaced.name, targetOthers);
+                if (displacedBlock) { _warnLockSeparation(displaced.name, displacedBlock); return; }
+            }
+
             const incoming = state.queue.splice(data.index, 1)[0];
             if (displaced) state.queue.splice(data.index, 0, displaced); // put displaced back at same queue position
             state.courts[courtIdx].players[slotIdx] = incoming;
         } else if (data.type === 'court') {
             // Dragging court → court (swap slots)
             const incoming = state.courts[data.courtIdx].players[data.index];
+            if (!incoming) return;
+            if (data.courtIdx !== courtIdx) {
+                const sourceOthers = state.courts[data.courtIdx].players.filter((p, i) => i !== data.index && p).map(p => p.name);
+
+                let block = _arrivalSeparatesLock(incoming.name, targetOthers);
+                if (block) { _warnLockSeparation(incoming.name, block); return; }
+                block = _departureSeparatesLock(incoming.name, sourceOthers);
+                if (block) { _warnLockSeparation(incoming.name, block); return; }
+
+                if (displaced) {
+                    block = _departureSeparatesLock(displaced.name, targetOthers);
+                    if (block) { _warnLockSeparation(displaced.name, block); return; }
+                    block = _arrivalSeparatesLock(displaced.name, sourceOthers);
+                    if (block) { _warnLockSeparation(displaced.name, block); return; }
+                }
+            }
             state.courts[data.courtIdx].players[data.index] = displaced;
             state.courts[courtIdx].players[slotIdx] = incoming;
         } else if (data.type === 'nextmatch') {
             // Dragging from next match preview → court slot
             const qIdx = state.queue.findIndex(q => q.name === data.name);
             if (qIdx !== -1) {
-                const incoming = state.queue.splice(qIdx, 1)[0];
+                const incoming = state.queue[qIdx];
+
+                const incomingBlock = _arrivalSeparatesLock(incoming.name, targetOthers);
+                if (incomingBlock) { _warnLockSeparation(incoming.name, incomingBlock); return; }
+                if (displaced) {
+                    const displacedBlock = _departureSeparatesLock(displaced.name, targetOthers);
+                    if (displacedBlock) { _warnLockSeparation(displaced.name, displacedBlock); return; }
+                }
+
+                state.queue.splice(qIdx, 1);
                 if (displaced) state.queue.splice(qIdx, 0, displaced);
                 state.courts[courtIdx].players[slotIdx] = incoming;
             }
@@ -4374,6 +4479,16 @@
                 newNmo[ci] = names.length > 0 ? names : null;
                 if (names.length > 0) anySet = true;
             }
+            // Block + toast if the resulting groups would split any locked pair —
+            // one member assigned to a group without the other.
+            for (const lk of (state.pairedLocks || [])) {
+                if (!lk) continue;
+                for (let ci = 0; ci < numCourts; ci++) {
+                    const group = newNmo[ci] || [];
+                    const aIn = group.includes(lk.a), bIn = group.includes(lk.b);
+                    if (aIn !== bIn) { _warnLockSeparation(aIn ? lk.a : lk.b, aIn ? lk.b : lk.a); return; }
+                }
+            }
             _nmo = anySet ? newNmo : null;
             sync();
             closeEditModal();
@@ -4381,10 +4496,20 @@
         }
         if (editContext.type === 'court') {
             const c = state.courts[editContext.idx];
-            [0,1,2,3].forEach(j => {
+            const newNames = [0,1,2,3].map(j => {
                 const sel = document.getElementById('ep_' + j);
-                if (!sel) return;
-                const newName = sel.value;
+                if (sel) return sel.value;
+                return c.players[j] ? c.players[j].name : '';
+            });
+            // Block + toast if the resulting court would split a locked pair —
+            // one member ends up on this court without the other.
+            for (const lk of (state.pairedLocks || [])) {
+                if (!lk) continue;
+                const aIn = newNames.includes(lk.a), bIn = newNames.includes(lk.b);
+                if (aIn !== bIn) { _warnLockSeparation(aIn ? lk.a : lk.b, aIn ? lk.b : lk.a); return; }
+            }
+            [0,1,2,3].forEach(j => {
+                const newName = newNames[j];
                 const oldPlayer = c.players[j];
                 if (newName === (oldPlayer ? oldPlayer.name : '')) return; // no change
                 if (newName) {
@@ -5963,6 +6088,83 @@
                 (teamB.includes(nameA) && teamB.includes(nameB))) count++;
         });
         return count;
+    }
+
+    /* For a flagged (2+ times partnered) pair in a Next Match preview group, suggest
+       the best queue candidate to swap in for one of them. Reuses the exact scoring
+       functions the matcher itself uses (pair/group/locked-opponent history, plus a
+       light games-fairness nudge) so the suggestion reflects real matching quality
+       rather than a separate ad hoc heuristic. Tries swapping out EITHER member of
+       the pair against every eligible candidate and returns the lowest-scoring
+       combination. Returns null when there's nothing to suggest — the pair is
+       actually a locked pair (repeating on purpose), removing either member would
+       strand a lock elsewhere, or no queue candidate would actually fix the repeat
+       without breaking a lock of its own. */
+    function _suggestPairSwap(previewIdx, teamStartSlot) {
+        const group = window._nmpPreviews && window._nmpPreviews[previewIdx];
+        if (!group) return null;
+        const p1 = group[teamStartSlot], p2 = group[teamStartSlot + 1];
+        if (!p1 || !p2) return null;
+
+        // A locked pair repeating is intentional — nothing to suggest.
+        const lockP1 = getLockFor(p1.name);
+        if (lockP1 && ((lockP1.a === p1.name && lockP1.b === p2.name) || (lockP1.b === p1.name && lockP1.a === p2.name))) return null;
+
+        const now = Date.now();
+        const LOOKBACK_MS = 60 * 60 * 1000;
+        const recentGames = [...(state.gameLog || [])]
+            .filter(g => g.timestamp && new Date(g.timestamp).getTime() > now - LOOKBACK_MS)
+            .reverse();
+
+        // Names already spoken for elsewhere in the Next Match previews (any court).
+        const usedElsewhere = new Set();
+        (window._nmpPreviews || []).forEach((grp, gi) => {
+            if (gi === previewIdx) return;
+            (grp || []).forEach(p => { if (p) usedElsewhere.add(p.name); });
+        });
+
+        const otherTeamStart = teamStartSlot === 0 ? 2 : 0;
+        const opponents = [group[otherTeamStart], group[otherTeamStart + 1]].filter(Boolean);
+
+        const pool = state.queue.filter(p =>
+            p.in !== false &&
+            !usedElsewhere.has(p.name) &&
+            p.name !== p1.name && p.name !== p2.name &&
+            !opponents.some(o => o.name === p.name)
+        );
+
+        let best = null; // { removeName, removeSlot, addName, score }
+
+        [{ removee: p1, keep: p2, slot: teamStartSlot }, { removee: p2, keep: p1, slot: teamStartSlot + 1 }].forEach(variant => {
+            const remaining = [group[teamStartSlot], group[teamStartSlot + 1], ...opponents]
+                .filter(p => p && p.name !== variant.removee.name);
+
+            // Don't offer to remove someone whose own locked partner is staying in this group.
+            if (_departureSeparatesLock(variant.removee.name, remaining.map(p => p.name))) return;
+
+            pool.forEach(candidate => {
+                // Candidate must not be separated from THEIR OWN locked partner by joining here.
+                if (_arrivalSeparatesLock(candidate.name, remaining.map(p => p.name))) return;
+                // The swap must actually fix the repeat, not just relocate it.
+                if (_priorPartnerCount(candidate.name, variant.keep.name) >= 2) return;
+
+                const combo = [...remaining, candidate];
+                let score = 0;
+                for (let x = 0; x < combo.length; x++)
+                    for (let y = x + 1; y < combo.length; y++)
+                        score += _lkPairScore(combo[x], combo[y], recentGames);
+                score += _lkGroupRepeatPenalty(combo, recentGames);
+                score += _lkLockedPairOpponentPenalty(combo, recentGames);
+                // Light fairness nudge: prefer candidates with fewer games so far.
+                score += ((state.stats[candidate.name] || {}).games || 0) * 2;
+
+                if (!best || score < best.score) {
+                    best = { removeName: variant.removee.name, removeSlot: variant.slot, addName: candidate.name, score };
+                }
+            });
+        });
+
+        return best;
     }
 
     /* Given a chosen foursome, try all 3 possible team splits and return the
