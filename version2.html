@@ -3766,10 +3766,22 @@
                      ${p ? `<span>${p.name}${lkMark}</span>${_rtg}` : '--'}</div>`;
             };
 
+            // Warn when a pair on this court has already been teammates 2+ times this
+            // session — same threshold/style as the Next Match preview badge, so a
+            // drag or edit that lands two repeat partners on an active court surfaces
+            // the same heads-up, not just ones caught before the court was filled.
+            const _courtWarnBadge = (j1, j2) => {
+                const p1 = c.players[j1], p2 = c.players[j2];
+                if (!p1 || !p2) return '';
+                const count = _priorPartnerCount(p1.name, p2.name);
+                if (count < 2) return '';
+                return ` <span style="font-size:9px;font-weight:bold;color:var(--warning);background:rgba(224,57,43,0.12);border:1px solid rgba(224,57,43,0.3);border-radius:4px;padding:1px 5px;white-space:nowrap;" title="This pair has already partnered ${count} time${count !== 1 ? 's' : ''} this session">&#9888; Partnered ${count}x</span>`;
+            };
+
             // Team A = slots 0,1 | Team B = slots 2,3
             const teamAHtml = `
                 <div class="team-section">
-                    <span class="team-label team-a-label">Team A</span>
+                    <span class="team-label team-a-label">Team A${_courtWarnBadge(0,1)}</span>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
                         ${[0,1].map(j => _slot(j, 'slot-team-a')).join('')}
                     </div>
@@ -3777,7 +3789,7 @@
 
             const teamBHtml = `
                 <div class="team-section">
-                    <span class="team-label team-b-label">Team B</span>
+                    <span class="team-label team-b-label">Team B${_courtWarnBadge(2,3)}</span>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
                         ${[2,3].map(j => _slot(j, 'slot-team-b')).join('')}
                     </div>
