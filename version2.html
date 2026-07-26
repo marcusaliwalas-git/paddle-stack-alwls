@@ -3355,6 +3355,11 @@
     const LOCK_COLORS = ['#26c6da', '#ab47bc', '#ffa726', '#66bb6a', '#ef5350', '#7e57c2'];
     let _lockingPlayer = null; // name of first selected player while building a lock
 
+    // Flag a pair as soon as they've already partnered this many times this session.
+    // Single source of truth shared by the Next Match preview badge, the active-court
+    // badge, and the "💡 Try: X" swap suggestion's "does this actually fix it" check.
+    const PARTNER_WARN_THRESHOLD = 1;
+
     /** Returns the lock record for a player, or null if not locked. */
     function getLockFor(name) {
         const locks = state.pairedLocks || [];
@@ -3625,8 +3630,7 @@
             // Warn when a pair shown here has already been teammates PARTNER_WARN_THRESHOLD+
             // times this session — an early heads-up for the organizer before confirming
             // a match that keeps reforming the same duo, independent of matching mode.
-            // Pairs with 2+ repeats also get a "💡 Try: X" suggestion — see _suggestPairSwap.
-            const PARTNER_WARN_THRESHOLD = 2;
+            // Pairs at/above the threshold also get a "💡 Try: X" suggestion — see _suggestPairSwap.
             const warnBadge = (count, teamStartSlot) => {
                 if (count < PARTNER_WARN_THRESHOLD) return '';
                 let html = ' <span style="font-size:9px;font-weight:bold;color:var(--warning);background:rgba(224,57,43,0.12);border:1px solid rgba(224,57,43,0.3);border-radius:4px;padding:1px 5px;white-space:nowrap;" title="This pair has already partnered ' + count + ' time' + (count !== 1 ? 's' : '') + ' this session">&#9888; Partnered ' + count + 'x</span>';
@@ -3766,15 +3770,16 @@
                      ${p ? `<span>${p.name}${lkMark}</span>${_rtg}` : '--'}</div>`;
             };
 
-            // Warn when a pair on this court has already been teammates 2+ times this
-            // session — same threshold/style as the Next Match preview badge, so a
-            // drag or edit that lands two repeat partners on an active court surfaces
-            // the same heads-up, not just ones caught before the court was filled.
+            // Warn when a pair on this court has already been teammates
+            // PARTNER_WARN_THRESHOLD+ times this session — same threshold/style as
+            // the Next Match preview badge, so a drag or edit that lands two repeat
+            // partners on an active court surfaces the same heads-up, not just ones
+            // caught before the court was filled.
             const _courtWarnBadge = (j1, j2) => {
                 const p1 = c.players[j1], p2 = c.players[j2];
                 if (!p1 || !p2) return '';
                 const count = _priorPartnerCount(p1.name, p2.name);
-                if (count < 2) return '';
+                if (count < PARTNER_WARN_THRESHOLD) return '';
                 return ` <span style="font-size:9px;font-weight:bold;color:var(--warning);background:rgba(224,57,43,0.12);border:1px solid rgba(224,57,43,0.3);border-radius:4px;padding:1px 5px;white-space:nowrap;" title="This pair has already partnered ${count} time${count !== 1 ? 's' : ''} this session">&#9888; Partnered ${count}x</span>`;
             };
 
@@ -4477,19 +4482,34 @@
         }
 
         if (editContext.type === 'nextmatch') {
-            // Write per-court overrides; deduplicate so a player appears in at most one court
+            // Write per-court overrides; deduplicate so a player appears in at most one
+            // slot total, not just one COURT — each court's 4 dropdowns are independent
+            // <select> elements built once at modal-open time, so picking the same name
+            // in two slots of the SAME court (they don't dynamically exclude each other's
+            // live selections) used to slip through, since the old cross-court globalUsed
+            // check only started filling in AFTER a court's own 4 slots were already read.
             const numCourts = (window._nmpPreviews || []).length;
             const newNmo = [];
             let anySet = false;
+            let hadDuplicate = false;
             const globalUsed = new Set();
             for (let ci = 0; ci < numCourts; ci++) {
+                const seenThisCourt = new Set();
                 const names = [0,1,2,3].map(j => {
                     const sel = document.getElementById('nm_' + ci + '_' + j);
                     return sel ? sel.value : '';
-                }).filter(n => n && state.queue.some(p => p.name === n && p.in !== false) && !globalUsed.has(n));
+                }).filter(n => {
+                    if (!n || !state.queue.some(p => p.name === n && p.in !== false)) return false;
+                    if (globalUsed.has(n) || seenThisCourt.has(n)) { hadDuplicate = true; return false; }
+                    seenThisCourt.add(n);
+                    return true;
+                });
                 names.forEach(n => globalUsed.add(n));
                 newNmo[ci] = names.length > 0 ? names : null;
                 if (names.length > 0) anySet = true;
+            }
+            if (hadDuplicate) {
+                showToast('⚠️ A player was selected more than once — kept their first spot only.', true);
             }
             // Block + toast if the resulting groups would split any locked pair —
             // one member assigned to a group without the other.
@@ -6158,7 +6178,7 @@
                 // Candidate must not be separated from THEIR OWN locked partner by joining here.
                 if (_arrivalSeparatesLock(candidate.name, remaining.map(p => p.name))) return;
                 // The swap must actually fix the repeat, not just relocate it.
-                if (_priorPartnerCount(candidate.name, variant.keep.name) >= 2) return;
+                if (_priorPartnerCount(candidate.name, variant.keep.name) >= PARTNER_WARN_THRESHOLD) return;
 
                 const combo = [...remaining, candidate];
                 let score = 0;
