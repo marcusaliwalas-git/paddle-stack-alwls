@@ -3269,8 +3269,18 @@
         // let an "On Deck" pairing — whether algorithm-picked or pinned earlier by a
         // manual drag — go un-reconsidered through many more completions and eventually
         // get filled as a repeat pairing the anti-clique scoring would otherwise avoid.
-        if (window._nmpPreviews && window._nmpPreviews[0] && window._nmpPreviews[0].length > 0) {
-            const nextUp = window._nmpPreviews[0].filter(Boolean).map(p => p.name);
+        //
+        // Recompute the preview FRESH here instead of trusting window._nmpPreviews[0]:
+        // that cache reflects whatever was on screen from the last render, which can
+        // predate the gameLog entry just pushed above. Usually harmless — updateDisplay()
+        // runs often enough to stay current — but when two courts finish within the same
+        // second (rapid play, or fast test clicking), the cached "Next Up" preview for
+        // this court can have been built before a DIFFERENT court's just-finished game
+        // was recorded, letting a pairing that just became a repeat freeze in and fill
+        // here completely unpenalized.
+        const freshPreviews = buildNextMatchPreviews(state.courts.length);
+        if (freshPreviews[0] && freshPreviews[0].length > 0) {
+            const nextUp = freshPreviews[0].filter(Boolean).map(p => p.name);
             _nmo = nextUp.length > 0 ? [nextUp] : null;
         } else {
             _nmo = null;
@@ -3588,10 +3598,20 @@
                     + 'ondragstart="nmpDragStart(event,&quot;' + safeName + '&quot;,' + pi + ',' + slotIdx + ')" '
                     + 'style="' + _border + 'cursor:grab;">' + p.name + _lockMark + _snkRtg + '</div>';
             };
-            const ta = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:var(--primary-dark);text-transform:uppercase;letter-spacing:0.5px;">Team A</div>'
+            // Warn when a pair shown here has already been teammates PARTNER_WARN_THRESHOLD+
+            // times this session — an early heads-up for the organizer before confirming
+            // a match that keeps reforming the same duo, independent of matching mode.
+            const PARTNER_WARN_THRESHOLD = 2;
+            const warnBadge = (count) => count >= PARTNER_WARN_THRESHOLD
+                ? ' <span style="font-size:9px;font-weight:bold;color:var(--warning);background:rgba(224,57,43,0.12);border:1px solid rgba(224,57,43,0.3);border-radius:4px;padding:1px 5px;white-space:nowrap;" title="This pair has already partnered ' + count + ' time' + (count !== 1 ? 's' : '') + ' this session">&#9888; Partnered ' + count + 'x</span>'
+                : '';
+            const taCount = (players[0] && players[1]) ? _priorPartnerCount(players[0].name, players[1].name) : 0;
+            const tbCount = (players[2] && players[3]) ? _priorPartnerCount(players[2].name, players[3].name) : 0;
+
+            const ta = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:var(--primary-dark);text-transform:uppercase;letter-spacing:0.5px;">Team A' + warnBadge(taCount) + '</div>'
                 + '<div class="nmp-players-grid" style="margin-bottom:8px;">'
                 + [0,1].map(j => makeSlot(players[j], 'rgba(255,109,0,0.5)', j)).join('') + '</div>';
-            const tb = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:var(--ink);text-transform:uppercase;letter-spacing:0.5px;">Team B</div>'
+            const tb = '<div style="margin-bottom:4px;font-size:10px;font-weight:bold;color:var(--ink);text-transform:uppercase;letter-spacing:0.5px;">Team B' + warnBadge(tbCount) + '</div>'
                 + '<div class="nmp-players-grid">'
                 + [2,3].map(j => makeSlot(players[j], 'rgba(26,26,30,0.4)', j)).join('') + '</div>';
             return ta + tb;
@@ -5894,6 +5914,57 @@
         return penalty;
     }
 
+    /* Penalize matching a locked pair against opponents they recently faced.
+       A locked pair's identity is fixed (they're always a package deal), so the
+       only real lever for variety is WHO plays against them — but the general
+       opponent weight in _lkPairScore (max 8, same as any unlocked pair) is easy
+       for wait-time/fairness pressure to override, letting a locked pair face the
+       same opponents repeatedly since the "opposing duo" keeps looking like the
+       best available fill. This applies a heavier, longer-lasting penalty
+       specifically for combos where a locked pair would face someone they've
+       recently played against — strong enough to steer away in most cases, but
+       still capped/floored (like every other penalty here) so it never strands
+       four players when they're truly the only ones left. */
+    function _lkLockedPairOpponentPenalty(combo, recentGames) {
+        const locks = state.pairedLocks || [];
+        if (locks.length === 0) return 0;
+        const names = combo.map(p => p.name);
+        const now = Date.now();
+        let penalty = 0;
+        locks.forEach(lk => {
+            if (!lk) return;
+            if (!names.includes(lk.a) || !names.includes(lk.b)) return; // lock not fully in this combo
+            const others = names.filter(n => n !== lk.a && n !== lk.b);
+            others.forEach(otherName => {
+                recentGames.forEach(g => {
+                    const teamA = g.teamA || [], teamB = g.teamB || [];
+                    const lockOnA = teamA.includes(lk.a) && teamA.includes(lk.b);
+                    const lockOnB = teamB.includes(lk.a) && teamB.includes(lk.b);
+                    if (!lockOnA && !lockOnB) return;
+                    const opponentTeam = lockOnA ? teamB : teamA;
+                    if (!opponentTeam.includes(otherName)) return;
+                    const elapsedMin = g.timestamp ? (now - new Date(g.timestamp).getTime()) / 60000 : 0;
+                    penalty += Math.max(6, 24 - elapsedMin / 2);
+                });
+            });
+        });
+        return penalty;
+    }
+
+    /* Counts how many times two players have already been teammates this session
+       (whole gameLog, not time-bounded — used for the Next Match "already
+       partnered" warning, which cares about total repetition, not recency). */
+    function _priorPartnerCount(nameA, nameB) {
+        if (!nameA || !nameB) return 0;
+        let count = 0;
+        (state.gameLog || []).forEach(g => {
+            const teamA = g.teamA || [], teamB = g.teamB || [];
+            if ((teamA.includes(nameA) && teamA.includes(nameB)) ||
+                (teamB.includes(nameA) && teamB.includes(nameB))) count++;
+        });
+        return count;
+    }
+
     /* Given a chosen foursome, try all 3 possible team splits and return the
        arrangement [teamA0, teamA1, teamB0, teamB1] with lowest same-team repetition.
        Lock enforcement: locked partners on the same team gets a big bonus (−50);
@@ -6117,6 +6188,9 @@
 
                         // Whole-group repeat penalty — see _lkGroupRepeatPenalty
                         score += _lkGroupRepeatPenalty(combo, recentGames);
+
+                        // Locked-pair opponent penalty — see _lkLockedPairOpponentPenalty
+                        score += _lkLockedPairOpponentPenalty(combo, recentGames);
 
                         // Games-played fairness — see pace/expectedGames comment above
                         score += combo.reduce((sum, p) => {
