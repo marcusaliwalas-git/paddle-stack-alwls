@@ -3397,6 +3397,32 @@
         showToast('🔒 ' + name + ' is locked with ' + partner + ' — keep them together or remove the lock first.', true);
     }
 
+    /* When a player who's currently shown in a Next Match preview group gets pulled
+       out of the queue for something else (e.g. dropped straight onto an active
+       court), freeze EVERY currently-shown preview group into _nmo — not just the
+       one `name` belonged to — so only their one vacated slot gets refilled next
+       render. Freezing just the touched group isn't enough: removing one player
+       still changes the overall pool, which can shift which 4-player combo the
+       algorithm scores as best for the OTHER, untouched groups too, reshuffling
+       players nobody dragged. This is intentionally different from rotateCourt's
+       post-game freeze, which deliberately only preserves "Next Up" and lets
+       "On Deck" recompute — that's specifically so a completed game's fresh
+       history gets a chance to flag an On Deck pairing as a repeat. A manual drag
+       adds no new game history, so there's no such reason to let anything reshuffle
+       here. Call this BEFORE removing `name` from state.queue, using the
+       still-current window._nmpPreviews snapshot. */
+    function _freezeNmpGroupMinus(name) {
+        if (!window._nmpPreviews) return;
+        window._nmpPreviews.forEach((group, i) => {
+            if (!group) return;
+            const remainingNames = group.filter(p => p && p.name !== name).map(p => p.name);
+            if (remainingNames.length > 0) {
+                if (!_nmo) _nmo = [];
+                _nmo[i] = remainingNames;
+            }
+        });
+    }
+
     /**
      * Two-tap UI handler: first tap marks first player, second tap creates the lock.
      * Tapping the same player a second time cancels the selection.
@@ -4161,6 +4187,7 @@
                 if (displacedBlock) { _warnLockSeparation(displaced.name, displacedBlock); return; }
             }
 
+            _freezeNmpGroupMinus(_rackPlayer.name);
             const incoming = state.queue.splice(data.index, 1)[0];
             if (displaced) state.queue.splice(data.index, 0, displaced); // put displaced back at same queue position
             state.courts[courtIdx].players[slotIdx] = incoming;
@@ -4198,6 +4225,7 @@
                     if (displacedBlock) { _warnLockSeparation(displaced.name, displacedBlock); return; }
                 }
 
+                _freezeNmpGroupMinus(incoming.name);
                 state.queue.splice(qIdx, 1);
                 if (displaced) state.queue.splice(qIdx, 0, displaced);
                 state.courts[courtIdx].players[slotIdx] = incoming;
@@ -4554,6 +4582,7 @@
                     const queueIdx = state.queue.findIndex(q => q.name === newName);
                     if (queueIdx !== -1) {
                         const newPlayerObj = state.queue[queueIdx];
+                        _freezeNmpGroupMinus(newName);
                         if (oldPlayer) state.queue.splice(queueIdx, 1, oldPlayer);
                         else state.queue.splice(queueIdx, 1);
                         c.players[j] = newPlayerObj;
