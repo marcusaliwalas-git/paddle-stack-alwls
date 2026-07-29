@@ -3261,27 +3261,26 @@
             });
         }
 
-        // Only preserve the "Next Up" slot (index 0) here — this court is refilled
-        // from it a few lines down, so Fill must use exactly what was just previewed.
-        // Anything beyond index 0 ("On Deck" and further) is cleared rather than
-        // re-frozen, so it recomputes fresh next render using the game we just logged.
-        // Re-freezing ALL slots unconditionally on every completion (the old behaviour)
-        // let an "On Deck" pairing — whether algorithm-picked or pinned earlier by a
-        // manual drag — go un-reconsidered through many more completions and eventually
-        // get filled as a repeat pairing the anti-clique scoring would otherwise avoid.
+        // Freeze EVERY currently-shown preview group — "Next Up" (the one about to
+        // fill THIS court), "On Deck", and beyond — exactly as displayed. Ending a
+        // match should only affect this one court; nothing the organizer was
+        // already looking at should visibly change.
         //
-        // Recompute the preview FRESH here instead of trusting window._nmpPreviews[0]:
-        // that cache reflects whatever was on screen from the last render, which can
-        // predate the gameLog entry just pushed above. Usually harmless — updateDisplay()
-        // runs often enough to stay current — but when two courts finish within the same
-        // second (rapid play, or fast test clicking), the cached "Next Up" preview for
-        // this court can have been built before a DIFFERENT court's just-finished game
-        // was recorded, letting a pairing that just became a repeat freeze in and fill
-        // here completely unpenalized.
-        const freshPreviews = buildNextMatchPreviews(state.courts.length);
-        if (freshPreviews[0] && freshPreviews[0].length > 0) {
-            const nextUp = freshPreviews[0].filter(Boolean).map(p => p.name);
-            _nmo = nextUp.length > 0 ? [nextUp] : null;
+        // This used to recompute "Next Up" fresh instead of trusting the on-screen
+        // cache, specifically so a game logged moments earlier by a DIFFERENT court
+        // (finishing within the same second) could still flag a just-became-a-repeat
+        // pairing before it filled here unpenalized. That's a real but rare edge
+        // case, and recomputing fresh had a much more common side effect: reserving
+        // On Deck's players shrinks the candidate pool for this recompute, which can
+        // legitimately change the scored-best group entirely — swapping out players
+        // the organizer never touched. Organizers found that constant reshuffling
+        // worse than the edge case it guarded against, so this now just reuses
+        // exactly what was already shown, same as starting an empty court does.
+        if (window._nmpPreviews && window._nmpPreviews.length > 0) {
+            const q = window._nmpPreviews
+                .map(preview => preview.filter(Boolean).map(p => p.name))
+                .filter(arr => arr.length > 0);
+            _nmo = q.length > 0 ? q : null;
         } else {
             _nmo = null;
         }
@@ -6406,6 +6405,19 @@
         }
     }
 
+    /* Deterministic string hash (32-bit), used to break ties without Math.random().
+       Same input always yields the same index — a tied set of combos that gets
+       re-evaluated moments later (nothing about the pool actually changed) picks
+       the SAME winner every time, instead of flickering to a different set of
+       players. A genuinely different tied set (different round, different
+       candidates) hashes to a different value, so apparent variety across
+       different situations is preserved — only same-situation flicker is removed. */
+    function _stableHash(str) {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+        return Math.abs(h);
+    }
+
     function larongKalyePickFour(candidatePool) {
         const LOOKBACK_MS = 60 * 60 * 1000; // 60-minute history window
         const now         = Date.now();
@@ -6537,9 +6549,11 @@
             }
         }
 
-        // Pick randomly among tied-best combos so results don't repeat identically.
+        // Pick deterministically among tied-best combos (see _stableHash) — stable
+        // across repeated calls for the same tied set, still varies across genuinely
+        // different rounds since the tied set itself differs.
         const foursome = bestCombos.length > 0
-            ? bestCombos[Math.floor(Math.random() * bestCombos.length)]
+            ? bestCombos[_stableHash(bestCombos.map(c => c.map(p => p.name).sort().join(',')).sort().join('|')) % bestCombos.length]
             : pool.slice(0, 4);
         return _bestTeamSplit(foursome, recentGames);
     }
