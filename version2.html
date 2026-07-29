@@ -3400,25 +3400,46 @@
     /* When a player who's currently shown in a Next Match preview group gets pulled
        out of the queue for something else (e.g. dropped straight onto an active
        court), freeze EVERY currently-shown preview group into _nmo — not just the
-       one `name` belonged to — so only their one vacated slot gets refilled next
-       render. Freezing just the touched group isn't enough: removing one player
-       still changes the overall pool, which can shift which 4-player combo the
-       algorithm scores as best for the OTHER, untouched groups too, reshuffling
-       players nobody dragged. This is intentionally different from rotateCourt's
-       post-game freeze, which deliberately only preserves "Next Up" and lets
-       "On Deck" recompute — that's specifically so a completed game's fresh
-       history gets a chance to flag an On Deck pairing as a repeat. A manual drag
-       adds no new game history, so there's no such reason to let anything reshuffle
-       here. Call this BEFORE removing `name` from state.queue, using the
-       still-current window._nmpPreviews snapshot. */
+       one `name` belonged to — so nothing about the panel changes except that one
+       player's own slot. Freezing just the touched group isn't enough: removing
+       one player still changes the overall pool, which can shift which 4-player
+       combo the algorithm scores as best for the OTHER, untouched groups too.
+       And within `name`'s own group, just freezing the 3 SURVIVORS as a partial
+       list isn't enough either — buildNextMatchPreviews' Pass 2 appends the later
+       supplemented pick to the END of that list, which compacts away the gap left
+       by the departed player and shifts everyone after them into a different slot
+       — silently moving a player from Team A to Team B (slots 0-1 vs 2-3) even
+       though nobody touched them. So the replacement for `name`'s specific slot is
+       picked HERE, synchronously, and written into that exact index — the frozen
+       array is already full, so Pass 2 has nothing left to append.
+       This is intentionally different from rotateCourt's post-game freeze, which
+       deliberately only preserves "Next Up" and lets "On Deck" recompute — that's
+       specifically so a completed game's fresh history gets a chance to flag an
+       On Deck pairing as a repeat. A manual drag adds no new game history, so
+       there's no such reason to let anything reshuffle here. Call this BEFORE
+       removing `name` from state.queue, using the still-current
+       window._nmpPreviews snapshot. */
     function _freezeNmpGroupMinus(name) {
         if (!window._nmpPreviews) return;
+        const usedElsewhere = new Set();
+        window._nmpPreviews.forEach(g => (g || []).forEach(p => { if (p && p.name !== name) usedElsewhere.add(p.name); }));
+
         window._nmpPreviews.forEach((group, i) => {
             if (!group) return;
-            const remainingNames = group.filter(p => p && p.name !== name).map(p => p.name);
-            if (remainingNames.length > 0) {
+            const vacatedIdx = group.findIndex(p => p && p.name === name);
+            const positions = group.map(p => p ? p.name : '');
+
+            if (vacatedIdx !== -1) {
+                const existingPlayers = group.filter((p, j) => j !== vacatedIdx && p);
+                const pool = state.queue.filter(p => p.in !== false && p.name !== name && !usedElsewhere.has(p.name));
+                const replacement = _supplementSlots(pool, existingPlayers, 1)[0];
+                positions[vacatedIdx] = replacement ? replacement.name : '';
+                if (replacement) usedElsewhere.add(replacement.name);
+            }
+
+            if (positions.some(Boolean)) {
                 if (!_nmo) _nmo = [];
-                _nmo[i] = remainingNames;
+                _nmo[i] = positions.filter(Boolean);
             }
         });
     }
