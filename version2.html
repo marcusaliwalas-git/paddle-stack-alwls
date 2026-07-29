@@ -3409,8 +3409,16 @@
        by the departed player and shifts everyone after them into a different slot
        — silently moving a player from Team A to Team B (slots 0-1 vs 2-3) even
        though nobody touched them. So the replacement for `name`'s specific slot is
-       picked HERE, synchronously, and written into that exact index — the frozen
-       array is already full, so Pass 2 has nothing left to append.
+       written HERE, synchronously, into that exact index — the frozen array is
+       already full, so Pass 2 has nothing left to append.
+
+       If `replacementName` is given (e.g. this is a court<->next-match SWAP, where
+       the player bumped off the court is a known, specific person), that name is
+       used directly — no algorithm/scoring involved, matching what a swap should
+       actually do. Only when no explicit replacement exists (a lone player was
+       simply pulled out with nothing specific to put back) does this fall back to
+       _supplementSlots to pick a reasonable stand-in.
+
        This is intentionally different from rotateCourt's post-game freeze, which
        deliberately only preserves "Next Up" and lets "On Deck" recompute — that's
        specifically so a completed game's fresh history gets a chance to flag an
@@ -3418,7 +3426,7 @@
        there's no such reason to let anything reshuffle here. Call this BEFORE
        removing `name` from state.queue, using the still-current
        window._nmpPreviews snapshot. */
-    function _freezeNmpGroupMinus(name) {
+    function _freezeNmpGroupMinus(name, replacementName) {
         if (!window._nmpPreviews) return;
         const usedElsewhere = new Set();
         window._nmpPreviews.forEach(g => (g || []).forEach(p => { if (p && p.name !== name) usedElsewhere.add(p.name); }));
@@ -3429,11 +3437,15 @@
             const positions = group.map(p => p ? p.name : '');
 
             if (vacatedIdx !== -1) {
-                const existingPlayers = group.filter((p, j) => j !== vacatedIdx && p);
-                const pool = state.queue.filter(p => p.in !== false && p.name !== name && !usedElsewhere.has(p.name));
-                const replacement = _supplementSlots(pool, existingPlayers, 1)[0];
-                positions[vacatedIdx] = replacement ? replacement.name : '';
-                if (replacement) usedElsewhere.add(replacement.name);
+                if (replacementName) {
+                    positions[vacatedIdx] = replacementName;
+                } else {
+                    const existingPlayers = group.filter((p, j) => j !== vacatedIdx && p);
+                    const pool = state.queue.filter(p => p.in !== false && p.name !== name && !usedElsewhere.has(p.name));
+                    const replacement = _supplementSlots(pool, existingPlayers, 1)[0];
+                    positions[vacatedIdx] = replacement ? replacement.name : '';
+                    if (replacement) usedElsewhere.add(replacement.name);
+                }
             }
 
             if (positions.some(Boolean)) {
@@ -4245,7 +4257,10 @@
                     if (displacedBlock) { _warnLockSeparation(displaced.name, displacedBlock); return; }
                 }
 
-                _freezeNmpGroupMinus(incoming.name);
+                // Direct swap: the court's displaced player goes straight into the
+                // Next Match slot `incoming` is vacating — no algorithm picks their
+                // replacement.
+                _freezeNmpGroupMinus(incoming.name, displaced ? displaced.name : undefined);
                 state.queue.splice(qIdx, 1);
                 if (displaced) state.queue.splice(qIdx, 0, displaced);
                 state.courts[courtIdx].players[slotIdx] = incoming;
@@ -4602,7 +4617,9 @@
                     const queueIdx = state.queue.findIndex(q => q.name === newName);
                     if (queueIdx !== -1) {
                         const newPlayerObj = state.queue[queueIdx];
-                        _freezeNmpGroupMinus(newName);
+                        // Direct swap: the old court player goes straight into the Next
+                        // Match slot `newName` is vacating — no algorithm picks their replacement.
+                        _freezeNmpGroupMinus(newName, oldPlayer ? oldPlayer.name : undefined);
                         if (oldPlayer) state.queue.splice(queueIdx, 1, oldPlayer);
                         else state.queue.splice(queueIdx, 1);
                         c.players[j] = newPlayerObj;
