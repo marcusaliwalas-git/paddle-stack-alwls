@@ -6255,11 +6255,33 @@
         return best;
     }
 
+    /* Stabilizes _bestTeamSplit's random tie-break against re-computation flicker.
+       buildNextMatchPreviews recomputes on essentially every render (and definitely
+       on every court that finishes), so the SAME still-unplayed foursome can be
+       re-evaluated many times before any of them actually take the court. Without
+       this, each recomputation independently re-rolls Math.random() among tied
+       splits, so the organizer can watch "Jojo & Joven vs Sharmaine & Darren"
+       silently become "Jojo & Darren vs Sharmaine & Joven" between two renders even
+       though nobody touched anything and no new game was played by any of the 4.
+       Keyed by the sorted set of names; a cached decision is reused as long as none
+       of those 4 players' games-played count has changed since it was cached — the
+       moment one of them actually plays, the entry naturally falls out of date and
+       the next time they're grouped, a fresh (still randomized, for variety across
+       the session) split gets chosen and cached again. */
+    const _bestTeamSplitCache = new Map();
+
     /* Given a chosen foursome, try all 3 possible team splits and return the
        arrangement [teamA0, teamA1, teamB0, teamB1] with lowest same-team repetition.
        Lock enforcement: locked partners on the same team gets a big bonus (−50);
        locked partners split across teams gets a big penalty (+50). */
     function _bestTeamSplit(foursome, recentGames) {
+        const _cacheKey = foursome.map(p => p.name).slice().sort().join('|');
+        const _gamesSnapshot = foursome.map(p => (state.stats[p.name] || {}).games || 0).join(',');
+        const _cached = _bestTeamSplitCache.get(_cacheKey);
+        if (_cached && _cached.gamesSnapshot === _gamesSnapshot) {
+            return _cached.order.map(name => foursome.find(p => p.name === name));
+        }
+
         // Helper: returns true if players at indices i & j are locked partners
         const areLocked = (i, j) => {
             const lk = getLockFor(foursome[i].name);
@@ -6318,7 +6340,9 @@
         }
         // Pick randomly among tied-best splits so teammates vary each game
         const bestOrder = bestOrders[Math.floor(Math.random() * bestOrders.length)];
-        return [foursome[bestOrder[0]], foursome[bestOrder[1]], foursome[bestOrder[2]], foursome[bestOrder[3]]];
+        const _result = [foursome[bestOrder[0]], foursome[bestOrder[1]], foursome[bestOrder[2]], foursome[bestOrder[3]]];
+        _bestTeamSplitCache.set(_cacheKey, { order: _result.map(p => p.name), gamesSnapshot: _gamesSnapshot });
+        return _result;
     }
 
     /* Trim pool to a multiple-of-4 count for matching modes that need it (RR, Snake).
